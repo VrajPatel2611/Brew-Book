@@ -1,0 +1,8 @@
+/* ===== Brew Book — base resets & globals ===== */
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--roast);color:var(--crema);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;
+    background:radial-gradient(circle at 85% 12%, transparent 58px, var(--crema) 59px, var(--crema) 61px, transparent 62px),
+               radial-gradient(circle at 8% 78%, transparent 90px, var(--crema) 91px, var(--crema) 93px, transparent 94px)}
