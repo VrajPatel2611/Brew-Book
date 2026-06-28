@@ -1,13 +1,38 @@
-/* ===== Brew Book — design tokens (colours, fonts, radius) =====
-   Re-theme the whole site by editing the variables here. */
+/* ===== Brew Book — Design tokens ===== */
+:root {
+  /* Coffee world */
+  --roast:       #241a14;
+  --roast-2:     #2e221a;
+  --roast-3:     #3a2c21;
+  --crema:       #f2e4cf;
+  --crema-dim:   #c9b59c;
+  --copper:      #cf7f45;
+  --copper-soft: #a8693c;
+  --foam:        #fff7ec;
+  --line:        #4a392c;
+  --danger:      #d96b5a;
+  --gold:        #e8b04b;
+  --green:       #7fb069;
+  --radius:      14px;
 
-  :root{
-    --roast:#241a14; --roast-2:#2e221a; --roast-3:#3a2c21;
-    --crema:#f2e4cf; --crema-dim:#c9b59c;
-    --copper:#cf7f45; --copper-soft:#a8693c; --foam:#fff7ec;
-    --line:#4a392c; --danger:#d96b5a; --gold:#e8b04b; --green:#7fb069;
-    --radius:14px;
-    --font-display:'Fraunces', Georgia, serif;
-    --font-body:'Karla', -apple-system, sans-serif;
-    --font-mono:'JetBrains Mono', monospace;
-  }
+  /* Travel world */
+  --midnight:      #0a1628;
+  --pass-paper:    #faf8f3;
+  --pass-ink:      #241a14;
+  --pass-ink-dim:  #7a6858;
+  --pass-line:     rgba(36,26,20,0.15);
+  --pale-gold:     #f0d080;
+  --dept-bg:       #07090e;
+  --map-ocean:     #0a1628;
+  --map-land:      #1a2a3a;
+  --map-highlight: #243545;
+  --nav-bg:        #1a130e;
+
+  /* Gradients */
+  --copper-grad: linear-gradient(135deg, #e9a25f, #cf7f45 45%, #8f5526);
+
+  /* Typography */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body:    'Karla', -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+}
