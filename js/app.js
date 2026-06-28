@@ -30,7 +30,7 @@ const AIRLINES = {
   24:{name:'LATAM BRASIL',code:'LA',color:'#cc0000'},
   25:{name:'IBERIA',code:'IB',color:'#cc0000'},
   26:{name:'ETHIOPIAN',code:'ET',color:'#009a44'},
-  27:{name:'AIR SENEGAL',code:'HC',color:'#00853e'},
+  27:{name:'AIR SÉNÉGAL',code:'HC',color:'#00853e'},
   28:{name:'YEMENIA',code:'IY',color:'#ce1126'},
   29:{name:'BREW BOOK AIR',code:'BB',color:'#cf7f45'},
   30:{name:'AIR INDIA',code:'AI',color:'#c8102e'},
@@ -78,6 +78,7 @@ const MAP_COUNTRIES = [
   'M888,288 L940,288 L940,312 L892,312 L888,300 Z',
   'M1240,180 L1288,180 L1288,240 L1240,240 Z'
 ];
+/* one pin per origin country — precise [lon, lat] for D3 projection */
 const ORIGIN_PINS = [
   {origin:'Vietnam',lon:108.0,lat:14.0,airline:'VIETNAM AIRLINES',color:'#1a4b8c'},
   {origin:'Spain',lon:-3.7,lat:40.4,airline:'IBERIA',color:'#cc0000'},
@@ -96,7 +97,7 @@ const ORIGIN_PINS = [
   {origin:'Austria',lon:14.5,lat:47.5,airline:'AUSTRIAN',color:'#c8102e'},
   {origin:'Malaysia',lon:109.7,lat:4.2,airline:'MALAYSIA AIRLINES',color:'#cc0000'},
   {origin:'Brazil',lon:-51.9,lat:-14.2,airline:'LATAM BRASIL',color:'#cc0000'},
-  {origin:'Senegal',lon:-14.5,lat:14.5,airline:'AIR SENEGAL',color:'#00853e'},
+  {origin:'Senegal',lon:-14.5,lat:14.5,airline:'AIR SÉNÉGAL',color:'#00853e'},
   {origin:'Ethiopia',lon:40.5,lat:9.1,airline:'ETHIOPIAN',color:'#009a44'},
   {origin:'Yemen',lon:48.5,lat:15.6,airline:'YEMENIA',color:'#ce1126'},
   {origin:'Taiwan',lon:120.9,lat:23.7,airline:'EVA AIR',color:'#007b40'},
@@ -122,8 +123,8 @@ async function loadRecipes(){
   renderCollection();
 }
 async function saveRecipes(silent){
-  try{ const ok = await storeSet(JSON.stringify(recipes)); if(!ok && !silent) showToast('Couldn’t save — try again'); }
-  catch(e){ if(!silent) showToast('Couldn’t save — try again'); }
+  try{ const ok = await storeSet(JSON.stringify(recipes)); if(!ok && !silent) showToast('Couldn\u2019t save — try again'); }
+  catch(e){ if(!silent) showToast('Couldn\u2019t save — try again'); }
 }
 function rememberSeedDeletion(id){
   if(!id.startsWith('seed-')) return;
@@ -143,11 +144,11 @@ function buyPicksHTML(id){
   const picks = ROASTER_PICKS[id];
   if(!picks || (!picks.bluetokai && !picks.thirdwave)) return '';
   const bt = picks.bluetokai || [], tw = picks.thirdwave || [];
-  return '<button class="detail-picks-toggle" data-picks-toggle><span>🛒 Which beans to buy (Blue Tokai · Third Wave)</span><span class="chev">▾</span></button>'
-    + '<div class="detail-picks-body" data-picks-body>'
-    + (bt.length ? '<div class="detail-roaster bt"><h4><span class="pin"></span>Blue Tokai</h4><div class="pick-label">Best pick for this drink</div><ul>' + bt.map(x=>'<li>'+esc(x)+'</li>').join('') + '</ul></div>' : '')
-    + (tw.length ? '<div class="detail-roaster tw"><h4><span class="pin"></span>Third Wave</h4><div class="pick-label">Best pick for this drink</div><ul>' + tw.map(x=>'<li>'+esc(x)+'</li>').join('') + '</ul></div>' : '')
-    + '</div>';
+  return `<button class="detail-picks-toggle" data-picks-toggle><span>🛒 Which beans to buy (Blue Tokai · Third Wave)</span><span class="chev">▾</span></button>
+    <div class="detail-picks-body" data-picks-body>
+      ${bt.length?`<div class="detail-roaster bt"><h4><span class="pin"></span>Blue Tokai</h4><div class="pick-label">Best pick for this drink</div><ul>${bt.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+      ${tw.length?`<div class="detail-roaster tw"><h4><span class="pin"></span>Third Wave</h4><div class="pick-label">Best pick for this drink</div><ul>${tw.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+    </div>`;
 }
 
 /* ---------- chips ---------- */
@@ -157,11 +158,11 @@ function buildChips(){
   const present = new Set(['all']);
   recipes.forEach(r => present.add(order.includes(r.method) ? r.method : 'other'));
   const methods = order.filter(m => present.has(m));
-  chipsEl.innerHTML = methods.map(m => '<button class="chip" data-method="'+m+'">'+(m==='all'?'ALL':m.toUpperCase())+'</button>').join('');
+  chipsEl.innerHTML = methods.map(m => `<button class="chip" data-method="${m}">${m === 'all' ? 'ALL' : m.toUpperCase()}</button>`).join('');
   chipsEl.onclick = e => { const b = e.target.closest('.chip'); if(!b) return; activeMethod = b.dataset.method; animateNext = true; render(); };
 
   const triedEl = document.getElementById('triedChips');
-  triedEl.innerHTML = [['all','ALL'],['totry','TO TRY'],['tried','MADE IT']].map(([v,l]) => '<button class="chip tried" data-tried="'+v+'">'+l+'</button>').join('');
+  triedEl.innerHTML = [['all','ALL'],['totry','TO TRY'],['tried','MADE IT']].map(([v,l]) => `<button class="chip tried" data-tried="${v}">${l}</button>`).join('');
   triedEl.onclick = e => { const b = e.target.closest('.chip'); if(!b) return; triedFilter = b.dataset.tried; animateNext = true; render(); };
 }
 function syncChips(){
@@ -169,145 +170,148 @@ function syncChips(){
   document.querySelectorAll('#triedChips .chip').forEach(b => b.classList.toggle('active', b.dataset.tried === triedFilter));
 }
 
-/* ---------- ingredient filter state ---------- */
-let activeIngredients = new Set();
-
-/* ---------- ingredient filter panel ---------- */
-function buildIngFilter(){
-  const triedEl = document.getElementById('triedChips');
-  if(!triedEl) return;
-
-  const ING_CHIPS = [
-    ['milk','Milk'],['condensed','Condensed Milk'],['coconut','Coconut Milk'],
-    ['cream','Cream'],['ice','Ice'],['sugar','Sugar'],['honey','Honey'],
-    ['egg','Egg'],['banana','Banana'],['mango','Mango'],['orange','Orange'],
-    ['pineapple','Pineapple'],['chocolate','Chocolate'],['cinnamon','Cinnamon'],
-    ['cardamom','Cardamom'],['vanilla','Vanilla'],['ginger','Ginger'],
-    ['lemon','Lemon'],['salt','Salt']
-  ];
-
-  const panel = document.createElement('div');
-  panel.id = 'ingFilter';
-  panel.innerHTML =
-    '<div id="ingFilterHead">'
-    + '<span class="ing-pan-ico">☕</span>'
-    + '<span id="ingFilterLabel">What’s in your kitchen?</span>'
-    + '<button id="ingFilterToggle" type="button">＋</button>'
-    + '</div>'
-    + '<div id="ingFilterBody">'
-    + '<div id="ingChips">'
-    + ING_CHIPS.map(function(pair){
-        return '<button class="ingChip" data-ing="'+pair[0]+'" type="button">'+ingredientIcon(pair[1])+'<span>'+pair[1]+'</span></button>';
-      }).join('')
-    + '</div>'
-    + '<div id="ingResultBar" style="display:none"></div>'
-    + '</div>';
-
-  triedEl.insertAdjacentElement('afterend', panel);
-
-  var head   = document.getElementById('ingFilterHead');
-  var body   = document.getElementById('ingFilterBody');
-  var toggle = document.getElementById('ingFilterToggle');
-
-  function toggleBody(){
-    var isOpen = body.classList.contains('open');
-    body.classList.toggle('open', !isOpen);
-    toggle.textContent = isOpen ? '＋' : '×';
-  }
-
-  head.addEventListener('click', function(e){
-    if(e.target === toggle) return;
-    toggleBody();
-  });
-  toggle.addEventListener('click', function(e){
-    e.stopPropagation();
-    toggleBody();
-  });
-
-  document.getElementById('ingChips').addEventListener('click', function(e){
-    var chip = e.target.closest('.ingChip');
-    if(!chip) return;
-    var ing = chip.dataset.ing;
-    if(activeIngredients.has(ing)) activeIngredients.delete(ing); else activeIngredients.add(ing);
-    chip.classList.toggle('active', activeIngredients.has(ing));
-
-    var labelEl = document.getElementById('ingFilterLabel');
-    if(activeIngredients.size > 0){
-      var names = Array.from(activeIngredients).map(function(k){
-        var entry = ING_CHIPS.find(function(p){ return p[0] === k; });
-        return entry ? entry[1] : k;
-      }).join(', ');
-      labelEl.textContent = names.length > 28 ? names.slice(0,28) + '…' : names;
-      head.classList.add('ing-active');
-    } else {
-      labelEl.textContent = 'What’s in your kitchen?';
-      head.classList.remove('ing-active');
-    }
-
-    updateIngResultBar();
-    render();
-  });
-}
-
-function updateIngResultBar(){
-  var bar = document.getElementById('ingResultBar');
-  if(!bar) return;
-  if(activeIngredients.size === 0){
-    bar.style.display = 'none';
-    return;
-  }
-  var count = recipes.filter(function(r){
-    var ings = (r.ingredients || []).map(function(i){ return i.toLowerCase(); });
-    return Array.from(activeIngredients).every(function(kw){ return ings.some(function(i){ return i.indexOf(kw) !== -1; }); });
-  }).length;
-  bar.style.display = 'flex';
-  bar.innerHTML = '<span>'+count+' recipes you can make right now</span><button id="ingClearBtn" type="button">Clear All</button>';
-  document.getElementById('ingClearBtn').onclick = function(){
-    activeIngredients.clear();
-    document.querySelectorAll('.ingChip').forEach(function(c){ c.classList.remove('active'); });
-    var labelEl = document.getElementById('ingFilterLabel');
-    if(labelEl) labelEl.textContent = 'What’s in your kitchen?';
-    var headEl = document.getElementById('ingFilterHead');
-    if(headEl) headEl.classList.remove('ing-active');
-    bar.style.display = 'none';
-    render();
-  };
-}
-
 /* ---------- boarding pass card ---------- */
-function boardingPassCard(r, extraClass){
+function boardingPassCard(r, matchState){
   const al = getAirline(r.serial || 0);
   const light = hexLighten(al.color, 42);
   const d = r.createdAt ? new Date(r.createdAt) : null;
   const dateTop = d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}).toUpperCase() : '';
   const yr = d ? d.getFullYear() : '';
-  return '<button class="bp-card '+(r.tried?'is-boarded':'')+' '+(extraClass||'')+'" data-id="'+r.id+'">'
-    +'<span class="bp-strip" style="background:linear-gradient(180deg,'+light+','+al.color+')"></span>'
-    +'<div class="bp-body">'
-      +'<div class="bp-top-row">'
-        +'<span class="bp-airline" style="color:'+al.color+'">'+esc(al.name)+'</span>'
-        +'<span class="bp-serial-label">BREW #'+pad(r.serial||0)+'</span>'
-      +'</div>'
-      +'<h3 class="bp-name">'+esc(r.name)+'</h3>'
-      +(r.description?'<p class="bp-desc">'+esc(r.description)+'</p>':'')
-      +'<div class="bp-journey">'
-        +'<div class="bp-journey-col"><span class="bp-info-label">FROM</span><span class="bp-origin-name" style="color:'+al.color+'">'+esc(r.origin||'Fusion')+'</span></div>'
-        +'<span class="bp-arrow">✈</span>'
-        +'<div class="bp-journey-col"><span class="bp-info-label">METHOD</span><span class="bp-method-val">'+esc(r.method||'')+'</span></div>'
-      +'</div>'
-    +'</div>'
-    +'<div class="bp-gate">'
-      +'<span class="bp-info-label">GATE</span>'
-      +'<span class="bp-ratio-num" style="color:'+al.color+'">'+esc(r.ratio||'—')+'</span>'
-      +'<span class="bp-info-label bp-strength-label">STR.</span>'
-      +beansRow(r.strength||3)
-    +'</div>'
-    +'<div class="bp-stub">'
-      +'<span class="bp-country-badge" style="background:'+al.color+'">'+al.code+'</span>'
-      +'<span class="bp-stub-date">'+dateTop+'<br><span class="bp-stub-yr">'+yr+'</span></span>'
-      +(r.tried?'<span class="bp-boarded">BOARDED</span>':'')
-    +'</div>'
-    +'</button>';
+  return `<button class="bp-card ${r.tried?'is-boarded':''} ${matchState?('bp-'+matchState):''}" data-id="${r.id}">
+    <span class="bp-strip" style="background:linear-gradient(180deg,${light},${al.color})"></span>
+    <div class="bp-body">
+      <div class="bp-top-row">
+        <span class="bp-airline" style="color:${al.color}">${esc(al.name)}</span>
+        <span class="bp-serial-label">BREW #${pad(r.serial||0)}</span>
+      </div>
+      <h3 class="bp-name">${esc(r.name)}</h3>
+      ${r.description?`<p class="bp-desc">${esc(r.description)}</p>`:''}
+      <div class="bp-journey">
+        <div class="bp-journey-col"><span class="bp-info-label">FROM</span><span class="bp-origin-name" style="color:${al.color}">${esc(r.origin||'Fusion')}</span></div>
+        <span class="bp-arrow">✈</span>
+        <div class="bp-journey-col"><span class="bp-info-label">METHOD</span><span class="bp-method-val">${esc(r.method||'')}</span></div>
+      </div>
+    </div>
+    <div class="bp-gate">
+      <span class="bp-info-label">GATE</span>
+      <span class="bp-ratio-num" style="color:${al.color}">${esc(r.ratio||'—')}</span>
+      <span class="bp-info-label bp-strength-label">STR.</span>
+      ${beansRow(r.strength||3)}
+    </div>
+    <div class="bp-stub">
+      <span class="bp-country-badge" style="background:${al.color}">${al.code}</span>
+      <span class="bp-stub-date">${dateTop}<br><span class="bp-stub-yr">${yr}</span></span>
+      ${r.tried?'<span class="bp-boarded">BOARDED</span>':''}
+    </div>
+  </button>`;
+}
+
+/* ---------- ingredient (kitchen) filter ---------- */
+let kitchen = new Set();
+let kitchenOpen = false;
+const KITCHEN_CHIPS = ['Milk','Condensed Milk','Coconut Milk','Cream','Ice','Sugar','Honey','Egg','Coffee','Instant Coffee','Banana','Mango','Orange','Pineapple','Chocolate','Cinnamon','Cardamom','Vanilla','Ginger','Lemon','Salt'];
+const KITCHEN_STAPLES = new Set(['coffee']); // assumed always on hand, never gates
+
+function ingredientToken(text){
+  const t = (text||'').toLowerCase();
+  if(t.includes('ice cream') || t.includes('gelato')) return null; // not a kitchen chip
+  const map = [
+    ['condensed',['condensed']],
+    ['coconut',['coconut']],
+    ['cream',['cream']],
+    ['ice',['ice']],
+    ['egg',['egg']],
+    ['banana',['banana']],
+    ['mango',['mango']],
+    ['orange',['orange']],
+    ['pineapple',['pineapple']],
+    ['chocolate',['chocolate','cocoa']],
+    ['cinnamon',['cinnamon']],
+    ['cardamom',['cardamom']],
+    ['vanilla',['vanilla']],
+    ['ginger',['ginger']],
+    ['lemon',['lemon']],
+    ['salt',['salt']],
+    ['honey',['honey']],
+    ['sugar',['sugar','jaggery','gur']],
+    ['coffee',['coffee','espresso','instant']],
+    ['milk',['milk']]
+  ];
+  for(const [tok,words] of map){ for(const w of words){ if(t.includes(w)) return tok; } }
+  return null;
+}
+function recipeTokens(r){
+  const s = new Set();
+  (r.ingredients||[]).forEach(i => { const tok = ingredientToken(i); if(tok && !KITCHEN_STAPLES.has(tok)) s.add(tok); });
+  return s;
+}
+function kitchenTokenSet(){
+  const s = new Set();
+  kitchen.forEach(name => { const tok = ingredientToken(name.toLowerCase()); if(tok) s.add(tok); });
+  return s;
+}
+function isMakeable(r, kset){
+  const toks = recipeTokens(r);
+  if(toks.size === 0) return true; // black coffee — always makeable
+  for(const t of toks){ if(!kset.has(t)) return false; }
+  return true;
+}
+function kitchenActiveIcons(){
+  const names = [...kitchen];
+  const shown = names.slice(0,4);
+  let h = shown.map(n => `<span class="mini">${ingredientIcon(n.toLowerCase())}</span>`).join('');
+  if(names.length > 4) h += `<span class="if-more">+${names.length-4} more</span>`;
+  return h;
+}
+function buildKitchen(){
+  const wrap = document.getElementById('kitchenChips');
+  if(!wrap) return;
+  wrap.innerHTML = KITCHEN_CHIPS.map(name =>
+    `<button class="if-chip" data-name="${esc(name)}"><span class="ic">${ingredientIcon(name.toLowerCase())}</span><span class="nm">${esc(name)}</span></button>`
+  ).join('');
+  wrap.onclick = e => {
+    const c = e.target.closest('.if-chip'); if(!c) return;
+    const n = c.dataset.name;
+    if(kitchen.has(n)) kitchen.delete(n); else kitchen.add(n);
+    renderKitchen(); render();
+  };
+  document.getElementById('kitchenCollapsed').onclick = e => {
+    if(e.target.closest('#kitchenToggle')) return;
+    kitchenOpen = !kitchenOpen; renderKitchen();
+  };
+  document.getElementById('kitchenToggle').onclick = e => {
+    e.stopPropagation();
+    if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }
+    else if(kitchen.size > 0){ kitchen.clear(); renderKitchen(); render(); } // collapsed filled × = clear
+    else { kitchenOpen = true; renderKitchen(); }
+  };
+  document.getElementById('kitchenClear').onclick = () => { kitchen.clear(); renderKitchen(); render(); };
+  renderKitchen();
+}
+function renderKitchen(){
+  const collapsed = document.getElementById('kitchenCollapsed');
+  if(!collapsed) return;
+  const active = kitchen.size > 0;
+  collapsed.classList.toggle('active', kitchenOpen || active);
+  document.getElementById('kitchenExpand').style.display = kitchenOpen ? 'block' : 'none';
+  const prompt = document.getElementById('kitchenPrompt');
+  const icons  = document.getElementById('kitchenIcons');
+  const toggle = document.getElementById('kitchenToggle');
+  if(!kitchenOpen && active){
+    prompt.style.display = 'none';
+    icons.style.display = 'flex';
+    icons.innerHTML = kitchenActiveIcons();
+    toggle.textContent = '×'; toggle.classList.add('clear');
+    toggle.setAttribute('aria-label','Clear ingredients');
+  } else {
+    prompt.style.display = 'block';
+    icons.style.display = 'none';
+    toggle.classList.remove('clear');
+    toggle.textContent = kitchenOpen ? '×' : '+';
+    toggle.setAttribute('aria-label', kitchenOpen ? 'Close ingredient filter' : 'Open ingredient filter');
+  }
+  document.querySelectorAll('#kitchenChips .if-chip').forEach(c => c.classList.toggle('sel', kitchen.has(c.dataset.name)));
+  document.getElementById('kitchenResult').style.display = active ? 'flex' : 'none';
 }
 
 /* ---------- render (home terminal) ---------- */
@@ -328,21 +332,18 @@ function render(){
   else if(sortBy === 'rating') list.sort((a,b)=>(b.rating||0)-(a.rating||0) || (a.serial||0)-(b.serial||0));
   else if(sortBy === 'name') list.sort((a,b)=>a.name.localeCompare(b.name));
 
-  const ingActive = activeIngredients.size > 0;
+  const kActive = kitchen.size > 0;
+  const kset = kActive ? kitchenTokenSet() : null;
 
   if(list.length === 0){
-    content.innerHTML = '<div class="empty"><div class="empty-ring"></div><h2>'+(recipes.length === 0 ? 'No brews yet' : 'Nothing matches')+'</h2><p>'+(recipes.length === 0 ? 'Tap ＋ to write your first one.' : 'Try a different search or filter.')+'</p></div>';
+    content.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>${recipes.length === 0 ? 'No brews yet' : 'Nothing matches'}</h2><p>${recipes.length === 0 ? 'Tap ＋ to write your first one.' : 'Try a different search or filter.'}</p></div>`;
     return;
   }
-  content.innerHTML = '<div class="bp-grid">'+list.map(function(r){
-    var extraClass = '';
-    if(ingActive){
-      var ings = (r.ingredients || []).map(function(i){ return i.toLowerCase(); });
-      var matches = Array.from(activeIngredients).every(function(kw){ return ings.some(function(i){ return i.indexOf(kw) !== -1; }); });
-      extraClass = matches ? 'ing-match' : 'ing-nomatch';
-    }
-    return boardingPassCard(r, extraClass);
-  }).join('')+'</div>';
+  content.innerHTML = `<div class="bp-grid">${list.map(r => boardingPassCard(r, kActive ? (isMakeable(r, kset) ? 'match' : 'dim') : null)).join('')}</div>`;
+  if(kActive){
+    const cnt = document.getElementById('kitchenCount');
+    if(cnt) cnt.textContent = list.filter(r => isMakeable(r, kset)).length;
+  }
   if(animateNext){
     if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.animateCardEntrance(content);
     animateNext = false;
@@ -355,22 +356,31 @@ function renderCollection(){
   document.getElementById('collectionCount').textContent = tried.length + ' BOARDED';
   const el = document.getElementById('collection-content');
   if(tried.length === 0){
-    el.innerHTML = '<div class="empty"><div class="empty-ring"></div><h2>No stamps yet</h2><p>Mark a brew as made to stamp your passport.</p></div>';
+    el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No stamps yet</h2><p>Mark a brew as made to stamp your passport.</p></div>`;
     return;
   }
-  el.innerHTML = '<div class="bp-grid">'+tried.map(function(r){ return boardingPassCard(r, ''); }).join('')+'</div>';
+  el.innerHTML = `<div class="bp-grid">${tried.map(boardingPassCard).join('')}</div>`;
 }
 
 /* ---------- world map (D3 + Natural Earth, Robinson projection) ---------- */
 let mapBuilt = false;
-let mapPins = [];
+let mapPins = [];          // [{el, x, y, recId}]
 let mapProjection = null;
 let mapZoomT = {k:1,x:0,y:0};
 
 function pinMarkup(p, rec, idx){
-  return '<g class="map-pin" data-id="'+rec.id+'" data-origin="'+esc(p.origin)+'" transform="translate('+p.x.toFixed(1)+','+p.y.toFixed(1)+')"><g class="pin-anim"><g class="pin-pulse" style="animation-delay:'+(idx*0.13).toFixed(2)+'s"><path class="pin-drop" d="M0,-19 C-8,-19 -13,-12 -13,-6 C-13,4 0,14 0,14 C0,14 13,4 13,-6 C13,-12 8,-19 0,-19 Z" fill="'+p.color+'" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" style="color:'+p.color+'"/><circle cx="0" cy="-6" r="4" fill="rgba(255,255,255,.6)"/><circle cx="0" cy="-6" r="1.7" fill="rgba(255,255,255,.95)"/></g></g></g>';
+  return `<g class="map-pin" data-id="${rec.id}" data-origin="${esc(p.origin)}" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
+    <g class="pin-anim">
+      <g class="pin-pulse" style="animation-delay:${(idx*0.13).toFixed(2)}s">
+        <path class="pin-drop" d="M0,-19 C-8,-19 -13,-12 -13,-6 C-13,4 0,14 0,14 C0,14 13,4 13,-6 C13,-12 8,-19 0,-19 Z" fill="${p.color}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" style="color:${p.color}"/>
+        <circle cx="0" cy="-6" r="4" fill="rgba(255,255,255,.6)"/>
+        <circle cx="0" cy="-6" r="1.7" fill="rgba(255,255,255,.95)"/>
+      </g>
+    </g>
+  </g>`;
 }
 
+/* Build the list of per-recipe pins, fanned out when a country has several */
 function computePins(projectFn){
   const pins = [];
   ORIGIN_PINS.forEach(p => {
@@ -400,13 +410,14 @@ function wireMapPins(){
 
 function buildLegend(){
   const legend = document.getElementById('mapLegend');
-  legend.innerHTML = Object.entries(METHOD_COLORS).map(([m,c])=>'<div class="legend-item"><span class="legend-dot" style="background:'+c+'"></span>'+m+'</div>').join('');
+  legend.innerHTML = Object.entries(METHOD_COLORS).map(([m,c])=>`<div class="legend-item"><span class="legend-dot" style="background:${c}"></span>${m}</div>`).join('');
 }
 
 function buildWorldMap(){
   if(mapBuilt) return;
   mapBuilt = true;
   buildLegend();
+
   const haveD3 = (typeof d3 !== 'undefined' && d3.geoRobinson && typeof topojson !== 'undefined');
   if(haveD3){
     d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
@@ -422,12 +433,19 @@ function renderD3Map(world){
   const projection = d3.geoRobinson().rotate([-15, 0]).fitExtent([[12,14],[W-12,H-22]], {type:'Sphere'});
   mapProjection = projection;
   const path = d3.geoPath(projection);
+
+  /* sphere + graticule */
   document.getElementById('map-sphere').setAttribute('d', path({type:'Sphere'}) || '');
   const grat = d3.geoGraticule().step([30,30]);
-  document.getElementById('map-graticule').innerHTML = '<path d="'+(path(grat())||'')+'" fill="none" stroke="#162030" stroke-width="0.5" stroke-opacity="0.85"/>';
+  document.getElementById('map-graticule').innerHTML =
+    `<path d="${path(grat()) || ''}" fill="none" stroke="#162030" stroke-width="0.5" stroke-opacity="0.85"/>`;
+
+  /* countries */
   const countries = topojson.feature(world, world.objects.countries).features;
   const cg = document.getElementById('map-countries');
-  cg.innerHTML = countries.map(f => '<path class="map-country-d" d="'+(path(f)||'')+'" fill="#1a2a3a" stroke="#2a3a4a" stroke-width="0.5" style="opacity:0"/>').join('');
+  cg.innerHTML = countries.map(f => `<path class="map-country-d" d="${path(f) || ''}" fill="#1a2a3a" stroke="#2a3a4a" stroke-width="0.5" style="opacity:0"/>`).join('');
+
+  /* pins (projected) */
   mapPins = computePins(ll => projection(ll));
   document.getElementById('map-content').innerHTML = mapPins.map((p,i)=>pinMarkup(p, p.rec, i)).join('');
   bindPinEls();
@@ -443,14 +461,16 @@ function animateCountriesIn(){
   if(typeof gsap !== 'undefined'){
     gsap.fromTo(paths, {opacity:0}, {opacity:1, duration:1.2, stagger:0.02, ease:'power1.out'});
   }
+  /* Safety net: force visible even if rAF is throttled */
   setTimeout(()=>{ paths.forEach(p=>{ try{ gsap.killTweensOf(p); }catch(e){} p.style.opacity='1'; }); }, 1600);
 }
 
+/* Fallback: simplified polygons + rough equirectangular pins (CDN unreachable) */
 function buildFallbackMap(){
   const cg = document.getElementById('map-countries');
   let html = '';
-  Object.values(MAP_BG).forEach(d => { html += '<path class="map-country-d" d="'+d+'" fill="#1a2a3a" stroke="#2a3a4a" stroke-width="0.5" transform="scale(0.6667)" style="opacity:0"/>'; });
-  MAP_COUNTRIES.forEach(d => { html += '<path class="map-country-d" d="'+d+'" fill="#26384c" stroke="#33485c" stroke-width="0.5" transform="scale(0.6667)" style="opacity:0"/>'; });
+  Object.values(MAP_BG).forEach(d => { html += `<path class="map-country-d" d="${d}" fill="#1a2a3a" stroke="#2a3a4a" stroke-width="0.5" transform="scale(0.6667)" style="opacity:0"/>`; });
+  MAP_COUNTRIES.forEach(d => { html += `<path class="map-country-d" d="${d}" fill="#26384c" stroke="#33485c" stroke-width="0.5" transform="scale(0.6667)" style="opacity:0"/>`; });
   cg.innerHTML = html;
   document.getElementById('map-sphere').setAttribute('d','');
   const proj = ll => {
@@ -473,6 +493,7 @@ function bindPinEls(){
   mapPins.forEach((p, i) => { p.el = els[i]; });
 }
 
+/* D3 zoom — pins repositioned (constant size), geography transformed */
 function setupD3Zoom(){
   const svg = document.getElementById('world-map-svg');
   const zoomG = document.getElementById('map-zoom');
@@ -482,13 +503,14 @@ function setupD3Zoom(){
     .on('zoom', (ev) => {
       const t = ev.transform;
       mapZoomT = {k:t.k, x:t.x, y:t.y};
-      zoomG.setAttribute('transform', 'translate('+t.x+','+t.y+') scale('+t.k+')');
-      mapPins.forEach(p => { if(p.el) p.el.setAttribute('transform', 'translate('+(t.x + p.x*t.k).toFixed(1)+','+(t.y + p.y*t.k).toFixed(1)+')'); });
+      zoomG.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`);
+      mapPins.forEach(p => { if(p.el) p.el.setAttribute('transform', `translate(${(t.x + p.x*t.k).toFixed(1)},${(t.y + p.y*t.k).toFixed(1)})`); });
       hideMapPreview();
     });
   d3.select(svg).call(zoom).on('dblclick.zoom', null);
 }
 
+/* Fallback pointer-based pan/zoom (no D3) */
 function setupPointerZoom(){
   const c = document.getElementById('map-container');
   const zoomG = document.getElementById('map-zoom');
@@ -500,8 +522,8 @@ function setupPointerZoom(){
     st.y = Math.min(maxY, Math.max(minY, st.y));
   };
   const apply = () => {
-    zoomG.setAttribute('transform', 'translate('+st.x+','+st.y+') scale('+st.k+')');
-    mapPins.forEach(p => { if(p.el) p.el.setAttribute('transform', 'translate('+(st.x + p.x*st.k).toFixed(1)+','+(st.y + p.y*st.k).toFixed(1)+')'); });
+    zoomG.setAttribute('transform', `translate(${st.x},${st.y}) scale(${st.k})`);
+    mapPins.forEach(p => { if(p.el) p.el.setAttribute('transform', `translate(${(st.x + p.x*st.k).toFixed(1)},${(st.y + p.y*st.k).toFixed(1)})`); });
     mapZoomT = {k:st.k,x:st.x,y:st.y};
   };
   c.addEventListener('pointerdown', e => {
@@ -535,7 +557,7 @@ function showMapPreview(pin, id){
   const rec = recipes.find(r => r.id === id);
   if(!rec) return;
   const preview = document.getElementById('map-preview');
-  preview.innerHTML = boardingPassCard(rec, '');
+  preview.innerHTML = boardingPassCard(rec);
   preview.style.display = 'block';
   const pinRect = pin.getBoundingClientRect();
   let px = pinRect.left + pinRect.width/2 - 140;
@@ -553,7 +575,7 @@ function showMapPreview(pin, id){
     if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.initTSAScan(preview.querySelector('.bp-card'));
   };
   place();
-  BREW_ANIM && BREW_ANIM.updateDepartureBoard(rec.name+'  ·  '+(rec.origin||'GLOBAL')+'  ·  BREW-'+pad(rec.serial||0));
+  BREW_ANIM && BREW_ANIM.updateDepartureBoard(`${rec.name}  ·  ${rec.origin||'GLOBAL'}  ·  BREW-${pad(rec.serial||0)}`);
 }
 function hideMapPreview(){
   const preview = document.getElementById('map-preview');
@@ -589,40 +611,41 @@ function openDetail(id, cardEl){
   const panel = document.getElementById('detail-panel');
   detailPanelEl = panel;
 
-  panel.innerHTML =
-    '<div class="bp-detail-header" style="background:linear-gradient(135deg,'+hexLighten(al.color,30)+','+al.color+')">'
-    +'<button class="bp-detail-close" data-close aria-label="Close">✕</button>'
-    +'<span class="bp-detail-airline">'+esc(al.name)+'</span>'
-    +'<span class="bp-detail-flight">FLIGHT BREW-'+pad(r.serial||0)+'</span>'
-    +'<div class="bp-detail-departing-label">DEPARTING FROM</div>'
-    +'<div class="bp-detail-city">'+esc(r.origin||'Fusion')+'</div>'
-    +'</div>'
-    +'<div class="torn-sep"><div class="torn-sep-fill"></div></div>'
-    +'<div class="detail-progress-bar"><div class="detail-progress-fill" data-prog></div></div>'
-    +'<div class="bp-detail-body" data-body>'
-    +'<div class="detail-recipe-name reveal">'+esc(r.name)+'</div>'
-    +(r.description?'<div class="detail-recipe-desc reveal">'+esc(r.description)+'</div>':'')
-    +'<div class="detail-made-panel reveal">'
-    +'<button class="detail-made-toggle '+(r.tried?'on':'')+'" data-made><span class="box">✓</span>'+(r.tried?'Made it':'Mark as made')+'<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>'
-    +'<div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>'+[1,2,3,4,5].map(i=>'<button data-star="'+i+'" class="'+(i<=(r.rating||0)?'on':'')+'" aria-label="'+i+' star">★</button>').join('')+'</div></div>'
-    +'</div>'
-    +(r.story?'<div class="detail-section-label reveal">The Story</div><div class="detail-rule reveal"></div><div class="detail-story-text reveal">'+esc(r.story)+'</div>':'')
-    +(r.bean?'<div class="detail-section-label reveal">Beans for this brew</div><div class="detail-bean-box reveal"><span>\uD83FAB</span><span>'+esc(r.bean)+'</span></div>':'')
-    +'<div class="reveal">'+buyPicksHTML(r.id)+'</div>'
-    +'<div class="detail-section-label reveal">Ingredients</div>'
-    +'<ul class="detail-ing-list">'+(r.ingredients||[]).map((i,idx)=>'<li class="reveal" style="transition-delay:'+Math.min(idx*45,300)+'ms">'+ingredientIcon(i)+'<span>'+esc(i)+'</span></li>').join('')+'</ul>'
-    +'<div class="detail-section-label reveal">Steps</div>'
-    +'<ol class="detail-step-list">'+(r.steps||[]).map((s,idx)=>{const st=(typeof s==='string')?{c:s}:s;return '<li class="reveal '+(idx%2?'reveal-right':'reveal-left')+'"><div>'+(st.t?'<strong class="step-title">'+esc(st.t)+':</strong> ':'')+esc(st.c)+'</div></li>';}).join('')+'</ol>'
-    +(r.notes?'<div class="detail-section-label reveal">Notes</div><div class="detail-notes-box reveal">'+esc(r.notes)+'</div>':'')
-    +((r.steps&&r.steps.length)?'<button class="detail-btn primary detail-brew-start reveal" data-brew><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 3l9 5-9 5V3z" fill="currentColor"/></svg> START BREWING →</button>':'')
-    +'<div class="detail-actions reveal"><button class="detail-btn" data-edit>Edit</button><button class="detail-btn danger" data-delete>Delete</button></div>'
-    +'</div>';
+  panel.innerHTML = `
+    <div class="bp-detail-header" style="background:linear-gradient(135deg,${hexLighten(al.color,30)},${al.color})">
+      <button class="bp-detail-close" data-close aria-label="Close">✕</button>
+      <span class="bp-detail-airline">${esc(al.name)}</span>
+      <span class="bp-detail-flight">FLIGHT BREW-${pad(r.serial||0)}</span>
+      <div class="bp-detail-departing-label">DEPARTING FROM</div>
+      <div class="bp-detail-city">${esc(r.origin||'Fusion')}</div>
+    </div>
+    <div class="torn-sep"><div class="torn-sep-fill"></div></div>
+    <div class="detail-progress-bar"><div class="detail-progress-fill" data-prog></div></div>
+    <div class="bp-detail-body" data-body>
+      <div class="detail-recipe-name reveal">${esc(r.name)}</div>
+      ${r.description?`<div class="detail-recipe-desc reveal">${esc(r.description)}</div>`:''}
+      <div class="detail-made-panel reveal">
+        <button class="detail-made-toggle ${r.tried?'on':''}" data-made><span class="box">✓</span>${r.tried?'Made it':'Mark as made'}<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>
+        <div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>${[1,2,3,4,5].map(i=>`<button data-star="${i}" class="${i<=(r.rating||0)?'on':''}" aria-label="${i} star">★</button>`).join('')}</div></div>
+      </div>
+      ${r.story?`<div class="detail-section-label reveal">The Story</div><div class="detail-rule reveal"></div><div class="detail-story-text reveal">${esc(r.story)}</div>`:''}
+      ${r.bean?`<div class="detail-section-label reveal">Beans for this brew</div><div class="detail-bean-box reveal"><span>🫘</span><span>${esc(r.bean)}</span></div>`:''}
+      <div class="reveal">${buyPicksHTML(r.id)}</div>
+      <div class="detail-section-label reveal">Ingredients</div>
+      <ul class="detail-ing-list">${(r.ingredients||[]).map((i,idx)=>`<li class="reveal" style="transition-delay:${Math.min(idx*45,300)}ms">${ingredientIcon(i)}<span>${esc(i)}</span></li>`).join('')}</ul>
+      <div class="detail-section-label reveal">Steps</div>
+      <ol class="detail-step-list">${(r.steps||[]).map((s,idx)=>{const st=(typeof s==='string')?{c:s}:s;return `<li class="reveal ${idx%2?'reveal-right':'reveal-left'}"><div>${st.t?`<strong class="step-title">${esc(st.t)}:</strong> `:''}${esc(st.c)}</div></li>`;}).join('')}</ol>
+      ${r.notes?`<div class="detail-section-label reveal">Notes</div><div class="detail-notes-box reveal">${esc(r.notes)}</div>`:''}
+      ${(r.steps&&r.steps.length)?`<button class="detail-btn primary detail-brew-start reveal" data-brew><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 3l9 5-9 5V3z" fill="currentColor"/></svg> START BREWING →</button>`:''}
+      <div class="detail-actions reveal"><button class="detail-btn" data-edit>Edit</button><button class="detail-btn danger" data-delete>Delete</button></div>
+    </div>`;
 
+  /* torn separator inherits airline color */
   const torn = panel.querySelector('.torn-sep');
   torn.style.background = 'var(--pass-paper)';
   panel.querySelector('.bp-detail-header').style.marginBottom = '0';
   const sepFill = panel.querySelector('.torn-sep-fill');
-  if(sepFill){ sepFill.style.cssText = 'position:absolute;top:-1px;left:0;right:0;height:11px;background:'+al.color+';clip-path:polygon(0 0,100% 0,100% 55%,96% 80%,92% 40%,88% 90%,84% 45%,80% 85%,76% 30%,72% 82%,68% 38%,64% 90%,60% 48%,56% 85%,52% 30%,48% 78%,44% 42%,40% 88%,36% 38%,32% 85%,28% 32%,24% 80%,20% 42%,16% 88%,12% 52%,8% 82%,4% 48%,0 72%);'; }
+  if(sepFill){ sepFill.style.cssText = `position:absolute;top:-1px;left:0;right:0;height:11px;background:${al.color};clip-path:polygon(0 0,100% 0,100% 55%,96% 80%,92% 40%,88% 90%,84% 45%,80% 85%,76% 30%,72% 82%,68% 38%,64% 90%,60% 48%,56% 85%,52% 30%,48% 78%,44% 42%,40% 88%,36% 38%,32% 85%,28% 32%,24% 80%,20% 42%,16% 88%,12% 52%,8% 82%,4% 48%,0 72%);`; }
 
   panel.style.display = 'flex';
   if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.openBoardingPassTransition(cardEl, panel);
@@ -646,7 +669,7 @@ function openDetail(id, cardEl){
     await saveRecipes(); render(); renderCollection();
     if(nowTried){
       madeBtn.classList.add('on');
-      madeBtn.innerHTML = '<span class="box">✓</span>Made it'+'<span class="puff"></span>'.repeat(5);
+      madeBtn.innerHTML = '<span class="box">✓</span>Made it' + '<span class="puff"></span>'.repeat(5);
       void madeBtn.offsetWidth; madeBtn.classList.add('celebrate');
       const br = madeBtn.getBoundingClientRect();
       if(typeof beanBurst === 'function') beanBurst(br.left + br.width/2, br.top + br.height/2, 16);
@@ -664,7 +687,7 @@ function openDetail(id, cardEl){
   });
   panel.querySelector('[data-edit]').onclick = () => { closeDetail(); openForm(r.id); };
   panel.querySelector('[data-delete]').onclick = async () => {
-    if(!confirm('Delete "'+r.name+'"? This can’t be undone.')) return;
+    if(!confirm(`Delete “${r.name}”? This can\u2019t be undone.`)) return;
     recipes = recipes.filter(x => x.id !== r.id);
     rememberSeedDeletion(r.id);
     await saveRecipes(); closeDetail(); render(); renderCollection(); showToast('Recipe deleted');
@@ -682,26 +705,26 @@ function openForm(id){
   const r = id ? recipes.find(x=>x.id===id) : null;
   const sheet = document.getElementById('formSheet');
   const strength = r ? (r.strength||3) : 3;
-  sheet.innerHTML =
-    '<div class="sheet-head"><h2>'+(r ? 'Edit recipe' : 'New recipe')+'</h2><button class="close-btn" data-close aria-label="Close">✕</button></div>'
-    +'<div class="field"><label for="fName">Name</label><input id="fName" type="text" placeholder="e.g. Caffè Shakerato" value="'+(r?esc(r.name):'')+'"></div>'
-    +'<div class="field"><label for="fDesc">Description</label><textarea id="fDesc" placeholder="What makes this brew yours?">'+(r?esc(r.description||''):'')+'</textarea></div>'
-    +'<div class="field-row3">'
-    +'<div class="field"><label for="fSerial">Serial #</label><input id="fSerial" type="number" min="1" value="'+(r?(r.serial||nextSerial()):nextSerial())+'"></div>'
-    +'<div class="field"><label for="fDate">Date added</label><input id="fDate" type="date" value="'+dateInputVal(r?r.createdAt:null)+'"></div>'
-    +'<div class="field"><label for="fOrigin">Origin</label><input id="fOrigin" type="text" placeholder="e.g. Italy" value="'+(r?esc(r.origin||''):'')+'"></div>'
-    +'</div>'
-    +'<div class="field-row">'
-    +'<div class="field"><label for="fMethod">Brew method</label><select id="fMethod">'+METHODS.filter(m=>m!=='all').map(m=>'<option '+(r&&r.method===m?'selected':'')+'>'+m+'</option>').join('')+'</select></div>'
-    +'<div class="field"><label for="fRatio">Ratio</label><input id="fRatio" type="text" placeholder="e.g. 1:4" value="'+(r?esc(r.ratio||''):'')+'"></div>'
-    +'</div>'
-    +'<div class="field"><label for="fRatioLabel">What the ratio means</label><input id="fRatioLabel" type="text" placeholder="e.g. espresso : ice" value="'+(r?esc(r.ratioLabel||''):'')+'"></div>'
-    +'<div class="field"><label for="fBean">Beans / roast for this brew</label><textarea id="fBean" placeholder="e.g. dark roast robusta, chocolatey, low acidity">'+(r?esc(r.bean||''):'')+'</textarea></div>'
-    +'<div class="field"><label>Strength</label><div class="strength-picker" id="fStrength">'+[1,2,3,4,5].map(n=>'<button type="button" data-n="'+n+'" class="'+(n===strength?'sel':'')+'" aria-label="Strength '+n+'">'+''+[...Array(n)].map(()=>beanSVG(true)).join('')+'</button>').join('')+'</div></div>'
-    +'<div class="field"><label for="fIng">Ingredients</label><textarea id="fIng" rows="5" placeholder="One per line">'+(r?esc((r.ingredients||[]).join('\n')):'')+'</textarea><div class="hint">One ingredient per line</div></div>'
-    +'<div class="field"><label for="fSteps">Steps</label><textarea id="fSteps" rows="6" placeholder="One step per line. Optional: Title :: instruction">'+(r?esc((r.steps||[]).map(s=>(typeof s==='string')?s:(s.t?s.t+' :: '+s.c:s.c)).join('\n')):'')+'</textarea><div class="hint">One step per line. Add a bold title with "Title :: instruction".</div></div>'
-    +'<div class="field"><label for="fNotes">Notes (optional)</label><textarea id="fNotes" placeholder="Tips, tweaks, what to try next time…">'+(r?esc(r.notes||''):'')+'</textarea></div>'
-    +'<div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>'+(r ? 'Save changes' : 'Save recipe')+'</button></div>';
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>${r ? 'Edit recipe' : 'New recipe'}</h2><button class="close-btn" data-close aria-label="Close">✕</button></div>
+    <div class="field"><label for="fName">Name</label><input id="fName" type="text" placeholder="e.g. Caffè Shakerato" value="${r?esc(r.name):''}"></div>
+    <div class="field"><label for="fDesc">Description</label><textarea id="fDesc" placeholder="What makes this brew yours?">${r?esc(r.description||''):''}</textarea></div>
+    <div class="field-row3">
+      <div class="field"><label for="fSerial">Serial #</label><input id="fSerial" type="number" min="1" value="${r?(r.serial||nextSerial()):nextSerial()}"></div>
+      <div class="field"><label for="fDate">Date added</label><input id="fDate" type="date" value="${dateInputVal(r?r.createdAt:null)}"></div>
+      <div class="field"><label for="fOrigin">Origin</label><input id="fOrigin" type="text" placeholder="e.g. Italy" value="${r?esc(r.origin||''):''}"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="fMethod">Brew method</label><select id="fMethod">${METHODS.filter(m=>m!=='all').map(m=>`<option ${r&&r.method===m?'selected':''}>${m}</option>`).join('')}</select></div>
+      <div class="field"><label for="fRatio">Ratio</label><input id="fRatio" type="text" placeholder="e.g. 1:4" value="${r?esc(r.ratio||''):''}"></div>
+    </div>
+    <div class="field"><label for="fRatioLabel">What the ratio means</label><input id="fRatioLabel" type="text" placeholder="e.g. espresso : ice" value="${r?esc(r.ratioLabel||''):''}"></div>
+    <div class="field"><label for="fBean">Beans / roast for this brew</label><textarea id="fBean" placeholder="e.g. dark roast robusta, chocolatey, low acidity">${r?esc(r.bean||''):''}</textarea></div>
+    <div class="field"><label>Strength</label><div class="strength-picker" id="fStrength">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" class="${n===strength?'sel':''}" aria-label="Strength ${n}">${[...Array(n)].map(()=>beanSVG(true)).join('')}</button>`).join('')}</div></div>
+    <div class="field"><label for="fIng">Ingredients</label><textarea id="fIng" rows="5" placeholder="One per line">${r?esc((r.ingredients||[]).join('\n')):''}</textarea><div class="hint">One ingredient per line</div></div>
+    <div class="field"><label for="fSteps">Steps</label><textarea id="fSteps" rows="6" placeholder="One step per line. Optional: Title :: instruction">${r?esc((r.steps||[]).map(s=>(typeof s==='string')?s:(s.t?s.t+' :: '+s.c:s.c)).join('\n')):''}</textarea><div class="hint">One step per line. Add a bold title with “Title :: instruction”.</div></div>
+    <div class="field"><label for="fNotes">Notes (optional)</label><textarea id="fNotes" placeholder="Tips, tweaks, what to try next time…">${r?esc(r.notes||''):''}</textarea></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>${r ? 'Save changes' : 'Save recipe'}</button></div>`;
 
   let selStrength = strength;
   sheet.querySelectorAll('#fStrength button').forEach(b => b.onclick = () => { selStrength = +b.dataset.n; sheet.querySelectorAll('#fStrength button').forEach(x => x.classList.toggle('sel', +x.dataset.n === selStrength)); });
@@ -762,37 +785,44 @@ function renderBrew(){
   const total = steps.length;
   const atEnd = i >= total;
   const pct = Math.round((Math.min(i, total) / total) * 100);
+  const stars = bm.querySelector('.brew-stars');
+  const glow = bm.querySelector('.brew-glow');
 
+  /* preserve background layers, replace content */
   bm.querySelectorAll('.brew-shell').forEach(n => n.remove());
   const shell = document.createElement('div');
   shell.className = 'brew-shell';
   shell.style.cssText = 'position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-height:0';
 
   if(atEnd){
-    shell.innerHTML =
-      '<div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · '+esc(name)+'</div><div class="brew-origin-line">Arrived ☕</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>'
-      +'<div class="brew-progress-bar"><div class="brew-progress-fill" style="width:100%"></div></div>'
-      +'<div class="brew-body"><div class="brew-done">'
-      +'<div class="brew-done-cup">☕</div>'
-      +'<h3>Brewed. Safe to consume.</h3>'
-      +'<p>Rate this brew and head back to the terminal.</p>'
-      +'<div class="brew-done-stars"><div class="detail-rate-stars" data-brewrate>'+[1,2,3,4,5].map(n=>'<button data-star="'+n+'" aria-label="'+n+' star">★</button>').join('')+'</div></div>'
-      +'</div></div>'
-      +'<div class="brew-foot"><button class="brew-btn" data-restart>Start over</button><button class="brew-btn primary" data-finish>Return to Terminal</button></div>';
+    shell.innerHTML = `
+      <div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · ${esc(name)}</div><div class="brew-origin-line">Arrived ☕</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>
+      <div class="brew-progress-bar"><div class="brew-progress-fill" style="width:100%"></div></div>
+      <div class="brew-body"><div class="brew-done">
+        <div class="brew-done-cup">☕</div>
+        <h3>Brewed. Safe to consume.</h3>
+        <p>Rate this brew and head back to the terminal.</p>
+        <div class="brew-done-stars"><div class="detail-rate-stars" data-brewrate>${[1,2,3,4,5].map(n=>`<button data-star="${n}" aria-label="${n} star">★</button>`).join('')}</div></div>
+      </div></div>
+      <div class="brew-foot"><button class="brew-btn" data-restart>Start over</button><button class="brew-btn primary" data-finish>Return to Terminal</button></div>`;
   } else {
-    shell.innerHTML =
-      '<div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · '+esc(name)+'</div><div class="brew-origin-line">'+esc(origin||'')+'</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>'
-      +'<div class="brew-progress-bar"><div class="brew-progress-fill" style="width:'+pct+'%"></div></div>'
-      +'<div class="brew-body"><div class="brew-step-content">'
-      +'<div class="brew-stepnum">Step '+(i+1)+' of '+total+((typeof steps[i]==='object' && steps[i].t) ? ' · ' + esc(steps[i].t) : '')+'</div>'
-      +'<div class="brew-steptext">'+esc((typeof steps[i]==='string') ? steps[i] : steps[i].c)+'</div>'
-      +'<div class="brew-dots">'+steps.map((_,k)=>'<span class="'+(k<i?'done':k===i?'cur':'')+'"></span>').join('')+'</div>'
-      +'</div></div>'
-      +'<div class="brew-foot"><button class="brew-btn" data-prev '+(i===0?'disabled':'')+'>← Prev</button><button class="brew-btn primary" data-next>'+(i===total-1?'LAND ☕':'Next →')+'</button></div>';
+    shell.innerHTML = `
+      <div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · ${esc(name)}</div><div class="brew-origin-line">${esc(origin||'')}</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>
+      <div class="brew-progress-bar"><div class="brew-progress-fill" style="width:${pct}%"></div></div>
+      <div class="brew-body">
+        <div class="brew-step-content">
+          <div class="brew-stepnum">Step ${i+1} of ${total}${(typeof steps[i]==='object' && steps[i].t) ? ' · ' + esc(steps[i].t) : ''}</div>
+          <div class="brew-steptext">${esc((typeof steps[i]==='string') ? steps[i] : steps[i].c)}</div>
+          <div class="brew-dots">${steps.map((_,k)=>`<span class="${k<i?'done':k===i?'cur':''}"></span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="brew-foot"><button class="brew-btn" data-prev ${i===0?'disabled':''}>← Prev</button><button class="brew-btn primary" data-next>${i===total-1?'LAND ☕':'Next →'}</button></div>`;
   }
   bm.appendChild(shell);
 
+  // === ANIMATION HOOK ===
   if(typeof BREW_ANIM !== 'undefined' && !atEnd){ BREW_ANIM.animateBrewStep(shell.querySelector('.brew-body'), brewState.dir); }
+  // === END ANIMATION HOOK ===
 
   if(atEnd){
     shell.querySelector('[data-restart]').onclick = () => { brewState.dir = -1; brewState.i = 0; renderBrew(); };
@@ -821,7 +851,7 @@ function exportRecipes(){
   const blob = new Blob([JSON.stringify(recipes, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'brew-book-backup-'+dateInputVal(Date.now())+'.json';
+  a.href = url; a.download = `brew-book-backup-${dateInputVal(Date.now())}.json`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   showToast('Backup downloaded ⬇');
 }
@@ -840,15 +870,15 @@ function importRecipes(file){
         merged++;
       }
       await saveRecipes(); buildChips(); render(); renderCollection();
-      showToast('Restored '+merged+' recipe'+(merged===1?'':'s')+' ⬆');
-    }catch(e){ showToast('That file didn’t look like a backup'); }
+      showToast(`Restored ${merged} recipe${merged===1?'':'s'} ⬆`);
+    }catch(e){ showToast('That file didn\u2019t look like a backup'); }
   };
   reader.readAsText(file);
 }
 
 /* ---------- wiring ---------- */
 buildChips();
-buildIngFilter();
+buildKitchen();
 runSplash();
 
 document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchScreen(t.dataset.target)));
