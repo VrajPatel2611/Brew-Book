@@ -605,53 +605,148 @@
   .bp-card:hover{transform:none}
 }
 
-/* ─── RESPONSIVE ─── */
+/* ══════════════════════════════════════════
+   RESPONSIVE — mobile → phone → tablet → desktop → wide
+   The app shell is position:fixed;inset:0 so we must
+   override inset explicitly to centre it on large screens.
+══════════════════════════════════════════ */
 
-/* Small phones (≤380px) */
-@media(max-width:380px){
-  .term-header{padding:10px 12px 8px}
-  .brand-name{font-size:21px}
-  .toolbar{padding:0 12px 8px;gap:7px}
-  .bp-grid{padding:4px 12px 24px;gap:8px}
-  .bp-name{font-size:14px}
-  .bp-gate{width:52px}
-  .bp-stub{width:42px}
-  .bp-ratio-num{font-size:13px}
-  .bp-detail-body{padding:6px 14px 30px}
-  .detail-rate-stars button{font-size:18px}
-  .brew-steptext{font-size:18px}
-  .collection-header{padding:12px 12px 8px}
-  .collection-content{padding:0 12px 16px}
-  .if-chips{gap:5px}
-  .if-chip{padding:4px 9px 4px 5px}
+/* ── Tiny phones (≤360px) ── */
+@media(max-width:360px){
+  .term-header{padding:9px 11px 7px}
+  .brand-name{font-size:20px}
+  .toolbar{padding:0 11px 7px;gap:7px}
+  .bp-grid{padding:4px 11px 22px;gap:7px}
+  .bp-name{font-size:13.5px}
+  .bp-gate{width:50px}
+  .bp-stub{width:40px}
+  .bp-ratio-num{font-size:12px}
+  .bp-detail-body{padding:5px 13px 28px}
+  .if-chip{padding:4px 8px 4px 5px;font-size:12px}
+  .brew-steptext{font-size:17px}
 }
 
-/* Medium phones (381px–639px) — already handled by base layout */
-@media(min-width:381px) and (max-width:639px){
-  .bp-grid{padding:5px 14px 26px}
-}
-
-/* Tablets (640px–1023px) */
-@media(min-width:640px){
-  .app-shell{max-width:720px;margin:0 auto;border-radius:16px;box-shadow:0 8px 48px rgba(0,0,0,.55)}
-  html{display:flex;align-items:center;justify-content:center;min-height:100%;background:#0a0604}
-  body{background:#0a0604}
+/* ── 2-column card grid starts at 560px ── */
+@media(min-width:560px){
   .bp-grid{grid-template-columns:1fr 1fr;gap:12px}
-  .term-header{padding:16px 22px 12px}
-  .toolbar{padding:0 22px 12px}
-  .bp-grid{padding:6px 22px 32px}
-  .collection-content{padding:0 22px 24px}
-  .map-legend{padding:10px 14px}
+  .term-header{padding:14px 20px 11px}
+  .toolbar{padding:0 20px 11px}
+  .bp-grid{padding:6px 20px 30px}
+  .collection-content{padding:0 20px 22px}
+  .collection-header{padding:14px 20px 10px}
 }
 
-/* Large tablets / small desktops (1024px+) */
-@media(min-width:1024px){
-  .app-shell{max-width:860px}
-  .bp-grid{grid-template-columns:1fr 1fr 1fr}
+/* ── Large phones / phablets (700px+) ── */
+@media(min-width:700px){
+  .brand-name{font-size:27px}
+  .bp-name{font-size:17px}
+}
+
+/* ══════════════════════════════════════════
+   900px+: app becomes a centred panel on a dark canvas.
+   We override inset so the fixed shell can be width-capped
+   and horizontally centred. All full-screen overlays follow.
+══════════════════════════════════════════ */
+@media(min-width:900px){
+
+  /* outer canvas */
+  html,body{
+    background:#0d0907;
+    overflow:hidden;
+  }
+
+  /* centred shell — override inset:0 */
+  .app-shell{
+    position:fixed;
+    inset:auto;          /* reset shorthand */
+    top:0;bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(1080px,100vw);
+    box-shadow:0 0 80px rgba(0,0,0,.65);
+  }
+
+  /* overlays must follow the same column so they don't bleed into the canvas */
+  .detail-panel,
+  .brew-mode{
+    position:fixed;
+    inset:auto;
+    top:0;bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(1080px,100vw);
+  }
+
+  /* form panel keeps full-screen dark backdrop but the sheet is already capped */
+  .panel{
+    position:fixed;
+    inset:0;
+  }
+
+  /* toast stays centred inside the column */
+  .toast{
+    left:50%;
+    transform:translateX(-50%);
+    /* override the translate already on .toast */
+    bottom:76px;
+  }
+
+  /* 3-column card grid */
+  .bp-grid{
+    grid-template-columns:1fr 1fr 1fr;
+    gap:14px;
+    padding:8px 26px 38px;
+  }
+
+  /* comfortably wider content areas */
+  .term-header{padding:18px 26px 14px}
+  .toolbar{padding:0 26px 14px;gap:11px}
+  .collection-header{padding:18px 26px 12px}
+  .collection-content{padding:0 26px 28px}
   .brand-name{font-size:28px}
+  .bp-name{font-size:17px}
+
+  /* detail body breathes more */
+  .bp-detail-body{padding:8px 34px 48px}
+
+  /* search row wider */
+  .search{font-size:14px}
+
+  /* map legend slightly bigger */
+  .map-legend{padding:10px 15px;border-radius:10px}
 }
 
-/* Very large screens (1400px+) */
-@media(min-width:1400px){
-  .app-shell{max-width:1000px}
+/* ── 3-column stays but wider cards at 1200px ── */
+@media(min-width:1200px){
+  .app-shell,
+  .detail-panel,
+  .brew-mode{
+    width:min(1200px,100vw);
+  }
+  .bp-grid{gap:16px;padding:8px 30px 42px}
+  .term-header{padding:20px 30px 15px}
+  .toolbar{padding:0 30px 15px}
+  .collection-header{padding:20px 30px 14px}
+  .collection-content{padding:0 30px 32px}
+  .brand-name{font-size:30px}
+  .bp-name{font-size:18px}
+  .bp-detail-body{padding:10px 42px 56px}
+}
+
+/* ── 4-column on very large / ultrawide (1440px+) ── */
+@media(min-width:1440px){
+  .app-shell,
+  .detail-panel,
+  .brew-mode{
+    width:min(1380px,100vw);
+  }
+  .bp-grid{
+    grid-template-columns:1fr 1fr 1fr 1fr;
+    gap:16px;
+    padding:8px 34px 44px;
+  }
+  .term-header{padding:22px 34px 16px}
+  .toolbar{padding:0 34px 16px}
+  .collection-header{padding:22px 34px 15px}
+  .collection-content{padding:0 34px 36px}
 }
