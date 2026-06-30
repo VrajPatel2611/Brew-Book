@@ -2,20 +2,31 @@
 
 > *A cinematic journal of 38 coffee recipes from around the world — for your moka pot and a quiet morning.*
 
-**Live at:** `https://<your-username>.github.io/brew-book/` *(once you set up GitHub Pages — see below)*
+**Live at:** `https://<your-username>.github.io/Brew-Book/` *(once you set up GitHub Pages — see below)*
 
 ---
 
 ## What it is
 
-Brew Book is a personal coffee-recipe journal: **38 drinks from 22 countries**, each told as a short story with ingredients, titled steps, and buying picks for Blue Tokai and Third Wave. Features include:
+Brew Book is a personal coffee-recipe journal: **38 drinks from 22 countries**, each told as a short story with ingredients, titled steps, and buying picks for Blue Tokai and Third Wave.
 
-- 🌍 Cinematic per-recipe scroll view with story, bean notes, ingredients, and steps
-- ☕ **Brew Mode** — guided, one-step-at-a-time with a cup-fill progress bar
+### Navigation — two screens
+
+| Tab | What's here |
+|---|---|
+| **Recipes** | List view (hero + category lanes) or World view (dotted stipple map). Toggle with the List / World pill next to the search bar. |
+| **Collection** | Boarding passes for every brew you've marked as made. |
+
+### Features
+
+- **Brew of the Day** — a full-width hero card that cycles daily through your recipe list
+- **Flavour lanes** — recipes grouped into Milk & Cream · Iced & Cold · Black & Strong · Spiced · Blended, scrollable horizontally
+- **World Map** — dotted-stipple Robinson projection with a pin for every recipe that has a genuine single-country origin. Fusion / modern-café recipes are intentionally absent (no dishonest pin placement). Pan and zoom supported.
+- **Brew Mode** — guided step-by-step with a filling-cup SVG that rises as you progress through steps, plus animated steam wisps
+- **Method switcher** — for recipes with multiple brew methods, switch between them in the detail panel
 - ⭐ Ratings and "Made it" tracking (saved to your browser)
-- 🔍 Search + filter by method / tried status + sort
-- 💾 Backup / Restore your personal ratings as JSON
-- 📱 Works on phones (when hosted — see below)
+- 🔍 Search + filter by method / tried status + ingredient kitchen filter
+- 💾 Backup / Restore your personal data as JSON
 
 ---
 

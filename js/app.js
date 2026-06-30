@@ -1,6 +1,7 @@
 /* ===== Brew Book — APP LOGIC =====
-   Storage, rendering (boarding passes), airline system, world map,
-   navigation, cinematic detail view, brew mode, the add/edit form. */
+   Storage, rendering (hero + lanes + boarding passes), navigation,
+   detail view, brew mode, the add/edit form.
+   World-map logic lives in js/worldmap.js. */
 
 /* ---------- AIRLINE SYSTEM (keyed by recipe serial) ---------- */
 const AIRLINES = {
@@ -51,7 +52,42 @@ function hexLighten(hex,amt){
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
-/* World map constants, state, and functions are in js/worldmap.js */
+/* ---------- STYLE CATEGORIES (for hero + horizontal lanes) ----------
+   Categories describe flavour and character, not geography or brew method.
+   "World Black" is intentionally absent — World is a view mode, not a flavour.
+   "Black & Strong" replaces it to describe the actual taste profile. */
+const STYLE_CATEGORIES = [
+  {
+    id: 'milk', label: 'Milk & Cream',
+    ids: ['seed-coconut','seed-egg','seed-suada','seed-bombon','seed-kopisusu',
+          'seed-kaapi','seed-cortadito','seed-yuenyeung','seed-affogato',
+          'seed-einspanner','seed-saltcoffee','seed-mocha','seed-ipoh','seed-dolcelatte']
+  },
+  {
+    id: 'iced', label: 'Iced & Cold',
+    ids: ['seed-mango','seed-mazagran','seed-shakerato','seed-orange','seed-pineapple',
+          'seed-coffeejelly','seed-dirty','seed-brownsugar','seed-cheesefoam','seed-flashbrew']
+  },
+  {
+    id: 'black', label: 'Black & Strong',
+    ids: ['seed-turkish','seed-cafezinho','seed-carajillo','seed-buna']
+  },
+  {
+    id: 'spiced', label: 'Spiced',
+    ids: ['seed-thai','seed-cafeolla','seed-qahwa','seed-touba','seed-qishr']
+  },
+  {
+    id: 'blended', label: 'Blended',
+    ids: ['seed-frappe','seed-dalgona','seed-banana','seed-coldcoffee','seed-chikoo']
+  }
+];
+
+function getStyleCategory(r) {
+  for (const cat of STYLE_CATEGORIES) {
+    if (cat.ids.includes(r.id)) return cat.id;
+  }
+  return 'other';
+}
 
 /* ---------- storage ---------- */
 const hasClaudeStorage = typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function';
@@ -71,8 +107,8 @@ async function loadRecipes(){
   renderCollection();
 }
 async function saveRecipes(silent){
-  try{ const ok = await storeSet(JSON.stringify(recipes)); if(!ok && !silent) showToast('Couldn\u2019t save — try again'); }
-  catch(e){ if(!silent) showToast('Couldn\u2019t save — try again'); }
+  try{ const ok = await storeSet(JSON.stringify(recipes)); if(!ok && !silent) showToast('Couldn’t save — try again'); }
+  catch(e){ if(!silent) showToast('Couldn’t save — try again'); }
 }
 function rememberSeedDeletion(id){
   if(!id.startsWith('seed-')) return;
@@ -99,7 +135,7 @@ function buyPicksHTML(id){
     </div>`;
 }
 
-/* ---------- chips ---------- */
+/* ---------- method filter chips (in toolbar) ---------- */
 function buildChips(){
   const chipsEl = document.getElementById('methodChips');
   const order = ['all','moka pot','instant','blended','cezve','other'];
@@ -158,32 +194,18 @@ function boardingPassCard(r, matchState){
 let kitchen = new Set();
 let kitchenOpen = false;
 const KITCHEN_CHIPS = ['Milk','Condensed Milk','Coconut Milk','Cream','Ice','Sugar','Honey','Egg','Coffee','Instant Coffee','Banana','Mango','Orange','Pineapple','Chocolate','Cinnamon','Cardamom','Vanilla','Ginger','Lemon','Salt'];
-const KITCHEN_STAPLES = new Set(['coffee']); // assumed always on hand, never gates
+const KITCHEN_STAPLES = new Set(['coffee']);
 
 function ingredientToken(text){
   const t = (text||'').toLowerCase();
-  if(t.includes('ice cream') || t.includes('gelato')) return null; // not a kitchen chip
+  if(t.includes('ice cream') || t.includes('gelato')) return null;
   const map = [
-    ['condensed',['condensed']],
-    ['coconut',['coconut']],
-    ['cream',['cream']],
-    ['ice',['ice']],
-    ['egg',['egg']],
-    ['banana',['banana']],
-    ['mango',['mango']],
-    ['orange',['orange']],
-    ['pineapple',['pineapple']],
-    ['chocolate',['chocolate','cocoa']],
-    ['cinnamon',['cinnamon']],
-    ['cardamom',['cardamom']],
-    ['vanilla',['vanilla']],
-    ['ginger',['ginger']],
-    ['lemon',['lemon']],
-    ['salt',['salt']],
-    ['honey',['honey']],
-    ['sugar',['sugar','jaggery','gur']],
-    ['coffee',['coffee','espresso','instant']],
-    ['milk',['milk']]
+    ['condensed',['condensed']],['coconut',['coconut']],['cream',['cream']],
+    ['ice',['ice']],['egg',['egg']],['banana',['banana']],['mango',['mango']],
+    ['orange',['orange']],['pineapple',['pineapple']],['chocolate',['chocolate','cocoa']],
+    ['cinnamon',['cinnamon']],['cardamom',['cardamom']],['vanilla',['vanilla']],
+    ['ginger',['ginger']],['lemon',['lemon']],['salt',['salt']],['honey',['honey']],
+    ['sugar',['sugar','jaggery','gur']],['coffee',['coffee','espresso','instant']],['milk',['milk']]
   ];
   for(const [tok,words] of map){ for(const w of words){ if(t.includes(w)) return tok; } }
   return null;
@@ -200,7 +222,7 @@ function kitchenTokenSet(){
 }
 function isMakeable(r, kset){
   const toks = recipeTokens(r);
-  if(toks.size === 0) return true; // black coffee — always makeable
+  if(toks.size === 0) return true;
   for(const t of toks){ if(!kset.has(t)) return false; }
   return true;
 }
@@ -230,7 +252,7 @@ function buildKitchen(){
   document.getElementById('kitchenToggle').onclick = e => {
     e.stopPropagation();
     if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }
-    else if(kitchen.size > 0){ kitchen.clear(); renderKitchen(); render(); } // collapsed filled × = clear
+    else if(kitchen.size > 0){ kitchen.clear(); renderKitchen(); render(); }
     else { kitchenOpen = true; renderKitchen(); }
   };
   document.getElementById('kitchenClear').onclick = () => { kitchen.clear(); renderKitchen(); render(); };
@@ -262,15 +284,65 @@ function renderKitchen(){
   document.getElementById('kitchenResult').style.display = active ? 'flex' : 'none';
 }
 
-/* ---------- render (home terminal) ---------- */
+/* ---------- HERO — brew of the day ---------- */
+function heroHTML(r) {
+  const al  = getAirline(r.serial || 0);
+  const light = hexLighten(al.color, 55);
+  return `<div class="hero-card" data-id="${r.id}">
+    <div class="hero-portrait" aria-hidden="true">
+      <div class="hero-portrait-glow" style="background:radial-gradient(circle at 40% 55%,${al.color}55,transparent 68%)"></div>
+      <div class="hero-portrait-inner" style="background:radial-gradient(ellipse at 38% 48%,${light}33 0%,${al.color}22 45%,transparent 70%)"></div>
+      <div class="hero-portrait-highlight"></div>
+    </div>
+    <div class="hero-body">
+      <div class="hero-eyebrow">
+        <em class="hero-today">today's</em>
+        <span class="hero-eyebrow-label">BREW OF THE DAY</span>
+      </div>
+      <h2 class="hero-title">${esc(r.name)}</h2>
+      ${r.description ? `<p class="hero-desc">${esc(r.description)}</p>` : ''}
+      <div class="hero-meta">
+        <span class="hero-origin" style="color:${al.color}">${esc(r.origin||'Fusion')}</span>
+        <span class="hero-sep">·</span>
+        <span class="hero-method">${esc(r.method||'')}</span>
+      </div>
+    </div>
+    <div class="hero-airline-bar" style="background:${al.color}"></div>
+  </div>`;
+}
+
+/* ---------- CATEGORY CHIPS (style/flavour, inside content area) ---------- */
+let activeCategory = 'all';
+
+function categoryChipsHTML(visibleList) {
+  /* Build only categories that have at least one recipe in the current filtered list */
+  const present = new Set(['all']);
+  visibleList.forEach(r => {
+    const cat = getStyleCategory(r);
+    STYLE_CATEGORIES.forEach(c => { if(c.ids.includes(r.id)) present.add(c.id); });
+  });
+  const cats = [{id:'all', label:'All'}].concat(STYLE_CATEGORIES.filter(c => present.has(c.id)));
+  return `<div class="cat-rail" id="catRail" role="group" aria-label="Filter by style">
+    ${cats.map(c => `<button class="cat-chip${activeCategory===c.id?' active':''}" data-cat="${c.id}">${esc(c.label)}</button>`).join('')}
+  </div>`;
+}
+
+function syncCategoryChips() {
+  document.querySelectorAll('#catRail .cat-chip').forEach(b =>
+    b.classList.toggle('active', b.dataset.cat === activeCategory)
+  );
+}
+
+/* ---------- render (home — list view) ---------- */
 function render(){
   document.getElementById('countPill').textContent = recipes.length + ' BREWS';
   syncChips();
-  const content = document.getElementById('content');
+
+  /* Build the base filtered list (method + tried + search + kitchen) */
   let list = recipes.slice();
   if(activeMethod !== 'all') list = list.filter(r => (['moka pot','instant','blended','cezve'].includes(r.method) ? r.method : 'other') === activeMethod);
   if(triedFilter === 'tried') list = list.filter(r => r.tried);
-  if(triedFilter === 'totry') list = list.filter(r => !r.tried);
+  if(triedFilter === 'totry')  list = list.filter(r => !r.tried);
   if(searchTerm){
     const q = searchTerm.toLowerCase();
     list = list.filter(r => r.name.toLowerCase().includes(q) || (r.description||'').toLowerCase().includes(q) || (r.origin||'').toLowerCase().includes(q) || (r.ingredients||[]).some(i => i.toLowerCase().includes(q)));
@@ -281,21 +353,83 @@ function render(){
   else if(sortBy === 'name') list.sort((a,b)=>a.name.localeCompare(b.name));
 
   const kActive = kitchen.size > 0;
-  const kset = kActive ? kitchenTokenSet() : null;
+  const kset    = kActive ? kitchenTokenSet() : null;
+
+  const content = document.getElementById('content');
 
   if(list.length === 0){
-    content.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>${recipes.length === 0 ? 'No brews yet' : 'Nothing matches'}</h2><p>${recipes.length === 0 ? 'Tap ＋ to write your first one.' : 'Try a different search or filter.'}</p></div>`;
+    content.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>${recipes.length===0?'No brews yet':'Nothing matches'}</h2><p>${recipes.length===0?'Tap ＋ to write your first one.':'Try a different search or filter.'}</p></div>`;
+    if(animateNext){ animateNext = false; }
     return;
   }
-  content.innerHTML = `<div class="bp-grid">${list.map(r => boardingPassCard(r, kActive ? (isMakeable(r, kset) ? 'match' : 'dim') : null)).join('')}</div>`;
-  if(kActive){
-    const cnt = document.getElementById('kitchenCount');
-    if(cnt) cnt.textContent = list.filter(r => isMakeable(r, kset)).length;
+
+  /* If search is active, show a flat grid — search results feel better without lanes */
+  if(searchTerm){
+    content.innerHTML = `<div class="bp-grid">${list.map(r => boardingPassCard(r, kActive?(isMakeable(r,kset)?'match':'dim'):null)).join('')}</div>`;
+    if(kActive){ const cnt = document.getElementById('kitchenCount'); if(cnt) cnt.textContent = list.filter(r=>isMakeable(r,kset)).length; }
+    if(animateNext){ if(typeof BREW_ANIM!=='undefined') BREW_ANIM.animateCardEntrance(content); animateNext=false; }
+    return;
   }
-  if(animateNext){
-    if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.animateCardEntrance(content);
-    animateNext = false;
+
+  /* ---------- Hero + category chips + lanes ---------- */
+
+  /* Today's brew: deterministic per calendar day, cycles through all recipes */
+  const dayIdx   = (new Date().getDate() - 1) % list.length;
+  const heroRec  = list[dayIdx];
+
+  /* Apply category filter */
+  const filteredForLanes = activeCategory === 'all'
+    ? list
+    : list.filter(r => STYLE_CATEGORIES.find(c => c.id === activeCategory)?.ids.includes(r.id));
+
+  let html = heroHTML(heroRec);
+  html += categoryChipsHTML(list);
+
+  if(filteredForLanes.length === 0){
+    html += `<div class="empty"><div class="empty-ring"></div><h2>Nothing here</h2><p>Try a different category.</p></div>`;
+  } else if(activeCategory !== 'all'){
+    /* Single-category view: plain horizontal lane, no section title */
+    const cat = STYLE_CATEGORIES.find(c => c.id === activeCategory);
+    html += _laneHTML(cat ? cat.label : '', filteredForLanes, kActive, kset);
+  } else {
+    /* All categories: one lane per category, only if it has recipes */
+    const seen = new Set();
+    STYLE_CATEGORIES.forEach(cat => {
+      const catRecs = list.filter(r => cat.ids.includes(r.id));
+      if(!catRecs.length) return;
+      catRecs.forEach(r => seen.add(r.id));
+      html += _laneHTML(cat.label, catRecs, kActive, kset);
+    });
+    /* Recipes not yet assigned to any category go in a misc lane */
+    const other = list.filter(r => !seen.has(r.id));
+    if(other.length) html += _laneHTML('Other', other, kActive, kset);
   }
+
+  content.innerHTML = html;
+
+  /* Wire category chip clicks */
+  const rail = document.getElementById('catRail');
+  if(rail) rail.onclick = e => {
+    const b = e.target.closest('.cat-chip');
+    if(!b) return;
+    activeCategory = b.dataset.cat;
+    animateNext = true;
+    render();
+  };
+
+  /* Wire hero click */
+  content.querySelector('.hero-card')?.addEventListener('click', () => openDetail(heroRec.id, content.querySelector('.hero-card')));
+
+  if(kActive){ const cnt = document.getElementById('kitchenCount'); if(cnt) cnt.textContent = list.filter(r=>isMakeable(r,kset)).length; }
+  if(animateNext){ if(typeof BREW_ANIM!=='undefined') BREW_ANIM.animateCardEntrance(content); animateNext=false; }
+}
+
+function _laneHTML(title, recs, kActive, kset) {
+  const cards = recs.map(r => boardingPassCard(r, kActive?(isMakeable(r,kset)?'match':'dim'):null)).join('');
+  return `<section class="recipe-lane">
+    ${title ? `<h2 class="lane-title">${esc(title)}</h2>` : ''}
+    <div class="lane-scroll">${cards}</div>
+  </section>`;
 }
 
 /* ---------- collection screen ---------- */
@@ -310,11 +444,9 @@ function renderCollection(){
   el.innerHTML = `<div class="bp-grid">${tried.map(boardingPassCard).join('')}</div>`;
 }
 
-/* World map functions live in js/worldmap.js */
-
 /* ---------- navigation ---------- */
 let currentScreen = 'screen-home';
-let mapEntered = false;
+
 function switchScreen(target){
   if(target === currentScreen) return;
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === target));
@@ -324,11 +456,30 @@ function switchScreen(target){
     if(on) t.setAttribute('aria-current','page'); else t.removeAttribute('aria-current');
   });
   currentScreen = target;
-  if(target === 'screen-map'){
-    buildWorldMap();
-    if(!mapEntered){ mapEntered = true; setTimeout(() => BREW_ANIM && BREW_ANIM.animateMapEntry(), 80); }
-  }
   if(target === 'screen-collection') renderCollection();
+}
+
+/* ---------- view toggle (List / World) ---------- */
+let viewMode = 'list'; /* 'list' | 'world' */
+
+function setViewMode(mode, skipRender) {
+  if(mode === viewMode && !skipRender) return;
+  viewMode = mode;
+  /* Update pill button states */
+  document.querySelectorAll('.vt-seg').forEach(b => {
+    const on = b.dataset.view === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const content = document.getElementById('content');
+  if(mode === 'world'){
+    if(content) content.style.display = 'none';
+    showWorldView();
+  } else {
+    if(content) content.style.display = '';
+    hideWorldView();
+    if(!skipRender) render();
+  }
 }
 
 /* ---------- detail (boarding pass paper) ---------- */
@@ -340,7 +491,6 @@ function openDetail(id, cardEl){
   const panel = document.getElementById('detail-panel');
   detailPanelEl = panel;
 
-  /* method switcher state */
   const hasMethods = r.methods && r.methods.length > 1;
   let curMethodId = hasMethods
     ? ((r.methods.find(m => m.recommended) || r.methods[0]).id)
@@ -366,7 +516,7 @@ function openDetail(id, cardEl){
 
   function methodContentHTML(){
     const { ingredients, steps, note } = activeContent();
-    const ingHTML = ingredients.map((i,idx)=>`<li class="reveal" style="transition-delay:${Math.min(idx*45,300)}ms">${ingredientIcon(i)}<span>${esc(i)}</span></li>`).join('');
+    const ingHTML  = ingredients.map((i,idx)=>`<li class="reveal" style="transition-delay:${Math.min(idx*45,300)}ms">${ingredientIcon(i)}<span>${esc(i)}</span></li>`).join('');
     const stepHTML = steps.map((s,idx)=>{const st=(typeof s==='string')?{c:s}:s;return `<li class="reveal ${idx%2?'reveal-right':'reveal-left'}"><div>${st.t?`<strong class="step-title">${esc(st.t)}:</strong> `:''}${esc(st.c)}</div></li>`;}).join('');
     return `${note?`<p class="method-note">${esc(note)}</p>`:''}
       <div class="detail-section-label reveal">Ingredients</div>
@@ -405,7 +555,6 @@ function openDetail(id, cardEl){
       <div class="detail-actions reveal"><button class="detail-btn" data-edit>Edit</button><button class="detail-btn danger" data-delete>Delete</button></div>
     </div>`;
 
-  /* torn separator inherits airline color */
   const torn = panel.querySelector('.torn-sep');
   torn.style.background = 'var(--pass-paper)';
   panel.querySelector('.bp-detail-header').style.marginBottom = '0';
@@ -430,7 +579,6 @@ function openDetail(id, cardEl){
   }
   wireBrewBtn();
 
-  /* method tab switches */
   panel.querySelectorAll('.method-tab').forEach(btn => {
     btn.onclick = () => {
       curMethodId = btn.dataset.methodId;
@@ -464,7 +612,7 @@ function openDetail(id, cardEl){
       showToast('Boarded ✓');
       setTimeout(() => openDetail(id, cardEl), 720);
     } else {
-      openDetail(id, cardEl); showToast('Moved back to “to try”');
+      openDetail(id, cardEl); showToast('Moved back to "to try"');
     }
   };
   panel.querySelectorAll('[data-rate] button').forEach(b => b.onclick = async () => {
@@ -475,7 +623,7 @@ function openDetail(id, cardEl){
   });
   panel.querySelector('[data-edit]').onclick = () => { closeDetail(); openForm(r.id); };
   panel.querySelector('[data-delete]').onclick = async () => {
-    if(!confirm(`Delete “${r.name}”? This can\u2019t be undone.`)) return;
+    if(!confirm(`Delete "${r.name}"? This can’t be undone.`)) return;
     recipes = recipes.filter(x => x.id !== r.id);
     rememberSeedDeletion(r.id);
     await saveRecipes(); closeDetail(); render(); renderCollection(); showToast('Recipe deleted');
@@ -510,7 +658,7 @@ function openForm(id){
     <div class="field"><label for="fBean">Beans / roast for this brew</label><textarea id="fBean" placeholder="e.g. dark roast robusta, chocolatey, low acidity">${r?esc(r.bean||''):''}</textarea></div>
     <div class="field"><label>Strength</label><div class="strength-picker" id="fStrength">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" class="${n===strength?'sel':''}" aria-label="Strength ${n}">${[...Array(n)].map(()=>beanSVG(true)).join('')}</button>`).join('')}</div></div>
     <div class="field"><label for="fIng">Ingredients</label><textarea id="fIng" rows="5" placeholder="One per line">${r?esc((r.ingredients||[]).join('\n')):''}</textarea><div class="hint">One ingredient per line</div></div>
-    <div class="field"><label for="fSteps">Steps</label><textarea id="fSteps" rows="6" placeholder="One step per line. Optional: Title :: instruction">${r?esc((r.steps||[]).map(s=>(typeof s==='string')?s:(s.t?s.t+' :: '+s.c:s.c)).join('\n')):''}</textarea><div class="hint">One step per line. Add a bold title with “Title :: instruction”.</div></div>
+    <div class="field"><label for="fSteps">Steps</label><textarea id="fSteps" rows="6" placeholder="One step per line. Optional: Title :: instruction">${r?esc((r.steps||[]).map(s=>(typeof s==='string')?s:(s.t?s.t+' :: '+s.c:s.c)).join('\n')):''}</textarea><div class="hint">One step per line. Add a bold title with "Title :: instruction".</div></div>
     <div class="field"><label for="fNotes">Notes (optional)</label><textarea id="fNotes" placeholder="Tips, tweaks, what to try next time…">${r?esc(r.notes||''):''}</textarea></div>
     <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>${r ? 'Save changes' : 'Save recipe'}</button></div>`;
 
@@ -553,9 +701,10 @@ function openForm(id){
 function closeForm(){ document.getElementById('formPanel').classList.remove('open'); }
 function closePanels(){ closeDetail(); closeForm(); }
 
-/* ---------- brew mode (cinematic) ---------- */
+/* ---------- brew mode (cinematic) with filling-cup visual ---------- */
 let brewState = null;
 let brewStarsSeeded = false;
+
 function startBrew(id, methodId){
   const r = recipes.find(x => x.id === id);
   if(!r) return;
@@ -574,17 +723,50 @@ function startBrew(id, methodId){
   if(!brewStarsSeeded && typeof BREW_ANIM !== 'undefined'){ BREW_ANIM.createStarField(document.getElementById('brewStars'), 45, true); brewStarsSeeded = true; }
   renderBrew();
 }
+
+function _brewCupSVG(pct) {
+  /* Filling cup visual — rises as a percentage of steps completed.
+     Two animated steam wisps appear once the cup is reasonably full. */
+  const fillH = Math.round(47 * pct / 100);
+  const fillY = 82 - fillH;
+  const steamOpacity = pct > 40 ? 0.55 : 0.18;
+  return `<div class="brew-cup-wrap" aria-hidden="true">
+    <svg class="brew-cup-svg" viewBox="0 0 80 100" fill="none">
+      <defs>
+        <clipPath id="cupClip">
+          <path d="M15 35 H65 L60 82 a8 8 0 0 1-8 7 H28 a8 8 0 0 1-8-7 Z"/>
+        </clipPath>
+      </defs>
+      <!-- cup fill -->
+      <rect x="15" y="${fillY}" width="50" height="${fillH + 10}"
+        fill="url(#roastFull)" opacity="0.72" clip-path="url(#cupClip)"
+        style="transition:y .4s ease,height .4s ease"/>
+      <!-- cup body outline -->
+      <path d="M15 35 H65 L60 82 a8 8 0 0 1-8 7 H28 a8 8 0 0 1-8-7 Z"
+        stroke="rgba(207,127,69,.45)" stroke-width="1.8"/>
+      <!-- handle -->
+      <path d="M65 46 a11 11 0 0 1 0 22"
+        stroke="rgba(207,127,69,.45)" stroke-width="1.8"/>
+      <!-- rim -->
+      <path d="M14 35 H66" stroke="rgba(233,162,95,.55)" stroke-width="1.4" stroke-linecap="round"/>
+      <!-- steam wisps -->
+      <path class="bw-steam bw-s1" d="M30 32 C26 22 34 16 30 8"
+        stroke="#cf7f45" stroke-width="1.6" stroke-linecap="round" opacity="${steamOpacity}"/>
+      <path class="bw-steam bw-s2" d="M50 32 C46 22 54 16 50 8"
+        stroke="#e9a25f" stroke-width="1.6" stroke-linecap="round" opacity="${steamOpacity}"/>
+    </svg>
+    <div class="brew-cup-pct">${pct}%</div>
+  </div>`;
+}
+
 function renderBrew(){
   if(!brewState) return;
   const { i, steps, name, origin } = brewState;
-  const bm = document.getElementById('brew-mode');
+  const bm    = document.getElementById('brew-mode');
   const total = steps.length;
   const atEnd = i >= total;
-  const pct = Math.round((Math.min(i, total) / total) * 100);
-  const stars = bm.querySelector('.brew-stars');
-  const glow = bm.querySelector('.brew-glow');
+  const pct   = Math.round((Math.min(i, total) / total) * 100);
 
-  /* preserve background layers, replace content */
   bm.querySelectorAll('.brew-shell').forEach(n => n.remove());
   const shell = document.createElement('div');
   shell.className = 'brew-shell';
@@ -595,7 +777,7 @@ function renderBrew(){
       <div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · ${esc(name)}</div><div class="brew-origin-line">Arrived ☕</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>
       <div class="brew-progress-bar"><div class="brew-progress-fill" style="width:100%"></div></div>
       <div class="brew-body"><div class="brew-done">
-        <div class="brew-done-cup">☕</div>
+        ${_brewCupSVG(100)}
         <h3>Brewed. Safe to consume.</h3>
         <p>Rate this brew and head back to the terminal.</p>
         <div class="brew-done-stars"><div class="detail-rate-stars" data-brewrate>${[1,2,3,4,5].map(n=>`<button data-star="${n}" aria-label="${n} star">★</button>`).join('')}</div></div>
@@ -606,6 +788,7 @@ function renderBrew(){
       <div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · ${esc(name)}</div><div class="brew-origin-line">${esc(origin||'')}</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>
       <div class="brew-progress-bar"><div class="brew-progress-fill" style="width:${pct}%"></div></div>
       <div class="brew-body">
+        ${_brewCupSVG(pct)}
         <div class="brew-step-content">
           <div class="brew-stepnum">Step ${i+1} of ${total}${(typeof steps[i]==='object' && steps[i].t) ? ' · ' + esc(steps[i].t) : ''}</div>
           <div class="brew-steptext">${esc((typeof steps[i]==='string') ? steps[i] : steps[i].c)}</div>
@@ -616,9 +799,7 @@ function renderBrew(){
   }
   bm.appendChild(shell);
 
-  // === ANIMATION HOOK ===
   if(typeof BREW_ANIM !== 'undefined' && !atEnd){ BREW_ANIM.animateBrewStep(shell.querySelector('.brew-body'), brewState.dir); }
-  // === END ANIMATION HOOK ===
 
   if(atEnd){
     shell.querySelector('[data-restart]').onclick = () => { brewState.dir = -1; brewState.i = 0; renderBrew(); };
@@ -645,8 +826,8 @@ function exitBrew(){ document.getElementById('brew-mode').style.display = 'none'
 /* ---------- backup / restore ---------- */
 function exportRecipes(){
   const blob = new Blob([JSON.stringify(recipes, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
   a.href = url; a.download = `brew-book-backup-${dateInputVal(Date.now())}.json`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   showToast('Backup downloaded ⬇');
@@ -667,7 +848,7 @@ function importRecipes(file){
       }
       await saveRecipes(); buildChips(); render(); renderCollection();
       showToast(`Restored ${merged} recipe${merged===1?'':'s'} ⬆`);
-    }catch(e){ showToast('That file didn\u2019t look like a backup'); }
+    }catch(e){ showToast('That file didn’t look like a backup'); }
   };
   reader.readAsText(file);
 }
@@ -675,9 +856,25 @@ function importRecipes(file){
 /* ---------- wiring ---------- */
 buildChips();
 buildKitchen();
-runSplash();
+if(typeof runSplash === 'function'){
+  runSplash();
+} else {
+  /* Fallback when animations.js isn't loaded: hide splash after 1.6 s */
+  const sp = document.getElementById('splash');
+  if(sp){
+    setTimeout(() => { sp.style.transition = 'opacity .5s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 520); }, 1600);
+    document.getElementById('splashSkip').onclick = () => { sp.style.transition = 'opacity .25s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 280); };
+  }
+}
 
 document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchScreen(t.dataset.target)));
+
+/* View toggle (List / World) */
+document.getElementById('viewToggle').addEventListener('click', e => {
+  const btn = e.target.closest('.vt-seg');
+  if(!btn) return;
+  setViewMode(btn.dataset.view);
+});
 
 document.getElementById('content').addEventListener('click', e => {
   const card = e.target.closest('.bp-card');
@@ -696,7 +893,7 @@ document.addEventListener('pointerdown', e => {
 let searchTimer = null;
 document.getElementById('addBtn').onclick = () => openForm(null);
 document.getElementById('searchInput').oninput = e => { searchTerm = e.target.value; clearTimeout(searchTimer); searchTimer = setTimeout(render, 120); };
-document.getElementById('sortSelect').onchange = e => { sortBy = e.target.value; animateNext = true; render(); };
+document.getElementById('sortSelect').onchange  = e => { sortBy = e.target.value; animateNext = true; render(); };
 document.getElementById('exportBtn').onclick = exportRecipes;
 document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
 document.getElementById('importFile').onchange = e => { if(e.target.files[0]) importRecipes(e.target.files[0]); e.target.value=''; };

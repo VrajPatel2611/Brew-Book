@@ -616,6 +616,161 @@
 .method-note{font-size:12.5px;font-style:italic;color:var(--pass-ink-dim);margin:6px 0 14px;line-height:1.5}
 [data-method-content]{transition:opacity .18s}
 
+/* ─── VIEW TOGGLE (List / World pill) ─── */
+.view-toggle{
+  display:flex;align-items:center;
+  background:rgba(46,34,26,.55);
+  backdrop-filter:blur(18px) saturate(1.4);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  border:1px solid rgba(242,228,207,.11);
+  border-radius:999px;
+  padding:3px;
+  flex-shrink:0;
+}
+.vt-seg{
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;
+  color:var(--crema-dim);background:transparent;border:none;
+  border-radius:999px;padding:6px 14px;cursor:pointer;
+  transition:background .18s,color .18s,box-shadow .18s;
+  white-space:nowrap;
+}
+.vt-seg.active{
+  background:var(--copper-grad);color:#fff;
+  box-shadow:0 4px 12px -3px rgba(207,127,69,.55);
+}
+.vt-seg:not(.active):hover{color:var(--crema)}
+
+/* ─── WORLD VIEW (in-place map panel) ─── */
+.world-view{
+  position:relative;flex:1;min-height:0;
+  background:var(--midnight);overflow:hidden;
+}
+.wv-canvas{position:absolute;inset:0;width:100%;height:100%}
+.wv-svg{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;overflow:visible;
+}
+.wm-pin{pointer-events:auto;cursor:pointer}
+.wm-pin circle{transition:r .12s}
+.wm-pin:hover circle{r:6}
+
+.wv-legend{
+  position:absolute;bottom:44px;left:14px;
+  background:rgba(7,15,26,.78);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(242,228,207,.1);
+  border-radius:10px;
+  padding:9px 12px;font-family:var(--font-mono);
+  pointer-events:none;
+}
+.wv-legend .legend-title{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--crema-dim);margin-bottom:7px}
+.wv-legend .legend-items{display:flex;flex-direction:column;gap:5px}
+.wv-legend .legend-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--crema-dim)}
+.wv-legend .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+.wv-absent-note{
+  position:absolute;bottom:14px;left:14px;
+  font-family:var(--font-mono);font-size:10px;color:rgba(242,228,207,.38);
+  letter-spacing:.04em;
+  pointer-events:none;
+}
+
+/* ─── HERO CARD (brew of the day) ─── */
+.hero-card{
+  position:relative;overflow:hidden;
+  background:linear-gradient(145deg,rgba(46,34,26,.9),rgba(10,22,40,.95));
+  border-radius:var(--radius);
+  margin:0 18px 6px;
+  padding:20px 18px 18px;
+  cursor:pointer;
+  display:flex;flex-direction:column;gap:6px;
+  border:1px solid rgba(242,228,207,.09);
+  transition:transform .18s,box-shadow .18s;
+}
+.hero-card:hover{transform:translateY(-2px);box-shadow:0 16px 40px -8px rgba(207,127,69,.22)}
+.hero-airline-bar{height:3px;border-radius:0 0 var(--radius) var(--radius);margin:-18px -18px 0;margin-top:auto}
+.hero-portrait{position:absolute;right:0;top:0;bottom:0;width:38%;pointer-events:none}
+.hero-portrait-glow{position:absolute;inset:0}
+.hero-portrait-inner{position:absolute;inset:0}
+.hero-portrait-highlight{
+  position:absolute;top:10%;right:12%;width:28%;height:30%;
+  background:rgba(255,255,255,.06);border-radius:50%;
+  filter:blur(14px);
+}
+.hero-body{position:relative;z-index:1;max-width:66%}
+.hero-eyebrow{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.hero-today{font-family:var(--font-display);font-size:14px;font-weight:400;color:var(--copper);font-style:italic}
+.hero-eyebrow-label{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--crema-dim)}
+.hero-title{
+  font-family:var(--font-display);font-weight:700;
+  font-size:clamp(24px,6vw,44px);
+  color:var(--foam);line-height:1.05;letter-spacing:-.02em;
+  margin:0 0 6px;
+}
+.hero-desc{font-size:12.5px;color:rgba(242,228,207,.55);line-height:1.45;margin:0 0 8px}
+.hero-meta{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.hero-sep{color:rgba(242,228,207,.3)}
+.hero-method{color:var(--crema-dim)}
+
+/* ─── CATEGORY CHIPS RAIL ─── */
+.cat-rail{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 18px 2px;
+  overflow-x:auto;scrollbar-width:none;flex-shrink:0;
+}
+.cat-rail::-webkit-scrollbar{display:none}
+.cat-chip{
+  flex-shrink:0;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--crema-dim);background:rgba(46,34,26,.55);
+  border:1px solid rgba(242,228,207,.12);border-radius:999px;
+  padding:7px 15px;cursor:pointer;
+  transition:background .18s,color .18s,border-color .18s,box-shadow .18s;
+  white-space:nowrap;
+}
+.cat-chip.active{
+  background:var(--copper-grad);color:#fff;border-color:transparent;
+  box-shadow:0 4px 14px -4px rgba(207,127,69,.5);
+}
+.cat-chip:not(.active):hover{border-color:var(--copper-soft);color:var(--crema)}
+
+/* ─── RECIPE LANES ─── */
+.recipe-lane{margin:12px 0 4px}
+.lane-title{
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--copper);padding:0 18px;margin:8px 0 8px;
+}
+.lane-scroll{
+  display:flex;gap:12px;
+  padding:0 18px 4px;
+  overflow-x:auto;scrollbar-width:none;
+}
+.lane-scroll::-webkit-scrollbar{display:none}
+.lane-scroll .bp-card{
+  flex-shrink:0;width:260px;
+  /* vertical card style — slightly taller than the grid horizontal layout */
+}
+
+/* ─── BREW CUP VISUAL (Brew Mode filling cup) ─── */
+.brew-cup-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  margin:0 auto 14px;flex-shrink:0;
+}
+.brew-cup-svg{width:80px;height:100px}
+.brew-cup-pct{
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.12em;
+  color:var(--copper);
+}
+/* Steam animations on the brew cup wisps */
+.bw-steam{fill:none;stroke-linecap:round}
+.bw-s1{animation:brewSteam 2.2s ease-in-out infinite}
+.bw-s2{animation:brewSteam 2.2s ease-in-out infinite .8s}
+@keyframes brewSteam{
+  0%,100%{stroke-dashoffset:32;opacity:.18}
+  50%{stroke-dashoffset:0;opacity:.58}
+}
+.bw-s1,.bw-s2{stroke-dasharray:32;stroke-dashoffset:32}
+
 /* ─── REDUCED MOTION ─── */
 @media(prefers-reduced-motion:reduce){
   .screen{transition:none}
