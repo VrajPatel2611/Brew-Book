@@ -32,6 +32,7 @@ brew-book/
 │   ├── data.js           ← the 38 recipes + roaster picks  ← ADD RECIPES HERE
 │   ├── icons.js          ← glossy SVG icon library
 │   ├── animations.js     ← splash, ambient beans, ripples (isolated / safe to edit)
+│   ├── worldmap.js       ← D3 Robinson world map, pins, zoom, boarding-pass preview
 │   └── app.js            ← rendering, search, Brew Mode, storage, init
 ├── assets/               ← add an og-image / favicon here
 ├── .nojekyll             ← tells GitHub Pages not to run Jekyll

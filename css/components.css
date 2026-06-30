@@ -596,6 +596,26 @@
 .stars{font-size:12px;letter-spacing:1px;color:var(--gold)}
 .stars .off{color:var(--line)}
 
+/* ─── METHOD SWITCHER (detail panel) ─── */
+.method-switcher{margin:14px 0 4px}
+.method-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper);margin-bottom:9px}
+.method-tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.method-tabs::-webkit-scrollbar{display:none}
+.method-tab{
+  flex-shrink:0;font-family:var(--font-body);font-size:12px;font-weight:700;
+  color:var(--pass-ink-dim);background:rgba(36,26,20,.06);
+  border:1px solid var(--pass-line);border-radius:999px;
+  padding:8px 15px;cursor:pointer;white-space:nowrap;
+  transition:background .18s,color .18s,border-color .18s,box-shadow .18s;
+}
+.method-tab.active{
+  color:#fff;background:var(--copper-grad);border-color:transparent;
+  box-shadow:0 5px 14px -4px rgba(207,127,69,.55);
+}
+.method-tab:not(.active):hover{border-color:var(--copper-soft);color:var(--pass-ink)}
+.method-note{font-size:12.5px;font-style:italic;color:var(--pass-ink-dim);margin:6px 0 14px;line-height:1.5}
+[data-method-content]{transition:opacity .18s}
+
 /* ─── REDUCED MOTION ─── */
 @media(prefers-reduced-motion:reduce){
   .screen{transition:none}
