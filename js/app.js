@@ -183,7 +183,7 @@ function boardingPassCard(r, matchState){
       ${beansRow(r.strength||3)}
     </div>
     <div class="bp-stub">
-      <span class="bp-country-badge" style="background:${al.color}">${al.code}</span>
+      <span class="bp-country-badge" style="background:${al.color}">${esc(r.code || al.code)}</span>
       <span class="bp-stub-date">${dateTop}<br><span class="bp-stub-yr">${yr}</span></span>
       ${r.tried?'<span class="bp-boarded">BOARDED</span>':''}
     </div>
@@ -333,9 +333,23 @@ function syncCategoryChips() {
   );
 }
 
+/* ---------- shared nav count pill ----------
+   A single persistent pill lives in the top nav. Its label depends on
+   whichever screen is active: total recipes everywhere except Collection,
+   where it shows how many have actually been brewed. */
+function updateNavCountPill(){
+  const el = document.getElementById('navCountPill');
+  if(!el) return;
+  if(currentScreen === 'screen-collection'){
+    el.textContent = recipes.filter(r => r.tried).length + ' BREWED';
+  } else {
+    el.textContent = recipes.length + ' BREWS';
+  }
+}
+
 /* ---------- render (home — list view) ---------- */
 function render(){
-  document.getElementById('countPill').textContent = recipes.length + ' BREWS';
+  updateNavCountPill();
   syncChips();
 
   /* Build the base filtered list (method + tried + search + kitchen) */
@@ -433,15 +447,82 @@ function _laneHTML(title, recs, kActive, kset) {
 }
 
 /* ---------- collection screen ---------- */
+let collView = 'landed'; /* 'landed' | 'mine' */
+
+/* Flat "ticket stub" card — Collection's own style, distinct from the
+   boarding-pass cards used in Recipes/World. Custom recipes (My Recipes)
+   get edit/delete icon buttons; landed brews don't. */
+function collectionCard(r, opts){
+  const custom = !!(opts && opts.custom);
+  const al = getAirline(r.serial || 0);
+  const color = al.color;
+  const code = r.code || al.code;
+  const catId = getStyleCategory(r);
+  const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
+  return `<div class="coll-card" data-id="${esc(r.id)}" style="--stub-color:${color}">
+    <div class="coll-card-top">
+      <div>
+        <div class="coll-card-origin" style="color:${color}">${esc(code)} · ${esc((r.origin || 'Fusion').toUpperCase())}</div>
+        <div class="coll-card-no">BREW NO. ${pad(r.serial || 0)}</div>
+      </div>
+      <div class="coll-card-right">
+        ${custom ? `<button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button><button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>` : ''}
+        <span class="coll-badge" style="background:${color}">${esc(code)}</span>
+      </div>
+    </div>
+    <h3 class="coll-card-name">${esc(r.name)}</h3>
+    ${r.description ? `<p class="coll-card-desc">${esc(r.description)}</p>` : ''}
+    <div class="coll-card-div"></div>
+    <div class="coll-card-method">
+      <span class="coll-card-method-label">METHOD</span>
+      <span class="coll-card-method-val" style="color:${color}">${esc(r.method || '')}</span>
+    </div>
+    ${catLabel ? `<span class="coll-card-tag">${esc(catLabel.toUpperCase())}</span>` : ''}
+  </div>`;
+}
+
+function addRecipeCard(){
+  return `<button class="coll-add-card" id="collAddCard" type="button">
+    <span class="coll-add-plus">+</span>
+    <span class="coll-add-label">Add a recipe</span>
+  </button>`;
+}
+
+function syncCollToggle(){
+  document.querySelectorAll('.coll-seg').forEach(b => {
+    const on = b.dataset.collView === collView;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
 function renderCollection(){
-  const tried = recipes.filter(r => r.tried).sort((a,b)=>(a.serial||0)-(b.serial||0));
-  document.getElementById('collectionCount').textContent = tried.length + ' BOARDED';
-  const el = document.getElementById('collection-content');
-  if(tried.length === 0){
-    el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No stamps yet</h2><p>Mark a brew as made to stamp your passport.</p></div>`;
-    return;
+  syncCollToggle();
+
+  const tried  = recipes.filter(r => r.tried).sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const mine   = recipes.filter(r => String(r.id).startsWith('custom-')).sort((a, b) => (a.serial || 0) - (b.serial || 0));
+
+  const progFill  = document.getElementById('collProgressFill');
+  const progLabel = document.getElementById('collProgressLabel');
+  if(progFill && progLabel){
+    const pct = recipes.length ? Math.round((tried.length / recipes.length) * 100) : 0;
+    progFill.style.width = pct + '%';
+    progLabel.textContent = `${tried.length} / ${recipes.length} brewed`;
   }
-  el.innerHTML = `<div class="bp-grid">${tried.map(boardingPassCard).join('')}</div>`;
+
+  const el = document.getElementById('collection-content');
+
+  if(collView === 'landed'){
+    if(tried.length === 0){
+      el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No stamps yet</h2><p>Mark a brew as made to stamp your passport.</p></div>`;
+    } else {
+      el.innerHTML = tried.map(r => collectionCard(r)).join('');
+    }
+  } else {
+    el.innerHTML = mine.map(r => collectionCard(r, {custom: true})).join('') + addRecipeCard();
+  }
+
+  updateNavCountPill();
 }
 
 /* ---------- navigation ---------- */
@@ -458,6 +539,7 @@ function switchScreen(target){
   currentScreen = target;
   if(target === 'screen-collection') renderCollection();
   if(target === 'screen-world') initWorldMap();
+  updateNavCountPill();
 }
 
 /* ---------- detail (boarding pass paper) ---------- */
@@ -614,11 +696,32 @@ function closeDetail(){
 }
 
 /* ---------- form ---------- */
+/* Repeatable-row builders for the ingredients & steps lists. */
+function ingRowHTML(val){
+  return `<div class="repeat-row" data-ing-row>
+    <input type="text" class="ri-input" placeholder="e.g. 60 ml strong coffee" value="${esc(val||'')}">
+    <button type="button" class="repeat-del" data-ing-del aria-label="Remove ingredient">✕</button>
+  </div>`;
+}
+function stepRowHTML(t, c){
+  return `<div class="repeat-row repeat-row-step" data-step-row>
+    <div class="step-inputs">
+      <input type="text" class="rs-title" placeholder="Step title (optional)" value="${esc(t||'')}">
+      <textarea class="rs-instr" placeholder="What to do in this step">${esc(c||'')}</textarea>
+    </div>
+    <button type="button" class="repeat-del" data-step-del aria-label="Remove step">✕</button>
+  </div>`;
+}
+
 function openForm(id){
   editingId = id || null;
   const r = id ? recipes.find(x=>x.id===id) : null;
   const sheet = document.getElementById('formSheet');
   const strength = r ? (r.strength||3) : 3;
+  const ingVals  = (r && r.ingredients && r.ingredients.length) ? r.ingredients : [''];
+  const stepVals = (r && r.steps && r.steps.length)
+    ? r.steps.map(s => (typeof s === 'string') ? {t:'', c:s} : {t:s.t||'', c:s.c||''})
+    : [{t:'', c:''}];
   sheet.innerHTML = `
     <div class="sheet-head"><h2>${r ? 'Edit recipe' : 'New recipe'}</h2><button class="close-btn" data-close aria-label="Close">✕</button></div>
     <div class="field"><label for="fName">Name</label><input id="fName" type="text" placeholder="e.g. Caffè Shakerato" value="${r?esc(r.name):''}"></div>
@@ -633,40 +736,105 @@ function openForm(id){
       <div class="field"><label for="fRatio">Ratio</label><input id="fRatio" type="text" placeholder="e.g. 1:4" value="${r?esc(r.ratio||''):''}"></div>
     </div>
     <div class="field"><label for="fRatioLabel">What the ratio means</label><input id="fRatioLabel" type="text" placeholder="e.g. espresso : ice" value="${r?esc(r.ratioLabel||''):''}"></div>
-    <div class="field"><label for="fBean">Beans / roast for this brew</label><textarea id="fBean" placeholder="e.g. dark roast robusta, chocolatey, low acidity">${r?esc(r.bean||''):''}</textarea></div>
     <div class="field"><label>Strength</label><div class="strength-picker" id="fStrength">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" class="${n===strength?'sel':''}" aria-label="Strength ${n}">${[...Array(n)].map(()=>beanSVG(true)).join('')}</button>`).join('')}</div></div>
-    <div class="field"><label for="fIng">Ingredients</label><textarea id="fIng" rows="5" placeholder="One per line">${r?esc((r.ingredients||[]).join('\n')):''}</textarea><div class="hint">One ingredient per line</div></div>
-    <div class="field"><label for="fSteps">Steps</label><textarea id="fSteps" rows="6" placeholder="One step per line. Optional: Title :: instruction">${r?esc((r.steps||[]).map(s=>(typeof s==='string')?s:(s.t?s.t+' :: '+s.c:s.c)).join('\n')):''}</textarea><div class="hint">One step per line. Add a bold title with "Title :: instruction".</div></div>
-    <div class="field"><label for="fNotes">Notes (optional)</label><textarea id="fNotes" placeholder="Tips, tweaks, what to try next time…">${r?esc(r.notes||''):''}</textarea></div>
+
+    <div class="form-section">
+      <div class="form-section-label">Detail page content</div>
+      <div class="field"><label for="fStory">Story</label><textarea id="fStory" placeholder="The italic narrative that opens the recipe's detail page…">${r?esc(r.story||''):''}</textarea></div>
+      <div class="field"><label for="fBean">Bean note</label><textarea id="fBean" placeholder="e.g. dark roast robusta, chocolatey — shown in the ☕ Bean note box">${r?esc(r.bean||''):''}</textarea></div>
+
+      <div class="field">
+        <label>Ingredients</label>
+        <div class="repeat-list" id="ingList">${ingVals.map(ingRowHTML).join('')}</div>
+        <button type="button" class="repeat-add" id="ingAdd">+ Add ingredient</button>
+      </div>
+
+      <div class="field">
+        <label>Steps</label>
+        <div class="repeat-list" id="stepList">${stepVals.map(s=>stepRowHTML(s.t, s.c)).join('')}</div>
+        <button type="button" class="repeat-add" id="stepAdd">+ Add step</button>
+      </div>
+
+      <div class="field"><label for="fNotes">Notes</label><textarea id="fNotes" placeholder="Tips, tweaks, what to try next time — shown in the ✎ Notes box">${r?esc(r.notes||''):''}</textarea></div>
+    </div>
     <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>${r ? 'Save changes' : 'Save recipe'}</button></div>`;
 
   let selStrength = strength;
   sheet.querySelectorAll('#fStrength button').forEach(b => b.onclick = () => { selStrength = +b.dataset.n; sheet.querySelectorAll('#fStrength button').forEach(x => x.classList.toggle('sel', +x.dataset.n === selStrength)); });
   sheet.querySelectorAll('[data-close]').forEach(b => b.onclick = closeForm);
+
+  /* Repeatable ingredient rows: add appends a blank row; delete removes
+     (but never the last one — it clears instead so a row is always present). */
+  const ingList = sheet.querySelector('#ingList');
+  sheet.querySelector('#ingAdd').onclick = () => {
+    ingList.insertAdjacentHTML('beforeend', ingRowHTML(''));
+    ingList.lastElementChild.querySelector('.ri-input').focus();
+  };
+  ingList.addEventListener('click', e => {
+    const del = e.target.closest('[data-ing-del]');
+    if(!del) return;
+    if(ingList.querySelectorAll('[data-ing-row]').length > 1) del.closest('[data-ing-row]').remove();
+    else del.closest('[data-ing-row]').querySelector('.ri-input').value = '';
+  });
+
+  /* Repeatable step rows (title + instruction), same add/delete behaviour. */
+  const stepList = sheet.querySelector('#stepList');
+  sheet.querySelector('#stepAdd').onclick = () => {
+    stepList.insertAdjacentHTML('beforeend', stepRowHTML('', ''));
+    stepList.lastElementChild.querySelector('.rs-title').focus();
+  };
+  stepList.addEventListener('click', e => {
+    const del = e.target.closest('[data-step-del]');
+    if(!del) return;
+    if(stepList.querySelectorAll('[data-step-row]').length > 1) del.closest('[data-step-row]').remove();
+    else { const row = del.closest('[data-step-row]'); row.querySelector('.rs-title').value = ''; row.querySelector('.rs-instr').value = ''; }
+  });
+
   sheet.querySelector('[data-save]').onclick = async () => {
     const name = sheet.querySelector('#fName').value.trim();
     if(!name){ showToast('Give it a name first'); sheet.querySelector('#fName').focus(); return; }
-    const lines = sel => sheet.querySelector(sel).value.split('\n').map(s=>s.trim()).filter(Boolean);
     const prev = editingId ? recipes.find(x=>x.id===editingId) : null;
     const dateStr = sheet.querySelector('#fDate').value;
+    const origin = sheet.querySelector('#fOrigin').value.trim();
+
+    const ingredients = [...sheet.querySelectorAll('#ingList .ri-input')]
+      .map(i => i.value.trim()).filter(Boolean);
+    const steps = [...sheet.querySelectorAll('#stepList [data-step-row]')]
+      .map(row => {
+        const t = row.querySelector('.rs-title').value.trim();
+        const c = row.querySelector('.rs-instr').value.trim();
+        const step = {c};
+        if(t) step.t = t;
+        return step;
+      })
+      .filter(s => s.c);
+
     const data = {
-      id: editingId || ('r-' + Date.now()),
+      id: editingId || ('custom-' + Date.now()),
       serial: parseInt(sheet.querySelector('#fSerial').value, 10) || nextSerial(),
       name,
       description: sheet.querySelector('#fDesc').value.trim(),
-      origin: sheet.querySelector('#fOrigin').value.trim(),
+      origin,
       method: sheet.querySelector('#fMethod').value,
       ratio: sheet.querySelector('#fRatio').value.trim(),
       ratioLabel: sheet.querySelector('#fRatioLabel').value.trim(),
+      story: sheet.querySelector('#fStory').value.trim(),
       bean: sheet.querySelector('#fBean').value.trim(),
       strength: selStrength,
-      ingredients: lines('#fIng'),
-      steps: sheet.querySelector('#fSteps').value.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{const ix=line.indexOf('::'); return ix>=0?{t:line.slice(0,ix).trim(),c:line.slice(ix+2).trim()}:{c:line};}),
+      ingredients,
+      steps,
       notes: sheet.querySelector('#fNotes').value.trim(),
       tried: prev ? prev.tried : false,
       rating: prev ? prev.rating : 0,
       createdAt: dateStr ? D(dateStr) : (prev ? prev.createdAt : Date.now())
     };
+
+    /* Custom recipes carry an origin-derived 2-letter code (shown on the
+       boarding-pass stub). Built-in seed recipes keep their airline code. */
+    const isCustom = !editingId || String(editingId).startsWith('custom-');
+    if(isCustom && origin) data.code = origin.slice(0, 2).toUpperCase();
+    else if(prev && prev.code) data.code = prev.code;
+
     if(editingId) recipes = recipes.map(x => x.id === editingId ? data : x);
     else recipes.push(data);
     await saveRecipes(); closeForm(); buildChips(); render(); renderCollection();
@@ -1042,6 +1210,10 @@ function importRecipes(file){
 }
 
 /* ---------- wiring ---------- */
+/* Flag the animation system as active so scroll-reveal elements start hidden.
+   Without animations.js loaded, this stays off and all content renders visible. */
+if(typeof BREW_ANIM !== 'undefined') document.documentElement.classList.add('brew-anim');
+
 buildChips();
 buildKitchen();
 if(typeof runSplash === 'function'){
@@ -1061,10 +1233,32 @@ document.getElementById('content').addEventListener('click', e => {
   const card = e.target.closest('.bp-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
 });
-document.getElementById('collection-content').addEventListener('click', e => {
-  const card = e.target.closest('.bp-card');
+document.getElementById('collection-content').addEventListener('click', async e => {
+  if(e.target.closest('#collAddCard')){ openForm(null); return; }
+
+  const editBtn = e.target.closest('[data-edit]');
+  if(editBtn){ e.stopPropagation(); openForm(editBtn.closest('.coll-card').dataset.id); return; }
+
+  const delBtn = e.target.closest('[data-delete]');
+  if(delBtn){
+    e.stopPropagation();
+    const id = delBtn.closest('.coll-card').dataset.id;
+    const r = recipes.find(x => x.id === id);
+    if(!r) return;
+    if(!confirm(`Delete "${r.name}"? This can’t be undone.`)) return;
+    recipes = recipes.filter(x => x.id !== id);
+    await saveRecipes(); render(); renderCollection(); showToast('Recipe deleted');
+    return;
+  }
+
+  const card = e.target.closest('.coll-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
 });
+
+document.querySelectorAll('.coll-seg').forEach(b => b.addEventListener('click', () => {
+  collView = b.dataset.collView;
+  renderCollection();
+}));
 
 document.addEventListener('pointerdown', e => {
   const el = e.target.closest('.detail-btn.primary, .util-add, .detail-made-toggle, .brew-btn.primary');

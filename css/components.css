@@ -1,10 +1,13 @@
 /* ===== Brew Book — Components ===== */
 
+/* ─── PAGE SHELL (persistent top nav + app content) ─── */
+.page-shell{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden}
+
 /* ─── APP SHELL ─── */
-.app-shell{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.app-shell{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 
 .screen{
-  position:absolute;inset:0 0 56px 0;
+  position:absolute;inset:0;
   display:none;flex-direction:column;
 }
 .screen.active{display:flex}
@@ -57,12 +60,16 @@
 /* ─── RUNWAY STRIP ─── */
 .runway-strip{height:3px;background:var(--copper-grad);flex-shrink:0}
 
-/* ─── TERMINAL HEADER ─── */
-.term-header{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:13px 18px 10px;flex-shrink:0;
+/* ─── TOP NAV (persistent, spans every screen) ─── */
+.top-nav{
+  flex-shrink:0;position:relative;z-index:50;
+  background:var(--nav-bg);border-bottom:1px solid rgba(207,127,69,.18);
 }
-.term-brand{display:flex;align-items:center;gap:8px}
+.top-nav-inner{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:12px 18px;
+}
+.tn-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .cuplogo{display:inline-block;width:32px;height:36px;flex-shrink:0}
 .cuplogo svg{width:100%;height:100%;overflow:visible}
 .cuplogo .w{
@@ -77,27 +84,39 @@
   22%{opacity:.6}60%{opacity:.28}
   100%{stroke-dashoffset:-11;opacity:0;transform:translateY(-7px)}
 }
-.brand-name{font-family:var(--font-display);font-weight:700;font-size:26px;color:var(--foam);letter-spacing:-.5px;line-height:1}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--foam);letter-spacing:-.5px;line-height:1;white-space:nowrap}
 .brand-name em{font-style:normal;color:var(--copper)}
+
+.tn-links{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+.tn-right{display:flex;align-items:center;gap:12px;margin-left:auto;flex-wrap:wrap}
+
+/* Nav links reuse .nav-tab; pill-fills when active, plain text otherwise */
+.nav-tab{
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--crema-dim);background:transparent;border:none;border-radius:999px;
+  padding:8px 15px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;
+}
+.nav-tab:hover{color:var(--crema)}
+.nav-tab.active{background:var(--copper-grad);color:#fff}
 
 .count-pill{
   font-family:var(--font-mono);font-size:11px;color:var(--copper);
   border:1px solid var(--copper-soft);border-radius:999px;
-  padding:4px 12px;white-space:nowrap;letter-spacing:.06em;
+  padding:6px 14px;white-space:nowrap;letter-spacing:.06em;flex-shrink:0;
 }
 
-/* ─── TOOLBAR ─── */
-.toolbar{padding:0 18px 10px;display:flex;flex-direction:column;gap:9px;flex-shrink:0}
-.search-row{display:flex;gap:9px;align-items:center}
-.search-wrap{flex:1;position:relative;display:flex;align-items:center}
-.search-icon{position:absolute;left:11px;width:13px;height:13px;color:var(--crema-dim);pointer-events:none;flex-shrink:0}
+/* ─── TOOLBAR (Recipes screen only) ─── */
+.toolbar{padding:10px 18px 10px;display:flex;flex-direction:column;gap:9px;flex-shrink:0}
+.search-row{display:flex;gap:9px;align-items:center;justify-content:flex-end}
+.search-wrap{position:relative;display:flex;align-items:center;width:230px;max-width:56vw}
+.search-icon{position:absolute;left:12px;width:13px;height:13px;color:var(--crema-dim);pointer-events:none;flex-shrink:0}
 .search{
   width:100%;background:var(--roast-2);
-  border:none;border-bottom:1.5px solid var(--copper-soft);
+  border:1px solid var(--line);border-radius:10px;
   color:var(--crema);font-family:var(--font-mono);font-size:13px;
   padding:9px 12px 9px 32px;outline:none;transition:border-color .15s;
 }
-.search:focus{border-bottom-color:var(--copper)}
+.search:focus{border-color:var(--copper)}
 .search::placeholder{color:var(--crema-dim);opacity:.55}
 .sort{
   background:var(--roast-2);border:1px solid var(--line);border-radius:8px;
@@ -357,25 +376,6 @@
 .legend-item{display:flex;align-items:center;gap:7px;font-family:var(--font-body);font-size:11px;color:rgba(255,255,255,.55)}
 .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
-/* ─── BOTTOM NAV ─── */
-.bottom-nav{
-  position:absolute;bottom:0;left:0;right:0;height:56px;
-  background:var(--nav-bg);border-top:1px solid rgba(207,127,69,.18);
-  display:flex;z-index:100;
-}
-.nav-tab{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;color:var(--crema-dim);cursor:pointer;transition:color .15s;
-  padding:7px 0;position:relative;
-}
-.nav-tab svg{width:20px;height:20px;flex-shrink:0}
-.nav-tab span{font-family:var(--font-body);font-size:10px;font-weight:500;letter-spacing:.02em}
-.nav-tab.active{color:var(--copper)}
-.nav-tab.active::after{
-  content:'';position:absolute;bottom:0;left:22%;right:22%;
-  height:2px;background:var(--copper-grad);border-radius:2px 2px 0 0;
-}
-
 /* ─── DETAIL PANEL ─── */
 .detail-panel{
   position:fixed;inset:0;z-index:200;
@@ -481,11 +481,14 @@
 .detail-rate-stars button:hover{transform:scale(1.15)}
 .detail-rate-stars button.on{color:var(--gold)}
 
-/* Scroll reveal */
-.reveal{opacity:0;transform:translateY(22px);transition:opacity .5s ease,transform .55s cubic-bezier(.2,.82,.25,1)}
-.reveal.in{opacity:1;transform:none}
-.reveal-left{transform:translateX(-26px)}
-.reveal-right{transform:translateX(26px)}
+/* Scroll reveal — content renders visible by default (progressive enhancement).
+   Only when the animation system is loaded (html.brew-anim is set) do these
+   start hidden and animate in. Without animations.js everything shows normally. */
+.reveal{transition:opacity .5s ease,transform .55s cubic-bezier(.2,.82,.25,1)}
+.brew-anim .reveal{opacity:0;transform:translateY(22px)}
+.brew-anim .reveal.in{opacity:1;transform:none}
+.brew-anim .reveal-left{transform:translateX(-26px)}
+.brew-anim .reveal-right{transform:translateX(26px)}
 
 /* Detail action buttons */
 .detail-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
@@ -528,6 +531,21 @@
 .strength-picker{display:flex;gap:6px}
 .strength-picker button{flex:1;background:var(--roast);border:1px solid var(--line);border-radius:9px;padding:8px 4px;cursor:pointer;display:flex;justify-content:center;gap:2px;transition:all .15s}
 .strength-picker button.sel{border-color:var(--copper);background:rgba(207,127,69,.12)}
+/* Detail-content section: dashed divider + mono section label */
+.form-section{margin-top:20px;padding-top:16px;border-top:1px dashed var(--line)}
+.form-section-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--copper);margin-bottom:13px}
+
+/* Repeatable ingredient / step rows */
+.repeat-list{display:flex;flex-direction:column;gap:8px}
+.repeat-row{display:flex;gap:8px;align-items:flex-start}
+.repeat-row .ri-input{flex:1}
+.repeat-row-step .step-inputs{flex:1;display:flex;flex-direction:column;gap:6px}
+.repeat-row-step .rs-instr{min-height:52px}
+.repeat-del{flex-shrink:0;width:38px;height:38px;border-radius:9px;background:var(--roast-3);border:1px solid var(--line);color:var(--crema-dim);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s}
+.repeat-del:hover{border-color:var(--danger);color:var(--danger)}
+.repeat-add{margin-top:8px;width:100%;padding:10px;border-radius:9px;background:transparent;border:1px dashed var(--line);color:var(--copper);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:border-color .15s,background .15s}
+.repeat-add:hover{border-color:var(--copper);background:rgba(207,127,69,.08)}
+
 .form-actions{display:flex;gap:10px;margin-top:18px}
 .btn{flex:1;padding:13px;border-radius:10px;font-family:var(--font-body);font-weight:700;font-size:14px;cursor:pointer;border:1px solid var(--line);background:var(--roast-3);color:var(--crema);transition:border-color .15s}
 .btn:hover{border-color:var(--copper)}
@@ -638,10 +656,96 @@
 
 /* ─── COLLECTION SCREEN ─── */
 .screen-collection{background:var(--midnight)}
-.collection-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 10px;flex-shrink:0}
-.collection-title{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--foam)}
-.collection-sub{font-family:var(--font-mono);font-size:9.5px;color:var(--crema-dim);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
-.collection-content{flex:1;overflow-y:auto;padding:0 18px 20px}
+
+.coll-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  padding:20px 18px 4px;flex-shrink:0;
+}
+.coll-header-text{flex:1;min-width:240px}
+.coll-eyebrow{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--copper);margin-bottom:6px}
+.coll-title{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,5vw,32px);color:var(--foam);line-height:1.1}
+.coll-title em{font-style:italic;font-weight:400;color:var(--copper)}
+.coll-sub{font-family:var(--font-body);font-size:13px;color:var(--crema-dim);line-height:1.5;margin-top:8px;max-width:440px}
+
+.coll-toggle{
+  display:flex;align-items:center;gap:3px;flex-shrink:0;
+  background:rgba(46,34,26,.55);border:1px solid rgba(242,228,207,.11);border-radius:999px;padding:3px;
+}
+.coll-seg{
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--crema-dim);background:transparent;border:none;border-radius:999px;
+  padding:8px 15px;cursor:pointer;white-space:nowrap;transition:background .18s,color .18s;
+}
+.coll-seg.active{background:var(--copper-grad);color:#fff}
+.coll-seg:not(.active):hover{color:var(--crema)}
+
+.coll-progress-row{display:flex;align-items:center;gap:14px;padding:14px 18px 8px;flex-shrink:0}
+.coll-progress-bar{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.coll-progress-fill{height:100%;width:0;background:var(--copper-grad);border-radius:3px;transition:width .4s ease}
+.coll-progress-label{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--crema-dim);white-space:nowrap;letter-spacing:.04em}
+
+.collection-content{
+  flex:1;overflow-y:auto;align-content:start;
+  display:grid;grid-template-columns:1fr;gap:12px;
+  padding:10px 18px 24px;
+}
+.collection-content .empty{grid-column:1/-1}
+@media(min-width:560px){.collection-content{grid-template-columns:1fr 1fr}}
+@media(min-width:900px){.collection-content{grid-template-columns:1fr 1fr 1fr;gap:14px}}
+
+/* ─── COLLECTION CARD (flat ticket-stub style) ─── */
+.coll-card{
+  position:relative;overflow:hidden;
+  background:var(--roast-2);border:1px solid var(--line);border-radius:12px;
+  padding:16px 30px 16px 18px;cursor:pointer;
+  display:flex;flex-direction:column;gap:10px;
+  transition:border-color .15s,transform .15s;
+}
+.coll-card:hover{border-color:var(--copper-soft);transform:translateY(-2px)}
+.coll-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--stub-color,var(--copper));
+}
+.coll-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.coll-card-origin{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.coll-card-no{font-family:var(--font-mono);font-size:9.5px;color:var(--crema-dim);opacity:.6;margin-top:2px;letter-spacing:.05em}
+.coll-card-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.coll-badge{
+  width:26px;height:26px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:9.5px;font-weight:700;color:#fff;
+}
+.coll-icon-btn{
+  width:24px;height:24px;border-radius:7px;flex-shrink:0;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--crema-dim);
+  font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color .15s,color .15s;
+}
+.coll-icon-btn:hover{border-color:var(--copper);color:var(--crema)}
+.coll-icon-btn[data-delete]:hover{border-color:var(--danger);color:var(--danger)}
+
+.coll-card-name{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--foam);line-height:1.2}
+.coll-card-desc{font-family:var(--font-body);font-style:italic;font-size:12.5px;color:var(--crema-dim);line-height:1.45}
+.coll-card-div{border-top:1px dashed var(--line);margin-top:2px}
+.coll-card-method{display:flex;align-items:center;gap:8px;font-family:var(--font-mono)}
+.coll-card-method-label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--crema-dim);opacity:.65}
+.coll-card-method-val{font-size:12px;font-weight:700;text-transform:capitalize}
+
+.coll-card-tag{
+  position:absolute;right:9px;top:50%;transform:translateY(-50%) rotate(90deg);
+  transform-origin:center;white-space:nowrap;
+  font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--crema-dim);opacity:.5;
+}
+
+.coll-add-card{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  min-height:150px;border:1.5px dashed var(--line);border-radius:12px;background:transparent;
+  color:var(--crema-dim);cursor:pointer;transition:border-color .15s,color .15s,background .15s;
+}
+.coll-add-card:hover{border-color:var(--copper);color:var(--copper);background:rgba(207,127,69,.06)}
+.coll-add-plus{font-size:28px;line-height:1;font-weight:300}
+.coll-add-label{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 
 /* ─── TOAST ─── */
 .toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);background:var(--copper);color:#241a14;font-weight:700;font-size:14px;padding:10px 22px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.45);z-index:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center;white-space:nowrap}
@@ -939,15 +1043,16 @@
 
 /* ══════════════════════════════════════════
    RESPONSIVE — mobile → phone → tablet → desktop → wide
-   The app shell is position:fixed;inset:0 so we must
+   The page shell is position:fixed;inset:0 so we must
    override inset explicitly to centre it on large screens.
 ══════════════════════════════════════════ */
 
 /* ── Tiny phones (≤360px) ── */
 @media(max-width:360px){
-  .term-header{padding:9px 11px 7px}
-  .brand-name{font-size:20px}
-  .toolbar{padding:0 11px 7px;gap:7px}
+  .top-nav-inner{padding:9px 11px;gap:10px}
+  .brand-name{font-size:17px}
+  .search-wrap{width:100%;max-width:none}
+  .toolbar{padding:7px 11px 7px;gap:7px}
   .bp-grid{padding:4px 11px 22px;gap:7px}
   .bp-name{font-size:13.5px}
   .bp-gate{width:50px}
@@ -956,21 +1061,22 @@
   .bp-detail-body{padding:5px 13px 28px}
   .if-chip{padding:4px 8px 4px 5px;font-size:12px}
   .brew-steptext{font-size:17px}
+  .coll-header{padding:16px 11px 4px}
+  .coll-progress-row{padding:12px 11px 6px}
+  .collection-content{padding:8px 11px 20px}
 }
 
 /* ── 2-column card grid starts at 560px ── */
 @media(min-width:560px){
   .bp-grid{grid-template-columns:1fr 1fr;gap:12px}
-  .term-header{padding:14px 20px 11px}
-  .toolbar{padding:0 20px 11px}
+  .top-nav-inner{padding:12px 20px}
+  .toolbar{padding:11px 20px 11px}
   .bp-grid{padding:6px 20px 30px}
-  .collection-content{padding:0 20px 22px}
-  .collection-header{padding:14px 20px 10px}
 }
 
 /* ── Large phones / phablets (700px+) ── */
 @media(min-width:700px){
-  .brand-name{font-size:27px}
+  .brand-name{font-size:21px}
   .bp-name{font-size:17px}
 }
 
@@ -988,7 +1094,7 @@
   }
 
   /* centred shell — override inset:0 */
-  .app-shell{
+  .page-shell{
     position:fixed;
     inset:auto;          /* reset shorthand */
     top:0;bottom:0;
@@ -1031,11 +1137,12 @@
   }
 
   /* comfortably wider content areas */
-  .term-header{padding:18px 26px 14px}
-  .toolbar{padding:0 26px 14px;gap:11px}
-  .collection-header{padding:18px 26px 12px}
-  .collection-content{padding:0 26px 28px}
-  .brand-name{font-size:28px}
+  .top-nav-inner{padding:14px 26px}
+  .toolbar{padding:14px 26px 14px;gap:11px}
+  .coll-header{padding:22px 26px 4px}
+  .coll-progress-row{padding:14px 26px 8px}
+  .collection-content{padding:10px 26px 28px}
+  .brand-name{font-size:22px}
   .bp-name{font-size:17px}
 
   /* detail body breathes more */
@@ -1050,24 +1157,25 @@
 
 /* ── 3-column stays but wider cards at 1200px ── */
 @media(min-width:1200px){
-  .app-shell,
+  .page-shell,
   .detail-panel,
   .brew-mode{
     width:min(1200px,100vw);
   }
   .bp-grid{gap:16px;padding:8px 30px 42px}
-  .term-header{padding:20px 30px 15px}
-  .toolbar{padding:0 30px 15px}
-  .collection-header{padding:20px 30px 14px}
-  .collection-content{padding:0 30px 32px}
-  .brand-name{font-size:30px}
+  .top-nav-inner{padding:16px 30px}
+  .toolbar{padding:15px 30px 15px}
+  .coll-header{padding:24px 30px 4px}
+  .coll-progress-row{padding:14px 30px 8px}
+  .collection-content{padding:10px 30px 32px}
+  .brand-name{font-size:23px}
   .bp-name{font-size:18px}
   .bp-detail-body{padding:10px 42px 56px}
 }
 
 /* ── 4-column on very large / ultrawide (1440px+) ── */
 @media(min-width:1440px){
-  .app-shell,
+  .page-shell,
   .detail-panel,
   .brew-mode{
     width:min(1380px,100vw);
@@ -1077,8 +1185,9 @@
     gap:16px;
     padding:8px 34px 44px;
   }
-  .term-header{padding:22px 34px 16px}
-  .toolbar{padding:0 34px 16px}
-  .collection-header{padding:22px 34px 15px}
-  .collection-content{padding:0 34px 36px}
+  .top-nav-inner{padding:18px 34px}
+  .toolbar{padding:16px 34px 16px}
+  .coll-header{padding:26px 34px 4px}
+  .coll-progress-row{padding:14px 34px 8px}
+  .collection-content{padding:10px 34px 36px}
 }
