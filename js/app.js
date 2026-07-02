@@ -631,14 +631,16 @@ function switchScreen(target){
   updateNavCountPill();
 }
 
-/* ---------- detail (boarding pass paper) ---------- */
-let detailPanelEl = null;
+/* ---------- detail (its own screen — breadcrumb, hero, story/ingredients/steps) ---------- */
+let detailRecipeId = null;
+
 function openDetail(id, cardEl){
   const r = recipes.find(x => x.id === id);
   if(!r) return;
-  const al = getAirline(r.serial || 0);
-  const panel = document.getElementById('detail-panel');
-  detailPanelEl = panel;
+  detailRecipeId = id;
+  const al   = getAirline(r.serial || 0);
+  const code = r.code || al.code;
+  const content = document.getElementById('detail-content');
 
   const hasMethods = r.methods && r.methods.length > 1;
   let curMethodId = hasMethods
@@ -655,7 +657,7 @@ function openDetail(id, cardEl){
 
   function methodTabsHTML(){
     if(!hasMethods) return '';
-    return `<div class="method-switcher reveal">
+    return `<div class="method-switcher">
       <div class="method-label">Brew method</div>
       <div class="method-tabs">${r.methods.map(m =>
         `<button class="method-tab${m.id===curMethodId?' active':''}" data-method-id="${esc(m.id)}">${esc(m.label)}</button>`
@@ -663,90 +665,141 @@ function openDetail(id, cardEl){
     </div>`;
   }
 
-  function methodContentHTML(){
+  function bodyContentHTML(){
     const { ingredients, steps, note } = activeContent();
-    const ingHTML  = ingredients.map((i,idx)=>`<li class="reveal" style="transition-delay:${Math.min(idx*45,300)}ms">${ingredientIcon(i)}<span>${esc(i)}</span></li>`).join('');
-    const stepHTML = steps.map((s,idx)=>{const st=(typeof s==='string')?{c:s}:s;return `<li class="reveal ${idx%2?'reveal-right':'reveal-left'}"><div>${st.t?`<strong class="step-title">${esc(st.t)}:</strong> `:''}${esc(st.c)}</div></li>`;}).join('');
-    return `${note?`<p class="method-note">${esc(note)}</p>`:''}
-      <div class="detail-section-label reveal">Ingredients</div>
-      <ul class="detail-ing-list">${ingHTML}</ul>
-      <div class="detail-section-label reveal">Steps</div>
-      <ol class="detail-step-list">${stepHTML}</ol>`;
+    const catId    = getStyleCategory(r);
+    const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
+    const hasSteps = steps && steps.length > 0;
+
+    const ingHTML = ingredients.map((i, idx) => `<li>
+      <label class="check-row">
+        <input type="checkbox">
+        <span class="check-box" aria-hidden="true"></span>
+        <span class="check-text">${esc(i)}</span>
+      </label>
+    </li>`).join('');
+
+    const stepHTML = steps.map((s, idx) => {
+      const st = (typeof s === 'string') ? {c: s} : s;
+      return `<li class="timeline-item">
+        <span class="timeline-num" style="background:${al.color}">${idx + 1}</span>
+        <div class="timeline-body">
+          ${st.t ? `<h4 class="timeline-title">${esc(st.t)}</h4>` : ''}
+          <p class="timeline-text">${esc(st.c)}</p>
+        </div>
+      </li>`;
+    }).join('');
+
+    return `<div class="detail-columns">
+      <div class="detail-col">
+        ${r.story ? `<div class="detail-block">
+          <div class="detail-block-label">The Story</div>
+          <p class="detail-story-text">${esc(r.story)}</p>
+        </div>` : ''}
+
+        ${r.bean ? `<div class="detail-callout detail-callout-bean">
+          <div class="detail-callout-label">🫘 Bean Note</div>
+          <p>${esc(r.bean)}</p>
+        </div>` : ''}
+
+        ${buyPicksHTML(r.id)}
+
+        ${note ? `<p class="method-note">${esc(note)}</p>` : ''}
+        <div class="detail-block">
+          <div class="detail-block-label">What you'll need</div>
+          <ul class="detail-check-list">${ingHTML}</ul>
+        </div>
+      </div>
+
+      <div class="detail-col">
+        <div class="detail-block">
+          <div class="detail-block-label">How to make <span class="detail-block-count">· ${steps.length} step${steps.length===1?'':'s'}</span></div>
+          <ol class="detail-timeline">${stepHTML}</ol>
+        </div>
+
+        ${r.notes ? `<div class="detail-callout detail-callout-notes">
+          <div class="detail-callout-label">✎ Notes</div>
+          <p>${esc(r.notes)}</p>
+        </div>` : ''}
+
+        ${hasSteps ? `<button class="hero-brew-btn detail-start-btn" data-brew type="button">Start the Recipe <span aria-hidden="true">→</span></button>` : ''}
+      </div>
+    </div>`;
   }
 
-  const initContent = activeContent();
-  const hasSteps = initContent.steps && initContent.steps.length > 0;
-
-  panel.innerHTML = `
-    <div class="bp-detail-header" style="background:linear-gradient(135deg,${hexLighten(al.color,30)},${al.color})">
-      <button class="bp-detail-close" data-close aria-label="Close">✕</button>
-      <span class="bp-detail-airline">${esc(al.name)}</span>
-      <span class="bp-detail-flight">FLIGHT BREW-${pad(r.serial||0)}</span>
-      <div class="bp-detail-departing-label">DEPARTING FROM</div>
-      <div class="bp-detail-city">${esc(r.origin||'Fusion')}</div>
-    </div>
-    <div class="torn-sep"><div class="torn-sep-fill"></div></div>
-    <div class="detail-progress-bar"><div class="detail-progress-fill" data-prog></div></div>
-    <div class="bp-detail-body" data-body>
-      <div class="detail-recipe-name reveal">${esc(r.name)}</div>
-      ${r.description?`<div class="detail-recipe-desc reveal">${esc(r.description)}</div>`:''}
-      <div class="detail-made-panel reveal">
-        <button class="detail-made-toggle ${r.tried?'on':''}" data-made><span class="box">✓</span>${r.tried?'Made it':'Mark as made'}<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>
-        <div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>${[1,2,3,4,5].map(i=>`<button data-star="${i}" class="${i<=(r.rating||0)?'on':''}" aria-label="${i} star">★</button>`).join('')}</div></div>
+  content.innerHTML = `
+    <div class="detail-breadcrumb">
+      <button class="crumb-back" data-back type="button">← Recipes</button>
+      <span class="crumb-sep">/</span>
+      <span class="crumb-cat">${esc((STYLE_CATEGORIES.find(c => c.id === getStyleCategory(r)) || {}).label || 'Recipe')}</span>
+      <span class="crumb-sep">/</span>
+      <span class="crumb-current">${esc(r.name)}</span>
+      <div class="crumb-owner-actions">
+        <button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button>
+        <button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>
       </div>
-      ${r.story?`<div class="detail-section-label reveal">The Story</div><div class="detail-rule reveal"></div><div class="detail-story-text reveal">${esc(r.story)}</div>`:''}
-      ${r.bean?`<div class="detail-section-label reveal">Beans for this brew</div><div class="detail-bean-box reveal"><span>🫘</span><span>${esc(r.bean)}</span></div>`:''}
-      <div class="reveal">${buyPicksHTML(r.id)}</div>
-      ${methodTabsHTML()}
-      <div data-method-content>${methodContentHTML()}</div>
-      ${r.notes?`<div class="detail-section-label reveal">Notes</div><div class="detail-notes-box reveal">${esc(r.notes)}</div>`:''}
-      ${hasSteps?`<button class="detail-btn primary detail-brew-start reveal" data-brew><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 3l9 5-9 5V3z" fill="currentColor"/></svg> START BREWING →</button>`:''}
-      <div class="detail-actions reveal"><button class="detail-btn" data-edit>Edit</button><button class="detail-btn danger" data-delete>Delete</button></div>
-    </div>`;
+    </div>
 
-  const torn = panel.querySelector('.torn-sep');
-  torn.style.background = 'var(--pass-paper)';
-  panel.querySelector('.bp-detail-header').style.marginBottom = '0';
-  const sepFill = panel.querySelector('.torn-sep-fill');
-  if(sepFill){ sepFill.style.cssText = `position:absolute;top:-1px;left:0;right:0;height:11px;background:${al.color};clip-path:polygon(0 0,100% 0,100% 55%,96% 80%,92% 40%,88% 90%,84% 45%,80% 85%,76% 30%,72% 82%,68% 38%,64% 90%,60% 48%,56% 85%,52% 30%,48% 78%,44% 42%,40% 88%,36% 38%,32% 85%,28% 32%,24% 80%,20% 42%,16% 88%,12% 52%,8% 82%,4% 48%,0 72%);`; }
+    <div class="hero-card detail-hero" style="--stub-color:${al.color}">
+      <div class="hero-sphere sphere-left" aria-hidden="true" style="--sphere-color:${al.color}"></div>
+      <div class="hero-body">
+        <div class="hero-eyebrow" style="color:${al.color}">Boarding pass · Brew no. ${pad(r.serial || 0)} · ${esc(code)} ${esc((r.origin || 'Fusion').toUpperCase())}</div>
+        <h1 class="hero-title">${esc(r.name)}</h1>
+        ${r.description ? `<p class="hero-desc">${esc(r.description)}</p>` : ''}
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-val" style="color:${al.color}">${esc(r.ratio || '—')}</span>
+            <span class="hero-stat-label">Ratio</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-val" style="color:${al.color}">${esc(r.method || '')}</span>
+            <span class="hero-stat-label">Method</span>
+          </div>
+          <div class="hero-stat">
+            ${beansRow(r.strength || 3)}
+            <span class="hero-stat-label">Strength</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  panel.style.display = 'flex';
-  if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.openBoardingPassTransition(cardEl, panel);
+    <div class="detail-made-row">
+      <button class="detail-made-toggle ${r.tried?'on':''}" data-made type="button"><span class="box">✓</span>${r.tried?'Made it':'Mark as made'}<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>
+      <div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>${[1,2,3,4,5].map(i=>`<button data-star="${i}" class="${i<=(r.rating||0)?'on':''}" aria-label="${i} star">★</button>`).join('')}</div></div>
+    </div>
 
-  const body = panel.querySelector('[data-body]');
-  if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.initDetailReveals(body);
-  const progFill = panel.querySelector('[data-prog]');
-  body.onscroll = () => { const max = body.scrollHeight - body.clientHeight; if(progFill) progFill.style.width = (max>0 ? body.scrollTop/max*100 : 0) + '%'; };
+    ${methodTabsHTML()}
+    <div data-method-content>${bodyContentHTML()}</div>`;
 
-  panel.querySelector('[data-close]').onclick = closeDetail;
-  const picksToggle = panel.querySelector('[data-picks-toggle]');
-  if(picksToggle) picksToggle.onclick = () => { picksToggle.classList.toggle('open'); panel.querySelector('[data-picks-body]').classList.toggle('open'); };
+  switchScreen('screen-detail');
+  content.scrollTop = 0;
+
+  content.querySelector('[data-back]').onclick = () => switchScreen('screen-home');
 
   function wireBrewBtn(){
-    const btn = panel.querySelector('[data-brew]');
+    const btn = content.querySelector('[data-brew]');
     if(btn) btn.onclick = () => startBrew(id, curMethodId);
   }
   wireBrewBtn();
 
-  panel.querySelectorAll('.method-tab').forEach(btn => {
+  const picksToggle = content.querySelector('[data-picks-toggle]');
+  if(picksToggle) picksToggle.onclick = () => { picksToggle.classList.toggle('open'); content.querySelector('[data-picks-body]').classList.toggle('open'); };
+
+  content.querySelectorAll('.method-tab').forEach(btn => {
     btn.onclick = () => {
       curMethodId = btn.dataset.methodId;
-      panel.querySelectorAll('.method-tab').forEach(b => b.classList.toggle('active', b.dataset.methodId === curMethodId));
-      const mc = panel.querySelector('[data-method-content]');
+      content.querySelectorAll('.method-tab').forEach(b => b.classList.toggle('active', b.dataset.methodId === curMethodId));
+      const mc = content.querySelector('[data-method-content]');
       if(mc){
-        mc.style.transition = 'opacity .18s';
-        mc.style.opacity = '0';
-        setTimeout(() => {
-          mc.innerHTML = methodContentHTML();
-          mc.style.opacity = '1';
-          if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.initDetailReveals(mc);
-          wireBrewBtn();
-        }, 180);
+        mc.innerHTML = bodyContentHTML();
+        wireBrewBtn();
+        const pt = content.querySelector('[data-picks-toggle]');
+        if(pt) pt.onclick = () => { pt.classList.toggle('open'); content.querySelector('[data-picks-body]').classList.toggle('open'); };
       }
     };
   });
 
-  const madeBtn = panel.querySelector('[data-made]');
+  const madeBtn = content.querySelector('[data-made]');
   madeBtn.onclick = async () => {
     const nowTried = !r.tried;
     r.tried = nowTried;
@@ -764,24 +817,24 @@ function openDetail(id, cardEl){
       openDetail(id, cardEl); showToast('Moved back to "to try"');
     }
   };
-  panel.querySelectorAll('[data-rate] button').forEach(b => b.onclick = async () => {
+  content.querySelectorAll('[data-rate] button').forEach(b => b.onclick = async () => {
     const v = +b.dataset.star;
     r.rating = (r.rating === v ? v - 1 : v);
     if(r.rating > 0) r.tried = true;
     await saveRecipes(); render(); renderCollection(); renderWorldPasses(); openDetail(id, cardEl);
   });
-  panel.querySelector('[data-edit]').onclick = () => { closeDetail(); openForm(r.id); };
-  panel.querySelector('[data-delete]').onclick = async () => {
+  content.querySelector('[data-edit]').onclick = () => openForm(r.id);
+  content.querySelector('[data-delete]').onclick = async () => {
     if(!confirm(`Delete "${r.name}"? This can’t be undone.`)) return;
     recipes = recipes.filter(x => x.id !== r.id);
     rememberSeedDeletion(r.id);
-    await saveRecipes(); closeDetail(); render(); renderCollection(); renderWorldPasses(); showToast('Recipe deleted');
+    await saveRecipes(); render(); renderCollection(); renderWorldPasses(); switchScreen('screen-home'); showToast('Recipe deleted');
   };
 }
+
+/* Returns to the Recipes screen — kept as the Escape-key / form-close target. */
 function closeDetail(){
-  const panel = document.getElementById('detail-panel');
-  if(typeof BREW_ANIM !== 'undefined'){ BREW_ANIM.closeBoardingPassTransition(panel, () => { panel.style.display = 'none'; }); }
-  else panel.style.display = 'none';
+  if(currentScreen === 'screen-detail') switchScreen('screen-home');
 }
 
 /* ---------- form ---------- */
@@ -994,7 +1047,9 @@ function startBrew(id, methodId){
   brewFillCurrent = 0;
   cancelAnimationFrame(brewFillRaf);
 
-  closeDetail();
+  /* Brew Mode is a full-screen overlay (z-index above everything), so the
+     screen underneath — often screen-detail — is left as-is rather than
+     navigated away from. Exiting Brew Mode lands back on the same page. */
   const bm = document.getElementById('brew-mode');
   bm.style.display = 'flex';
   if(!brewStarsSeeded && typeof BREW_ANIM !== 'undefined'){ BREW_ANIM.createStarField(document.getElementById('brewStars'), 45, true); brewStarsSeeded = true; }
@@ -1256,6 +1311,10 @@ async function _markBrewTried(id){
   r.tried = true;
   await saveRecipes();
   render(); renderCollection(); renderWorldPasses();
+  /* If the underlying Detail screen is what's under this Brew Mode overlay,
+     refresh it so its "Mark as made" button reflects the new state once
+     Brew Mode is closed. */
+  if(currentScreen === 'screen-detail' && detailRecipeId === id) openDetail(id);
 }
 
 function exitBrew(){
@@ -1319,7 +1378,7 @@ if(typeof runSplash === 'function'){
 document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchScreen(t.dataset.target)));
 
 document.getElementById('content').addEventListener('click', e => {
-  const card = e.target.closest('.bp-card');
+  const card = e.target.closest('.coll-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
 });
 document.getElementById('collection-content').addEventListener('click', async e => {
@@ -1362,7 +1421,7 @@ if(worldPassesEl) worldPassesEl.addEventListener('click', e => {
 });
 
 document.addEventListener('pointerdown', e => {
-  const el = e.target.closest('.detail-btn.primary, .util-add, .detail-made-toggle, .brew-btn.primary');
+  const el = e.target.closest('.hero-brew-btn, .util-add, .detail-made-toggle, .brew-btn.primary');
   if(el && typeof spawnRipple === 'function') spawnRipple(el, e);
 }, {passive:true});
 
@@ -1391,8 +1450,8 @@ document.addEventListener('keydown', e => {
     return;
   }
   if(e.key === 'Escape'){
-    if(document.getElementById('detail-panel').style.display !== 'none') closeDetail();
-    else closeForm();
+    if(document.getElementById('formPanel').classList.contains('open')) closeForm();
+    else if(currentScreen === 'screen-detail') closeDetail();
   }
 });
 
