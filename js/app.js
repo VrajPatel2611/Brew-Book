@@ -287,28 +287,35 @@ function renderKitchen(){
 
 /* ---------- HERO — brew of the day ---------- */
 function heroHTML(r) {
-  const al  = getAirline(r.serial || 0);
-  const light = hexLighten(al.color, 55);
+  const al   = getAirline(r.serial || 0);
+  const code = r.code || al.code;
+  /* First word plain, rest of the name in italic accent — e.g.
+     "Egg Coffee" -> "Egg" + italic "Coffee". */
+  const nameParts = esc(r.name).split(' ');
+  const firstWord = nameParts[0];
+  const restWords = nameParts.slice(1).join(' ');
   return `<div class="hero-card" data-id="${r.id}">
-    <div class="hero-portrait" aria-hidden="true">
-      <div class="hero-portrait-glow" style="background:radial-gradient(circle at 40% 55%,${al.color}55,transparent 68%)"></div>
-      <div class="hero-portrait-inner" style="background:radial-gradient(ellipse at 38% 48%,${light}33 0%,${al.color}22 45%,transparent 70%)"></div>
-      <div class="hero-portrait-highlight"></div>
-    </div>
     <div class="hero-body">
-      <div class="hero-eyebrow">
-        <em class="hero-today">today's</em>
-        <span class="hero-eyebrow-label">BREW OF THE DAY</span>
-      </div>
-      <h2 class="hero-title">${esc(r.name)}</h2>
+      <div class="hero-eyebrow">Brew of the day · No. ${pad(r.serial || 0)} · ${esc(code)} ${esc((r.origin || 'Fusion').toUpperCase())}</div>
+      <h2 class="hero-title">${firstWord}${restWords ? ` <em style="color:${al.color}">${restWords}</em>` : ''}</h2>
       ${r.description ? `<p class="hero-desc">${esc(r.description)}</p>` : ''}
-      <div class="hero-meta">
-        <span class="hero-origin" style="color:${al.color}">${esc(r.origin||'Fusion')}</span>
-        <span class="hero-sep">·</span>
-        <span class="hero-method">${esc(r.method||'')}</span>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-val" style="color:${al.color}">${esc(r.ratio || '—')}</span>
+          <span class="hero-stat-label">Ratio</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-val" style="color:${al.color}">${esc(r.method || '')}</span>
+          <span class="hero-stat-label">Method</span>
+        </div>
+        <div class="hero-stat">
+          ${beansRow(r.strength || 3)}
+          <span class="hero-stat-label">Strength</span>
+        </div>
+        <button class="hero-brew-btn" data-hero-brew type="button">Start Brewing <span aria-hidden="true">→</span></button>
       </div>
     </div>
-    <div class="hero-airline-bar" style="background:${al.color}"></div>
+    <div class="hero-sphere" aria-hidden="true" style="--sphere-color:${al.color}"></div>
   </div>`;
 }
 
@@ -380,7 +387,7 @@ function render(){
 
   /* If search is active, show a flat grid — search results feel better without lanes */
   if(searchTerm){
-    content.innerHTML = `<div class="bp-grid">${list.map(r => boardingPassCard(r, kActive?(isMakeable(r,kset)?'match':'dim'):null)).join('')}</div>`;
+    content.innerHTML = `<div class="collection-content">${list.map(r => collectionCard(r, {showRatio:true, matchState: kActive?(isMakeable(r,kset)?'match':'dim'):null})).join('')}</div>`;
     if(kActive){ const cnt = document.getElementById('kitchenCount'); if(cnt) cnt.textContent = list.filter(r=>isMakeable(r,kset)).length; }
     if(animateNext){ if(typeof BREW_ANIM!=='undefined') BREW_ANIM.animateCardEntrance(content); animateNext=false; }
     return;
@@ -400,12 +407,19 @@ function render(){
   let html = heroHTML(heroRec);
   html += categoryChipsHTML(list);
 
+  const sectionTitle = activeCategory === 'all'
+    ? 'All brews'
+    : (STYLE_CATEGORIES.find(c => c.id === activeCategory) || {}).label || 'All brews';
+  html += `<div class="section-head">
+    <div class="section-eyebrow">Every recipe in the book</div>
+    <h2 class="section-title">${esc(sectionTitle)}</h2>
+  </div>`;
+
   if(filteredForLanes.length === 0){
     html += `<div class="empty"><div class="empty-ring"></div><h2>Nothing here</h2><p>Try a different category.</p></div>`;
   } else if(activeCategory !== 'all'){
-    /* Single-category view: plain horizontal lane, no section title */
-    const cat = STYLE_CATEGORIES.find(c => c.id === activeCategory);
-    html += _laneHTML(cat ? cat.label : '', filteredForLanes, kActive, kset);
+    /* Single-category view: one grid, no repeated section title (already shown above) */
+    html += _laneHTML(null, filteredForLanes, kActive, kset);
   } else {
     /* All categories: one lane per category, only if it has recipes */
     const seen = new Set();
@@ -432,36 +446,48 @@ function render(){
     render();
   };
 
-  /* Wire hero click */
-  content.querySelector('.hero-card')?.addEventListener('click', () => openDetail(heroRec.id, content.querySelector('.hero-card')));
+  /* Wire hero click + its "Start Brewing" shortcut */
+  const heroEl = content.querySelector('.hero-card');
+  heroEl?.addEventListener('click', () => openDetail(heroRec.id, heroEl));
+  heroEl?.querySelector('[data-hero-brew]')?.addEventListener('click', e => {
+    e.stopPropagation();
+    startBrew(heroRec.id);
+  });
 
   if(kActive){ const cnt = document.getElementById('kitchenCount'); if(cnt) cnt.textContent = list.filter(r=>isMakeable(r,kset)).length; }
   if(animateNext){ if(typeof BREW_ANIM!=='undefined') BREW_ANIM.animateCardEntrance(content); animateNext=false; }
 }
 
 function _laneHTML(title, recs, kActive, kset) {
-  const cards = recs.map(r => boardingPassCard(r, kActive?(isMakeable(r,kset)?'match':'dim'):null)).join('');
+  const cards = recs.map(r => collectionCard(r, {showRatio:true, matchState: kActive?(isMakeable(r,kset)?'match':'dim'):null})).join('');
   return `<section class="recipe-lane">
-    ${title ? `<h2 class="lane-title">${esc(title)}</h2>` : ''}
-    <div class="lane-scroll">${cards}</div>
+    ${title ? `<div class="lane-head">
+      <h3 class="lane-title">${esc(title)}</h3>
+      <span class="lane-count">${recs.length} BREW${recs.length===1?'':'S'}</span>
+      <span class="lane-rule" aria-hidden="true"></span>
+    </div>` : ''}
+    <div class="lane-grid">${cards}</div>
   </section>`;
 }
 
 /* ---------- collection screen ---------- */
 let collView = 'landed'; /* 'landed' | 'mine' */
 
-/* Flat "ticket stub" card — shared by Collection and World's Boarding
-   Passes view. Custom recipes (My Recipes) get edit/delete icon buttons;
-   passing showRatio adds the ratio + strength-beans column (World only). */
+/* Flat "ticket stub" card — shared by Collection, World's Boarding Passes
+   view, and the Recipes/Home lanes. Custom recipes (My Recipes) get
+   edit/delete icon buttons; showRatio adds the ratio + strength-beans
+   column; matchState ('match'/'dim') reflects the kitchen ingredient filter. */
 function collectionCard(r, opts){
-  const custom    = !!(opts && opts.custom);
-  const showRatio = !!(opts && opts.showRatio);
+  const custom     = !!(opts && opts.custom);
+  const showRatio  = !!(opts && opts.showRatio);
+  const matchState = opts && opts.matchState;
   const al = getAirline(r.serial || 0);
   const color = al.color;
   const code = r.code || al.code;
   const catId = getStyleCategory(r);
   const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
-  return `<div class="coll-card" data-id="${esc(r.id)}" style="--stub-color:${color}">
+  const matchClass = matchState ? ` coll-${matchState}` : '';
+  return `<div class="coll-card${matchClass}" data-id="${esc(r.id)}" style="--stub-color:${color}">
     <div class="coll-card-top">
       <div>
         <div class="coll-card-origin" style="color:${color}">${esc(code)} · ${esc((r.origin || 'Fusion').toUpperCase())}</div>
