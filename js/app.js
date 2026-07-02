@@ -679,127 +679,337 @@ function openForm(id){
 function closeForm(){ document.getElementById('formPanel').classList.remove('open'); }
 function closePanels(){ closeDetail(); closeForm(); }
 
-/* ---------- brew mode (cinematic) with filling-cup visual ---------- */
-let brewState = null;
-let brewStarsSeeded = false;
+/* ---------- brew mode (guided steps, JS-animated vessel fill) ----------
+   The vessel fill is animated with a requestAnimationFrame loop rather than
+   a CSS transition: the shell's inner nodes persist across step navigation
+   (only text/attrs update), so a plain CSS transition would have nothing to
+   transition *from* whenever step content changes. Driving it in JS also
+   sidesteps environments where CSS transitions on SVG attrs stall or skip. */
+let brewState        = null;   // {id,i,steps,ingredients,name,method,origin,color,dir,finishedSaved}
+let brewStarsSeeded  = false;
+let brewEls          = null;   // persistent DOM refs for the active brew session
+let brewFillCurrent  = 0;      // current animated vessel fill percentage (0-100)
+let brewFillRaf      = null;   // active requestAnimationFrame id
+
+/* Step → icon type, guessed from the step's title + instruction text. */
+const STEP_TYPE_KEYWORDS = [
+  ['whisk', ['whip','whisk','foam','froth','beat','ribbon']],
+  ['mix',   ['blend','stir','combine','dissolve','mix','shake']],
+  ['brew',  ['brew','steep','bloom','heat','cezve','moka','simmer','boil']],
+  ['pour',  ['pour','layer','float','top','fill','build','drizzle']],
+  ['serve', ['serve','drink','garnish','enjoy','taste','adjust','show','strain']]
+];
+function _stepType(step){
+  const text = ((step.t || '') + ' ' + (step.c || '')).toLowerCase();
+  for(const [type, words] of STEP_TYPE_KEYWORDS){
+    if(words.some(w => text.includes(w))) return type;
+  }
+  return 'cup';
+}
+const STEP_ICONS = {
+  whisk: `<svg viewBox="0 0 22 22" fill="none"><path d="M11 3 L8 12 M11 3 L11 13 M11 3 L14 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 12 Q11 16 14 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 15 V19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  mix:   `<svg viewBox="0 0 22 22" fill="none"><path d="M5 9 H17 L15 17 a2 2 0 0 1-2 1.6H9 A2 2 0 0 1 7 17 Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 5 L14 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  brew:  `<svg viewBox="0 0 22 22" fill="none"><path d="M5 9 H15 L14 17 a2 2 0 0 1-2 2H9 a2 2 0 0 1-2-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15 11 a3 3 0 0 1 0 6" stroke="currentColor" stroke-width="1.5"/><path d="M8 6 C7 4 9 3 8 1 M12 6 C11 4 13 3 12 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  pour:  `<svg viewBox="0 0 22 22" fill="none"><path d="M4 4 L10 4 L9 10 a1.5 1.5 0 0 1-3 0Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 6 Q14 9 15 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1.5 2.2"/><path d="M12 15 H18 L17 20 a1.6 1.6 0 0 1-1.6 1.4h-.8A1.6 1.6 0 0 1 13 20Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
+  serve: `<svg viewBox="0 0 22 22" fill="none"><path d="M6 8 H16 L15 16 a2 2 0 0 1-2 1.8H9A2 2 0 0 1 7 16Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 19 H18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9 4.5 Q11 6 9 7.5 M13 4.5 Q15 6 13 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  cup:   `<svg viewBox="0 0 22 22" fill="none"><path d="M5 8 H15 L14 17 a2 2 0 0 1-2 1.8H9A2 2 0 0 1 7 17Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15 10 a3 3 0 0 1 0 6" stroke="currentColor" stroke-width="1.5"/></svg>`
+};
 
 function startBrew(id, methodId){
   const r = recipes.find(x => x.id === id);
   if(!r) return;
-  let steps = r.steps || [];
-  let methodLabel = '';
+  let steps       = r.steps || [];
+  let ingredients = r.ingredients || [];
+  let methodLabel = r.method || '';
   if(r.methods && r.methods.length){
     const mId = methodId || (r.methods.find(m => m.recommended) || r.methods[0]).id;
     const m = r.methods.find(m => m.id === mId) || r.methods[0];
-    if(m && m.steps && m.steps.length){ steps = m.steps; methodLabel = ' · ' + m.label; }
+    if(m && m.steps && m.steps.length){ steps = m.steps; ingredients = m.ingredients || ingredients; methodLabel = m.label; }
   }
   if(!steps.length) return;
-  brewState = { id, i: 0, steps, name: r.name + methodLabel, origin: r.origin, dir: 1 };
+
+  const al = getAirline(r.serial || 0);
+  brewState = {
+    id, i: 0, steps, ingredients,
+    name: r.name, method: methodLabel, origin: r.origin || 'Fusion',
+    color: al.color, dir: 1, finishedSaved: false
+  };
+  brewFillCurrent = 0;
+  cancelAnimationFrame(brewFillRaf);
+
   closeDetail();
   const bm = document.getElementById('brew-mode');
   bm.style.display = 'flex';
   if(!brewStarsSeeded && typeof BREW_ANIM !== 'undefined'){ BREW_ANIM.createStarField(document.getElementById('brewStars'), 45, true); brewStarsSeeded = true; }
-  renderBrew();
+
+  _buildBrewShell();
+  _renderBrewStep();
 }
 
-function _brewCupSVG(pct) {
-  /* Filling cup visual — rises as a percentage of steps completed.
-     Two animated steam wisps appear once the cup is reasonably full. */
-  const fillH = Math.round(47 * pct / 100);
-  const fillY = 82 - fillH;
-  const steamOpacity = pct > 40 ? 0.55 : 0.18;
-  return `<div class="brew-cup-wrap" aria-hidden="true">
-    <svg class="brew-cup-svg" viewBox="0 0 80 100" fill="none">
-      <defs>
-        <clipPath id="cupClip">
-          <path d="M15 35 H65 L60 82 a8 8 0 0 1-8 7 H28 a8 8 0 0 1-8-7 Z"/>
-        </clipPath>
-      </defs>
-      <!-- cup fill -->
-      <rect x="15" y="${fillY}" width="50" height="${fillH + 10}"
-        fill="url(#roastFull)" opacity="0.72" clip-path="url(#cupClip)"
-        style="transition:y .4s ease,height .4s ease"/>
-      <!-- cup body outline -->
-      <path d="M15 35 H65 L60 82 a8 8 0 0 1-8 7 H28 a8 8 0 0 1-8-7 Z"
-        stroke="rgba(207,127,69,.45)" stroke-width="1.8"/>
-      <!-- handle -->
-      <path d="M65 46 a11 11 0 0 1 0 22"
-        stroke="rgba(207,127,69,.45)" stroke-width="1.8"/>
-      <!-- rim -->
-      <path d="M14 35 H66" stroke="rgba(233,162,95,.55)" stroke-width="1.4" stroke-linecap="round"/>
-      <!-- steam wisps -->
-      <path class="bw-steam bw-s1" d="M30 32 C26 22 34 16 30 8"
-        stroke="#cf7f45" stroke-width="1.6" stroke-linecap="round" opacity="${steamOpacity}"/>
-      <path class="bw-steam bw-s2" d="M50 32 C46 22 54 16 50 8"
-        stroke="#e9a25f" stroke-width="1.6" stroke-linecap="round" opacity="${steamOpacity}"/>
-    </svg>
-    <div class="brew-cup-pct">${pct}%</div>
-  </div>`;
+function _buildBrewShell(){
+  const bm  = document.getElementById('brew-mode');
+  const old = bm.querySelector('.brew-shell');
+  if(old) old.remove();
+
+  const shell = document.createElement('div');
+  shell.className = 'brew-shell';
+  shell.innerHTML = `
+    <div class="brew-topbar">
+      <div class="brew-top-left">
+        <span class="brew-origin-badge" data-origin-badge></span>
+        <div class="brew-top-text">
+          <div class="brew-top-label">BREW MODE · IN FLIGHT</div>
+          <div class="brew-top-title" data-top-title></div>
+        </div>
+      </div>
+      <div class="brew-top-right">
+        <button class="brew-ing-btn" data-ing-toggle type="button" aria-expanded="false" aria-controls="brewIngPopover">
+          <svg class="brew-ing-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 5h10M3 8h10M3 11h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Ingredients <span class="brew-ing-count" data-ing-count></span>
+          <svg class="brew-ing-chev" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="close-btn" data-exit aria-label="Close">✕</button>
+      </div>
+      <div class="brew-ing-popover" id="brewIngPopover" data-ing-popover hidden>
+        <div class="brew-ing-popover-title">Ingredients</div>
+        <ul class="brew-ing-list" data-ing-list></ul>
+      </div>
+    </div>
+
+    <div class="brew-progress-bar"><div class="brew-progress-fill" data-progress-fill></div></div>
+
+    <div class="brew-content" data-content>
+      <div class="brew-live" data-live>
+        <div class="brew-vessel-col">
+          <div class="brew-vessel-wrap" aria-hidden="true">
+            <svg class="brew-vessel-svg" viewBox="0 0 80 100" fill="none">
+              <defs><clipPath id="brewVesselClip"><path d="M15 35 H65 L60 82 a8 8 0 0 1-8 7 H28 a8 8 0 0 1-8-7 Z"/></clipPath></defs>
+              <rect data-vessel-fill x="15" y="82" width="50" height="10" clip-path="url(#brewVesselClip)"/>
+              <path data-vessel-outline d="M15 35 H65 L60 82 a8 8 0 0 1-8 7 H28 a8 8 0 0 1-8-7 Z" stroke-width="1.8"/>
+              <path data-vessel-handle d="M65 46 a11 11 0 0 1 0 22" stroke-width="1.8"/>
+              <path data-vessel-rim d="M14 35 H66" stroke-width="1.4" stroke-linecap="round"/>
+              <path class="bw-steam" data-vessel-steam1 d="M30 32 C26 22 34 16 30 8" stroke-width="1.6" stroke-linecap="round"/>
+              <path class="bw-steam" data-vessel-steam2 d="M50 32 C46 22 54 16 50 8" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="brew-vessel-pct" data-vessel-pct>0%</div>
+        </div>
+        <div class="brew-step-col">
+          <div class="brew-step-icon" data-step-icon></div>
+          <div class="brew-stepnum" data-stepnum></div>
+          <div class="brew-step-title" data-step-title></div>
+          <div class="brew-step-text" data-step-text></div>
+        </div>
+      </div>
+
+      <div class="brew-finish" data-finish hidden>
+        <div class="brew-stamp" data-stamp>✓ Boarded<br>Brew complete</div>
+        <h2 class="brew-finish-title" data-finish-title></h2>
+        <p class="brew-finish-sub" data-finish-sub></p>
+        <button class="brew-btn" data-restart type="button">↺ Brew again</button>
+      </div>
+    </div>
+
+    <div class="brew-rail" data-rail role="tablist" aria-label="Jump to step"></div>
+
+    <div class="brew-footer" data-footer>
+      <button class="brew-btn" data-prev type="button">← Back</button>
+      <div class="brew-footer-mid"><span data-footer-pct>0%</span><span class="brew-footer-dot">·</span><span data-footer-origin></span></div>
+      <button class="brew-btn primary" data-next type="button">Next step →</button>
+    </div>`;
+  bm.appendChild(shell);
+
+  brewEls = {
+    shell,
+    originBadge: shell.querySelector('[data-origin-badge]'),
+    topTitle:    shell.querySelector('[data-top-title]'),
+    ingToggle:   shell.querySelector('[data-ing-toggle]'),
+    ingCount:    shell.querySelector('[data-ing-count]'),
+    ingPopover:  shell.querySelector('[data-ing-popover]'),
+    ingList:     shell.querySelector('[data-ing-list]'),
+    exitBtn:     shell.querySelector('[data-exit]'),
+    progressFill:shell.querySelector('[data-progress-fill]'),
+    live:        shell.querySelector('[data-live]'),
+    finish:      shell.querySelector('[data-finish]'),
+    vesselFill:    shell.querySelector('[data-vessel-fill]'),
+    vesselOutline: shell.querySelector('[data-vessel-outline]'),
+    vesselHandle:  shell.querySelector('[data-vessel-handle]'),
+    vesselRim:     shell.querySelector('[data-vessel-rim]'),
+    vesselSteam1:  shell.querySelector('[data-vessel-steam1]'),
+    vesselSteam2:  shell.querySelector('[data-vessel-steam2]'),
+    vesselPct:     shell.querySelector('[data-vessel-pct]'),
+    stepIcon:  shell.querySelector('[data-step-icon]'),
+    stepnum:   shell.querySelector('[data-stepnum]'),
+    stepTitle: shell.querySelector('[data-step-title]'),
+    stepText:  shell.querySelector('[data-step-text]'),
+    rail:      shell.querySelector('[data-rail]'),
+    footer:    shell.querySelector('[data-footer]'),
+    prevBtn:   shell.querySelector('[data-prev]'),
+    nextBtn:   shell.querySelector('[data-next]'),
+    footerPct:    shell.querySelector('[data-footer-pct]'),
+    footerOrigin: shell.querySelector('[data-footer-origin]'),
+    stamp:       shell.querySelector('[data-stamp]'),
+    finishTitle: shell.querySelector('[data-finish-title]'),
+    finishSub:   shell.querySelector('[data-finish-sub]'),
+    restartBtn:  shell.querySelector('[data-restart]')
+  };
+
+  const color = brewState.color;
+  brewEls.originBadge.textContent = brewState.origin;
+  brewEls.originBadge.style.cssText = `color:${color};border-color:${color}66;background:${color}1f`;
+  brewEls.topTitle.innerHTML = `${esc(brewState.name)}${brewState.method ? ` <span class="brew-top-method">· ${esc(brewState.method)}</span>` : ''}`;
+  brewEls.progressFill.style.background = color;
+  brewEls.vesselOutline.setAttribute('stroke', color + 'aa');
+  brewEls.vesselHandle.setAttribute('stroke', color + 'aa');
+  brewEls.vesselRim.setAttribute('stroke', hexLighten(color, 55));
+  brewEls.vesselSteam1.setAttribute('stroke', color);
+  brewEls.vesselSteam2.setAttribute('stroke', hexLighten(color, 40));
+  brewEls.vesselFill.setAttribute('fill', color);
+  brewEls.nextBtn.style.background = color;
+  brewEls.stamp.style.cssText = `border-color:${color};color:${color}`;
+  brewEls.footerOrigin.textContent = brewState.origin;
+
+  brewEls.ingCount.textContent = brewState.ingredients.length ? `(${brewState.ingredients.length})` : '';
+  brewEls.ingList.innerHTML = brewState.ingredients.map(i =>
+    `<li>${ingredientIcon(i)}<span>${esc(i)}</span></li>`
+  ).join('');
+
+  _buildBrewRail();
+
+  brewEls.exitBtn.onclick = exitBrew;
+  brewEls.ingToggle.onclick = () => {
+    const willOpen = brewEls.ingPopover.hidden;
+    brewEls.ingPopover.hidden = !willOpen;
+    brewEls.ingToggle.classList.toggle('open', willOpen);
+    brewEls.ingToggle.setAttribute('aria-expanded', String(willOpen));
+  };
+  shell.addEventListener('click', e => {
+    if(brewEls.ingPopover.hidden) return;
+    if(e.target.closest('[data-ing-popover]') || e.target.closest('[data-ing-toggle]')) return;
+    brewEls.ingPopover.hidden = true;
+    brewEls.ingToggle.classList.remove('open');
+    brewEls.ingToggle.setAttribute('aria-expanded', 'false');
+  });
+  brewEls.prevBtn.onclick = () => _brewGoto(brewState.i - 1);
+  brewEls.nextBtn.onclick = () => _brewGoto(brewState.i + 1);
+  brewEls.restartBtn.onclick = () => { brewState.finishedSaved = false; _brewGoto(0); };
 }
 
-function renderBrew(){
+function _buildBrewRail(){
+  const total = brewState.steps.length;
+  brewEls.rail.innerHTML = Array.from({length: total}, (_, k) =>
+    `<button class="brew-seg" data-jump="${k}" type="button" aria-label="Go to step ${k + 1}"></button>`
+  ).join('');
+  brewEls.rail.querySelectorAll('.brew-seg').forEach(btn => {
+    btn.onclick = () => _brewGoto(+btn.dataset.jump);
+  });
+}
+function _updateBrewRail(){
+  const color = brewState.color;
+  brewEls.rail.querySelectorAll('.brew-seg').forEach(btn => {
+    const k = +btn.dataset.jump;
+    btn.classList.remove('done', 'current', 'upcoming');
+    if(k < brewState.i){ btn.classList.add('done'); btn.style.background = color; }
+    else if(k === brewState.i){ btn.classList.add('current'); btn.style.background = color; }
+    else { btn.classList.add('upcoming'); btn.style.background = ''; }
+  });
+}
+
+function _brewGoto(newIndex){
   if(!brewState) return;
-  const { i, steps, name, origin } = brewState;
-  const bm    = document.getElementById('brew-mode');
+  const total = brewState.steps.length;
+  newIndex = Math.max(0, Math.min(total, newIndex));
+  brewState.dir = newIndex > brewState.i ? 1 : -1;
+  brewState.i = newIndex;
+  _renderBrewStep();
+}
+
+function _renderBrewStep(){
+  if(!brewState || !brewEls) return;
+  const { i, steps } = brewState;
   const total = steps.length;
   const atEnd = i >= total;
   const pct   = Math.round((Math.min(i, total) / total) * 100);
 
-  bm.querySelectorAll('.brew-shell').forEach(n => n.remove());
-  const shell = document.createElement('div');
-  shell.className = 'brew-shell';
-  shell.style.cssText = 'position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-height:0';
+  _animateVesselTo(pct);
 
-  if(atEnd){
-    shell.innerHTML = `
-      <div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · ${esc(name)}</div><div class="brew-origin-line">Arrived ☕</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>
-      <div class="brew-progress-bar"><div class="brew-progress-fill" style="width:100%"></div></div>
-      <div class="brew-body"><div class="brew-done">
-        ${_brewCupSVG(100)}
-        <h3>Brewed. Safe to consume.</h3>
-        <p>Rate this brew and head back to the terminal.</p>
-        <div class="brew-done-stars"><div class="detail-rate-stars" data-brewrate>${[1,2,3,4,5].map(n=>`<button data-star="${n}" aria-label="${n} star">★</button>`).join('')}</div></div>
-      </div></div>
-      <div class="brew-foot"><button class="brew-btn" data-restart>Start over</button><button class="brew-btn primary" data-finish>Return to Terminal</button></div>`;
+  brewEls.live.hidden   = atEnd;
+  brewEls.finish.hidden = !atEnd;
+  brewEls.rail.hidden   = atEnd;
+  brewEls.footer.hidden = atEnd;
+
+  if(!atEnd){
+    const stepObj = (typeof steps[i] === 'string') ? {c: steps[i]} : steps[i];
+    const type = _stepType(stepObj);
+    brewEls.stepIcon.innerHTML = STEP_ICONS[type] || STEP_ICONS.cup;
+    brewEls.stepIcon.style.color = brewState.color;
+    brewEls.stepnum.textContent = `STEP ${i + 1} OF ${total}`;
+    brewEls.stepTitle.textContent = stepObj.t || '';
+    brewEls.stepTitle.style.display = stepObj.t ? '' : 'none';
+    brewEls.stepText.textContent = stepObj.c || '';
+
+    brewEls.prevBtn.disabled = i === 0;
+    brewEls.footerPct.textContent = pct + '%';
+    brewEls.nextBtn.textContent = (i === total - 1) ? 'Finish ✓' : 'Next step →';
+
+    _updateBrewRail();
+    if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.animateBrewStep(brewEls.stepIcon.closest('.brew-step-col'), brewState.dir);
   } else {
-    shell.innerHTML = `
-      <div class="brew-header"><div><div class="brew-title-line">IN FLIGHT · BREW MODE · ${esc(name)}</div><div class="brew-origin-line">${esc(origin||'')}</div></div><button class="close-btn" data-exit aria-label="Close">✕</button></div>
-      <div class="brew-progress-bar"><div class="brew-progress-fill" style="width:${pct}%"></div></div>
-      <div class="brew-body">
-        ${_brewCupSVG(pct)}
-        <div class="brew-step-content">
-          <div class="brew-stepnum">Step ${i+1} of ${total}${(typeof steps[i]==='object' && steps[i].t) ? ' · ' + esc(steps[i].t) : ''}</div>
-          <div class="brew-steptext">${esc((typeof steps[i]==='string') ? steps[i] : steps[i].c)}</div>
-          <div class="brew-dots">${steps.map((_,k)=>`<span class="${k<i?'done':k===i?'cur':''}"></span>`).join('')}</div>
-        </div>
-      </div>
-      <div class="brew-foot"><button class="brew-btn" data-prev ${i===0?'disabled':''}>← Prev</button><button class="brew-btn primary" data-next>${i===total-1?'LAND ☕':'Next →'}</button></div>`;
-  }
-  bm.appendChild(shell);
-
-  if(typeof BREW_ANIM !== 'undefined' && !atEnd){ BREW_ANIM.animateBrewStep(shell.querySelector('.brew-body'), brewState.dir); }
-
-  if(atEnd){
-    shell.querySelector('[data-restart]').onclick = () => { brewState.dir = -1; brewState.i = 0; renderBrew(); };
-    shell.querySelector('[data-finish]').onclick = async () => {
-      const r = recipes.find(x => x.id === brewState.id);
-      if(r){ r.tried = true; await saveRecipes(); render(); renderCollection(); }
-      exitBrew(); switchScreen('screen-home');
-    };
-    shell.querySelectorAll('[data-brewrate] button').forEach(b => b.onclick = async () => {
-      const v = +b.dataset.star;
-      const r = recipes.find(x => x.id === brewState.id);
-      if(r){ r.rating = v; r.tried = true; await saveRecipes(); render(); renderCollection(); }
-      shell.querySelectorAll('[data-brewrate] button').forEach(x => x.classList.toggle('on', +x.dataset.star <= v));
-    });
+    brewEls.finishTitle.textContent = `Enjoy your ${brewState.name}`;
+    brewEls.finishSub.textContent = `${brewState.method ? brewState.method + ' · ' : ''}${total} step${total === 1 ? '' : 's'} · from ${brewState.origin}`;
+    if(!brewState.finishedSaved){
+      brewState.finishedSaved = true;
+      _markBrewTried(brewState.id);
+    }
     if(typeof BREW_ANIM !== 'undefined') BREW_ANIM.landAnimation();
-  } else {
-    shell.querySelector('[data-prev]').onclick = () => { if(brewState.i>0){ brewState.dir = -1; brewState.i--; renderBrew(); } };
-    shell.querySelector('[data-next]').onclick = () => { brewState.dir = 1; brewState.i++; renderBrew(); };
   }
-  shell.querySelector('[data-exit]').onclick = exitBrew;
 }
-function exitBrew(){ document.getElementById('brew-mode').style.display = 'none'; brewState = null; }
+
+/* Vessel fill is driven by rAF, not a CSS transition — see comment above. */
+function _animateVesselTo(targetPct){
+  if(!brewEls || !brewEls.vesselFill) return;
+  cancelAnimationFrame(brewFillRaf);
+  const start = brewFillCurrent;
+  const t0    = performance.now();
+  const dur   = 550;
+  const step = now => {
+    const t = Math.min(1, (now - t0) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    brewFillCurrent = start + (targetPct - start) * eased;
+    _paintVessel(brewFillCurrent);
+    if(t < 1) brewFillRaf = requestAnimationFrame(step);
+  };
+  brewFillRaf = requestAnimationFrame(step);
+}
+function _paintVessel(pct){
+  if(!brewEls || !brewEls.vesselFill) return;
+  const fillH = 47 * pct / 100;
+  const fillY = 82 - fillH;
+  brewEls.vesselFill.setAttribute('y', fillY);
+  brewEls.vesselFill.setAttribute('height', fillH + 10);
+  if(brewEls.vesselPct) brewEls.vesselPct.textContent = Math.round(pct) + '%';
+  const steamOpacity = pct > 40 ? 0.55 : 0.18;
+  if(brewEls.vesselSteam1) brewEls.vesselSteam1.style.opacity = steamOpacity;
+  if(brewEls.vesselSteam2) brewEls.vesselSteam2.style.opacity = steamOpacity;
+}
+
+async function _markBrewTried(id){
+  const r = recipes.find(x => x.id === id);
+  if(!r) return;
+  r.tried = true;
+  await saveRecipes();
+  render(); renderCollection();
+}
+
+function exitBrew(){
+  cancelAnimationFrame(brewFillRaf);
+  const bm = document.getElementById('brew-mode');
+  bm.style.display = 'none';
+  const shell = bm.querySelector('.brew-shell');
+  if(shell) shell.remove();
+  brewState = null;
+  brewEls   = null;
+}
 
 /* ---------- backup / restore ---------- */
 function exportRecipes(){
@@ -872,9 +1082,17 @@ document.getElementById('formPanel').addEventListener('click', e => { if(e.targe
 
 document.addEventListener('keydown', e => {
   if(brewState){
-    if(e.key === 'Escape') exitBrew();
-    else if(e.key === 'ArrowRight'){ if(brewState.i < brewState.steps.length){ brewState.dir = 1; brewState.i++; renderBrew(); } }
-    else if(e.key === 'ArrowLeft'){ if(brewState.i>0){ brewState.dir = -1; brewState.i--; renderBrew(); } }
+    if(e.key === 'Escape'){
+      if(brewEls && brewEls.ingPopover && !brewEls.ingPopover.hidden){
+        brewEls.ingPopover.hidden = true;
+        brewEls.ingToggle.classList.remove('open');
+        brewEls.ingToggle.setAttribute('aria-expanded', 'false');
+      } else {
+        exitBrew();
+      }
+    }
+    else if(e.key === 'ArrowRight'){ _brewGoto(brewState.i + 1); }
+    else if(e.key === 'ArrowLeft'){ _brewGoto(brewState.i - 1); }
     return;
   }
   if(e.key === 'Escape'){

@@ -545,31 +545,96 @@
   pointer-events:none;animation:brewGlow 7s ease-in-out infinite;
 }
 @keyframes brewGlow{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}}
-.brew-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;flex-shrink:0;z-index:1;position:relative}
-.brew-title-line{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper)}
-.brew-origin-line{font-family:var(--font-body);font-size:12px;color:var(--crema-dim);margin-top:2px}
+.brew-shell{position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-height:0}
+
+/* Top bar: origin badge, brew-mode label, recipe name + method, ingredients popover */
+.brew-topbar{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;flex-shrink:0}
+.brew-top-left{display:flex;align-items:center;gap:11px;min-width:0}
+.brew-origin-badge{
+  flex-shrink:0;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;border:1px solid;white-space:nowrap;
+}
+.brew-top-text{min-width:0}
+.brew-top-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper)}
+.brew-top-title{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--foam);margin-top:2px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brew-top-method{font-family:var(--font-body);font-weight:400;font-size:12.5px;color:var(--crema-dim);font-style:italic}
+.brew-top-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+.brew-ing-btn{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--crema-dim);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:999px;padding:7px 12px;cursor:pointer;transition:background .15s,color .15s,border-color .15s;
+}
+.brew-ing-btn:hover,.brew-ing-btn.open{color:var(--crema);border-color:rgba(255,255,255,.2)}
+.brew-ing-icon{width:13px;height:13px}
+.brew-ing-chev{width:9px;height:9px;transition:transform .18s}
+.brew-ing-btn.open .brew-ing-chev{transform:rotate(180deg)}
+.brew-ing-count{color:var(--copper);font-weight:700}
+
+.brew-ing-popover{
+  position:absolute;top:100%;right:18px;z-index:5;
+  width:min(280px,calc(100vw - 36px));margin-top:6px;
+  background:rgba(46,34,26,.92);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
+  border:1px solid rgba(242,228,207,.12);border-radius:12px;
+  padding:12px 14px;box-shadow:0 16px 40px -8px rgba(0,0,0,.55);
+}
+.brew-ing-popover-title{font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
+.brew-ing-list{display:flex;flex-direction:column;gap:7px;max-height:38vh;overflow-y:auto}
+.brew-ing-list li{display:flex;align-items:center;gap:9px;font-family:var(--font-body);font-size:13px;color:var(--crema)}
+.brew-ing-list li svg{width:18px;height:18px;flex-shrink:0}
+
 .brew-progress-bar{height:3px;background:rgba(255,255,255,.07);flex-shrink:0;position:relative;z-index:1}
-.brew-progress-fill{height:100%;background:var(--copper-grad);transition:width .3s ease}
-.brew-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 26px;gap:22px;position:relative;z-index:1;overflow-y:auto}
-.brew-step-content{display:flex;flex-direction:column;align-items:center;gap:20px;max-width:540px;width:100%}
-.brew-stepnum{font-family:var(--font-mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper)}
-.brew-steptext{font-family:var(--font-display);font-size:clamp(22px,5.5vw,30px);line-height:1.35;color:var(--crema);font-weight:400}
-.brew-dots{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
-.brew-dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.1);transition:background .2s,transform .2s}
-.brew-dots span.done{background:var(--copper-soft)}
-.brew-dots span.cur{background:var(--copper);transform:scale(1.3);box-shadow:0 0 8px var(--copper)}
-.brew-foot{display:flex;gap:12px;padding:14px 18px 28px;flex-shrink:0;z-index:1;position:relative}
+.brew-progress-fill{height:100%;width:0;background:var(--copper-grad);transition:width .3s ease}
+
+/* Center content: vessel + step info (live), or the finished stamp */
+.brew-content{flex:1;display:flex;align-items:center;justify-content:center;padding:22px 24px;position:relative;z-index:1;overflow-y:auto}
+.brew-live[hidden],.brew-finish[hidden],.brew-rail[hidden],.brew-footer[hidden]{display:none}
+.brew-live{display:flex;align-items:center;justify-content:center;gap:36px;max-width:620px;width:100%;flex-wrap:wrap}
+
+.brew-vessel-col{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0}
+.brew-vessel-wrap{width:110px;height:138px}
+.brew-vessel-svg{width:100%;height:100%}
+.brew-vessel-svg [data-vessel-fill]{opacity:.78}
+.brew-vessel-pct{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--copper)}
+.bw-steam{fill:none;stroke-linecap:round;animation:brewSteam 2.2s ease-in-out infinite}
+[data-vessel-steam2]{animation-delay:.8s}
+@keyframes brewSteam{0%,100%{stroke-dashoffset:32;opacity:.18}50%{stroke-dashoffset:0;opacity:.58}}
+.bw-steam{stroke-dasharray:32;stroke-dashoffset:32}
+
+.brew-step-col{display:flex;flex-direction:column;align-items:flex-start;gap:9px;text-align:left;min-width:220px;max-width:340px;flex:1}
+.brew-step-icon{width:34px;height:34px;color:var(--copper)}
+.brew-step-icon svg{width:100%;height:100%}
+.brew-stepnum{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--copper)}
+.brew-step-title{font-family:var(--font-display);font-weight:700;font-size:clamp(19px,4.4vw,24px);color:var(--foam);line-height:1.25}
+.brew-step-text{font-family:var(--font-body);font-size:14.5px;line-height:1.55;color:var(--crema-dim)}
+
+/* Progress rail: one clickable segment per step */
+.brew-rail{display:flex;gap:5px;padding:0 18px 14px;flex-shrink:0;position:relative;z-index:1}
+.brew-seg{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.09);border:none;cursor:pointer;padding:0;transition:background .18s,transform .15s}
+.brew-seg.current{transform:scaleY(1.6)}
+.brew-seg:hover{background:rgba(255,255,255,.18)}
+.brew-seg.done,.brew-seg.current{background:var(--copper)}
+
+/* Bottom controls */
+.brew-footer{display:flex;align-items:center;gap:12px;padding:14px 18px 28px;flex-shrink:0;z-index:1;position:relative}
+.brew-footer-mid{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--crema-dim);white-space:nowrap}
+.brew-footer-dot{color:rgba(242,228,207,.3)}
 .brew-btn{flex:1;padding:14px;border-radius:12px;font-family:var(--font-body);font-weight:700;font-size:14px;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--crema-dim);transition:all .15s}
 .brew-btn:hover{border-color:rgba(255,255,255,.2);color:var(--crema)}
 .brew-btn.primary{background:var(--copper-grad);border-color:transparent;color:#fff}
 .brew-btn:disabled{opacity:.3;cursor:not-allowed}
-.brew-done{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:20px 26px}
-.brew-done-cup{font-size:54px}
-.brew-done h3{font-family:var(--font-display);font-size:26px;color:var(--foam)}
-.brew-done p{color:var(--crema-dim);max-width:320px;font-size:15px}
-.brew-done-stars{display:flex;flex-direction:column;align-items:center;gap:4px}
-.brew-done .detail-rate-stars button{color:rgba(255,247,236,.2)}
-.brew-done .detail-rate-stars button.on{color:var(--gold)}
+
+/* Finished state */
+.brew-finish{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:20px 26px;max-width:420px}
+.brew-stamp{
+  font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;line-height:1.6;
+  border:2.5px solid;border-radius:10px;padding:12px 22px;
+  transform:rotate(-6deg);
+}
+.brew-finish-title{font-family:var(--font-display);font-size:26px;color:var(--foam)}
+.brew-finish-sub{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--crema-dim)}
+.brew-finish .brew-btn{flex:none;padding:12px 24px;margin-top:6px}
 
 /* ─── COLLECTION SCREEN ─── */
 .screen-collection{background:var(--midnight)}
@@ -862,26 +927,6 @@
   flex-shrink:0;width:260px;
   /* vertical card style — slightly taller than the grid horizontal layout */
 }
-
-/* ─── BREW CUP VISUAL (Brew Mode filling cup) ─── */
-.brew-cup-wrap{
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  margin:0 auto 14px;flex-shrink:0;
-}
-.brew-cup-svg{width:80px;height:100px}
-.brew-cup-pct{
-  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.12em;
-  color:var(--copper);
-}
-/* Steam animations on the brew cup wisps */
-.bw-steam{fill:none;stroke-linecap:round}
-.bw-s1{animation:brewSteam 2.2s ease-in-out infinite}
-.bw-s2{animation:brewSteam 2.2s ease-in-out infinite .8s}
-@keyframes brewSteam{
-  0%,100%{stroke-dashoffset:32;opacity:.18}
-  50%{stroke-dashoffset:0;opacity:.58}
-}
-.bw-s1,.bw-s2{stroke-dasharray:32;stroke-dashoffset:32}
 
 /* ─── REDUCED MOTION ─── */
 @media(prefers-reduced-motion:reduce){
