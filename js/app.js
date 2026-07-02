@@ -105,6 +105,7 @@ async function loadRecipes(){
   if(added) await saveRecipes(true);
   render();
   renderCollection();
+  renderWorldPasses();
 }
 async function saveRecipes(silent){
   try{ const ok = await storeSet(JSON.stringify(recipes)); if(!ok && !silent) showToast('Couldn’t save — try again'); }
@@ -449,11 +450,12 @@ function _laneHTML(title, recs, kActive, kset) {
 /* ---------- collection screen ---------- */
 let collView = 'landed'; /* 'landed' | 'mine' */
 
-/* Flat "ticket stub" card — Collection's own style, distinct from the
-   boarding-pass cards used in Recipes/World. Custom recipes (My Recipes)
-   get edit/delete icon buttons; landed brews don't. */
+/* Flat "ticket stub" card — shared by Collection and World's Boarding
+   Passes view. Custom recipes (My Recipes) get edit/delete icon buttons;
+   passing showRatio adds the ratio + strength-beans column (World only). */
 function collectionCard(r, opts){
-  const custom = !!(opts && opts.custom);
+  const custom    = !!(opts && opts.custom);
+  const showRatio = !!(opts && opts.showRatio);
   const al = getAirline(r.serial || 0);
   const color = al.color;
   const code = r.code || al.code;
@@ -473,9 +475,15 @@ function collectionCard(r, opts){
     <h3 class="coll-card-name">${esc(r.name)}</h3>
     ${r.description ? `<p class="coll-card-desc">${esc(r.description)}</p>` : ''}
     <div class="coll-card-div"></div>
-    <div class="coll-card-method">
-      <span class="coll-card-method-label">METHOD</span>
-      <span class="coll-card-method-val" style="color:${color}">${esc(r.method || '')}</span>
+    <div class="coll-card-bottom">
+      <div class="coll-card-method">
+        <span class="coll-card-method-label">METHOD</span>
+        <span class="coll-card-method-val" style="color:${color}">${esc(r.method || '')}</span>
+      </div>
+      ${showRatio ? `<div class="coll-card-ratio">
+        <span class="coll-card-ratio-val" style="color:${color}">${esc(r.ratio || '—')}</span>
+        ${beansRow(r.strength || 3)}
+      </div>` : ''}
     </div>
     ${catLabel ? `<span class="coll-card-tag">${esc(catLabel.toUpperCase())}</span>` : ''}
   </div>`;
@@ -525,6 +533,57 @@ function renderCollection(){
   updateNavCountPill();
 }
 
+/* ---------- world screen (boarding passes ⇄ world map toggle) ----------
+   Only recipes with a genuine single-country origin appear here — the
+   same product rule the map already enforces (see MAP_FUSION_ORIGINS in
+   worldmap.js). Fusion/Modern-café recipes stay fully visible in Recipes,
+   they just don't have a "flight" to show here. */
+let worldView = 'passes'; /* 'passes' | 'map' */
+
+function genuineOriginRecipes(){
+  return recipes
+    .filter(r => r.origin && typeof MAP_FUSION_ORIGINS !== 'undefined' && !MAP_FUSION_ORIGINS.has(r.origin))
+    .sort((a, b) => (a.serial || 0) - (b.serial || 0));
+}
+
+function syncWorldToggle(){
+  document.querySelectorAll('.world-seg').forEach(b => {
+    const on = b.dataset.worldView === worldView;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const passesEl = document.getElementById('worldPasses');
+  const mapEl    = document.getElementById('worldMapWrap');
+  if(passesEl) passesEl.style.display = worldView === 'passes' ? '' : 'none';
+  if(mapEl)    mapEl.style.display    = worldView === 'map'    ? '' : 'none';
+}
+
+function renderWorldPasses(){
+  const genuine = genuineOriginRecipes();
+
+  const countEl = document.getElementById('worldRecipeCount');
+  if(countEl) countEl.textContent = genuine.length;
+
+  const pinCountEl = document.getElementById('worldPinCount');
+  if(pinCountEl){
+    /* Only count origins that will actually get a map pin — some catalog
+       recipes carry a dual/ambiguous origin string (e.g. "Yemen / Worldwide")
+       that has a real country but doesn't exact-match a single ORIGIN_PINS
+       entry, so it wouldn't be placeable on the map. */
+    const pinnable = typeof ORIGIN_PINS !== 'undefined' ? new Set(ORIGIN_PINS.map(p => p.origin)) : null;
+    const origins = new Set(genuine.map(r => r.origin).filter(o => !pinnable || pinnable.has(o)));
+    pinCountEl.textContent = origins.size;
+  }
+
+  const el = document.getElementById('worldPasses');
+  if(!el) return;
+  if(genuine.length === 0){
+    el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No flights yet</h2><p>Recipes need a real country of origin to show up here.</p></div>`;
+    return;
+  }
+  el.innerHTML = genuine.map(r => collectionCard(r, {showRatio: true})).join('');
+}
+
 /* ---------- navigation ---------- */
 let currentScreen = 'screen-home';
 
@@ -537,8 +596,12 @@ function switchScreen(target){
     if(on) t.setAttribute('aria-current','page'); else t.removeAttribute('aria-current');
   });
   currentScreen = target;
-  if(target === 'screen-collection') renderCollection();
-  if(target === 'screen-world') initWorldMap();
+  if(target === 'screen-collection'){ renderCollection(); }
+  if(target === 'screen-world'){
+    syncWorldToggle();
+    renderWorldPasses();
+    if(worldView === 'map') initWorldMap();
+  }
   updateNavCountPill();
 }
 
@@ -662,7 +725,7 @@ function openDetail(id, cardEl){
     const nowTried = !r.tried;
     r.tried = nowTried;
     if(!r.tried) r.rating = 0;
-    await saveRecipes(); render(); renderCollection();
+    await saveRecipes(); render(); renderCollection(); renderWorldPasses();
     if(nowTried){
       madeBtn.classList.add('on');
       madeBtn.innerHTML = '<span class="box">✓</span>Made it' + '<span class="puff"></span>'.repeat(5);
@@ -679,14 +742,14 @@ function openDetail(id, cardEl){
     const v = +b.dataset.star;
     r.rating = (r.rating === v ? v - 1 : v);
     if(r.rating > 0) r.tried = true;
-    await saveRecipes(); render(); renderCollection(); openDetail(id, cardEl);
+    await saveRecipes(); render(); renderCollection(); renderWorldPasses(); openDetail(id, cardEl);
   });
   panel.querySelector('[data-edit]').onclick = () => { closeDetail(); openForm(r.id); };
   panel.querySelector('[data-delete]').onclick = async () => {
     if(!confirm(`Delete "${r.name}"? This can’t be undone.`)) return;
     recipes = recipes.filter(x => x.id !== r.id);
     rememberSeedDeletion(r.id);
-    await saveRecipes(); closeDetail(); render(); renderCollection(); showToast('Recipe deleted');
+    await saveRecipes(); closeDetail(); render(); renderCollection(); renderWorldPasses(); showToast('Recipe deleted');
   };
 }
 function closeDetail(){
@@ -837,7 +900,7 @@ function openForm(id){
 
     if(editingId) recipes = recipes.map(x => x.id === editingId ? data : x);
     else recipes.push(data);
-    await saveRecipes(); closeForm(); buildChips(); render(); renderCollection();
+    await saveRecipes(); closeForm(); buildChips(); render(); renderCollection(); renderWorldPasses();
     showToast(editingId ? 'Saved' : 'Recipe saved ☕');
     editingId = null;
   };
@@ -1166,7 +1229,7 @@ async function _markBrewTried(id){
   if(!r) return;
   r.tried = true;
   await saveRecipes();
-  render(); renderCollection();
+  render(); renderCollection(); renderWorldPasses();
 }
 
 function exitBrew(){
@@ -1202,7 +1265,7 @@ function importRecipes(file){
         if(idx >= 0) recipes[idx] = item; else recipes.push(item);
         merged++;
       }
-      await saveRecipes(); buildChips(); render(); renderCollection();
+      await saveRecipes(); buildChips(); render(); renderCollection(); renderWorldPasses();
       showToast(`Restored ${merged} recipe${merged===1?'':'s'} ⬆`);
     }catch(e){ showToast('That file didn’t look like a backup'); }
   };
@@ -1247,7 +1310,7 @@ document.getElementById('collection-content').addEventListener('click', async e 
     if(!r) return;
     if(!confirm(`Delete "${r.name}"? This can’t be undone.`)) return;
     recipes = recipes.filter(x => x.id !== id);
-    await saveRecipes(); render(); renderCollection(); showToast('Recipe deleted');
+    await saveRecipes(); render(); renderCollection(); renderWorldPasses(); showToast('Recipe deleted');
     return;
   }
 
@@ -1259,6 +1322,18 @@ document.querySelectorAll('.coll-seg').forEach(b => b.addEventListener('click', 
   collView = b.dataset.collView;
   renderCollection();
 }));
+
+document.querySelectorAll('.world-seg').forEach(b => b.addEventListener('click', () => {
+  worldView = b.dataset.worldView;
+  syncWorldToggle();
+  if(worldView === 'map') initWorldMap();
+}));
+
+const worldPassesEl = document.getElementById('worldPasses');
+if(worldPassesEl) worldPassesEl.addEventListener('click', e => {
+  const card = e.target.closest('.coll-card');
+  if(card && card.dataset.id) openDetail(card.dataset.id, card);
+});
 
 document.addEventListener('pointerdown', e => {
   const el = e.target.closest('.detail-btn.primary, .util-add, .detail-made-toggle, .brew-btn.primary');

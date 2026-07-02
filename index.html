@@ -21,7 +21,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/base.css">
-  <link rel="stylesheet" href="./css/components.css?v=6">
+  <link rel="stylesheet" href="./css/components.css?v=9">
 </head>
 <body>
 
@@ -168,25 +168,47 @@
     <input type="file" id="importFile" accept="application/json,.json" style="display:none" aria-hidden="true">
   </div>
 
-  <!-- SCREEN: WORLD MAP -->
+  <!-- SCREEN: WORLD -->
   <div id="screen-world" class="screen screen-world" data-screen-label="World">
-    <div id="world-view" class="world-view" aria-label="World coffee map">
-      <canvas id="wvCanvas" class="wv-canvas" aria-hidden="true"></canvas>
-      <svg id="wvSvg" class="wv-svg" aria-hidden="true">
-        <g id="wvPins"></g>
-      </svg>
-      <!-- Country popup (boarding-pass style, shown on pin click) -->
-      <div id="wvPreview" class="wm-popup" style="display:none" role="dialog" aria-label="Country recipes"></div>
-      <!-- Zoom controls (bottom-right) -->
-      <div class="wv-controls" id="wvControls" aria-label="Map zoom controls">
-        <button class="wv-ctrl" id="wvZoomIn"    title="Zoom in"    aria-label="Zoom in">+</button>
-        <button class="wv-ctrl" id="wvZoomOut"   title="Zoom out"   aria-label="Zoom out">−</button>
-        <button class="wv-ctrl" id="wvZoomReset" title="Reset view" aria-label="Reset map">⊞</button>
+    <div class="coll-header">
+      <div class="coll-header-text">
+        <div class="coll-eyebrow">Coffees from around the globe · <span id="worldRecipeCount">0</span> recipes</div>
+        <h2 class="coll-title">World <em>— every brew</em></h2>
+        <p class="coll-sub">Every recipe as a boarding pass. Flip the toggle to see them landed on the map.</p>
       </div>
-      <!-- Zoom percentage (bottom-left) -->
-      <div class="wv-zoom-pct" id="wvZoomPct" aria-live="polite">100%</div>
-      <!-- Fusion-absent note (bottom-left, above zoom %) -->
-      <div class="wv-absent-note" id="wvAbsentNote" aria-live="polite"></div>
+      <div class="coll-toggle world-toggle" id="worldToggle" role="group" aria-label="World view">
+        <button class="coll-seg world-seg active" data-world-view="passes" aria-pressed="true">Boarding Passes</button>
+        <button class="coll-seg world-seg" data-world-view="map" aria-pressed="false">World Map</button>
+      </div>
+    </div>
+
+    <!-- BOARDING PASSES VIEW -->
+    <div id="worldPasses" class="collection-content"></div>
+
+    <!-- WORLD MAP VIEW -->
+    <div id="worldMapWrap" class="world-map-wrap" style="display:none">
+      <div class="world-map-caption">
+        <span class="wm-caption-dot" aria-hidden="true"></span>
+        DEPARTURES · <span id="worldPinCount">0</span> origins pinned · Tap a pin for its flights
+      </div>
+      <div id="world-view" class="world-view" aria-label="World coffee map">
+        <canvas id="wvCanvas" class="wv-canvas" aria-hidden="true"></canvas>
+        <svg id="wvSvg" class="wv-svg" aria-hidden="true">
+          <g id="wvPins"></g>
+        </svg>
+        <!-- Country popup (boarding-pass style, shown on pin click) -->
+        <div id="wvPreview" class="wm-popup" style="display:none" role="dialog" aria-label="Country recipes"></div>
+        <!-- Zoom controls (bottom-right) -->
+        <div class="wv-controls" id="wvControls" aria-label="Map zoom controls">
+          <button class="wv-ctrl" id="wvZoomIn"    title="Zoom in"    aria-label="Zoom in">+</button>
+          <button class="wv-ctrl" id="wvZoomOut"   title="Zoom out"   aria-label="Zoom out">−</button>
+          <button class="wv-ctrl" id="wvZoomReset" title="Reset view" aria-label="Reset map">⊞</button>
+        </div>
+        <!-- Zoom percentage (bottom-left) -->
+        <div class="wv-zoom-pct" id="wvZoomPct" aria-live="polite">100%</div>
+        <!-- Fusion-absent note (bottom-left, above zoom %) -->
+        <div class="wv-absent-note" id="wvAbsentNote" aria-live="polite"></div>
+      </div>
     </div>
   </div>
 
@@ -244,6 +266,6 @@
 <script src="./js/data.js"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=3"></script>
-<script src="./js/app.js?v=6"></script>
+<script src="./js/app.js?v=8"></script>
 </body>
 </html>
