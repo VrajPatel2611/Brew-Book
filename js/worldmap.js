@@ -1,143 +1,125 @@
 /* ===== Brew Book — WORLD MAP =====
-   Dotted-stipple Robinson-projection map embedded inside the Recipes screen.
-   Toggled in-place by the List/World pill switch — no separate tab.
+   Per-country dotted-stipple Robinson-projection map (standalone World tab).
 
    Requires (globals loaded before this file):
      d3, d3.geoRobinson (d3-geo-projection), topojson (topojson-client)
    Provides to app.js:
-     initWorldView()   – call once when World is first activated
-     showWorldView()   – reveal the canvas/SVG layer
-     hideWorldView()   – hide it
-     ORIGIN_PINS       – read by app.js for the 22-country stat
-     METHOD_COLORS     – read by app.js for legend */
+     initWorldMap()  – call once when World tab is first shown (idempotent)
+     ORIGIN_PINS     – 22-country pin table (read by app.js for stat display)
 
-/* ---------- PRODUCT RULE — MAP PIN FILTER ----------
-   Recipes whose `origin` is "Fusion" or "Modern café" represent invented drinks
-   or broad café-culture trends with no single true home country. They receive
-   no pin on the world map. Placing a pin for an invented recipe anywhere on
-   Earth would be dishonest. These recipes remain fully visible and fully
-   featured in List view — their origin label shows as normal on the boarding-
-   pass card. Only the map pin is absent, because that absence is honest.
-   To change this rule, edit MAP_FUSION_ORIGINS below. */
+   PRODUCT RULE: Only recipes with a genuine single-country origin get a pin.
+   Recipes with origin "Fusion" or "Modern café" are excluded — placing them
+   anywhere on Earth would be dishonest. They remain fully visible in the
+   Recipes tab. See MAP_FUSION_ORIGINS below to change the exclusion list. */
+
 const MAP_FUSION_ORIGINS = new Set(['Fusion', 'Modern café']);
 
-/* ---------- ORIGIN → PIN DATA ---------- */
 /* Precise [lon, lat] centres for each genuine country-of-origin.
-   Robinson projection + rotate([-15,0]) places these at their true locations. */
+   Colors mirror the airline/card-stripe accent already used on recipe cards. */
 const ORIGIN_PINS = [
-  {origin:'Vietnam',     lon:108.0, lat:14.0,  airline:'VIETNAM AIRLINES',  color:'#1a4b8c'},
-  {origin:'Spain',       lon:-3.7,  lat:40.4,  airline:'IBERIA',            color:'#cc0000'},
-  {origin:'Indonesia',   lon:113.9, lat:-0.8,  airline:'GARUDA INDONESIA',  color:'#0d4f8b'},
-  {origin:'Thailand',    lon:100.5, lat:13.7,  airline:'THAI AIRWAYS',      color:'#6b2d8b'},
-  {origin:'Greece',      lon:21.8,  lat:39.0,  airline:'AEGEAN AIR',        color:'#003087'},
+  {origin:'Vietnam',     lon:108.0, lat:14.0,  airline:'VIETNAM AIRLINES',  color:'#1a6bbf'},
+  {origin:'Spain',       lon:-3.7,  lat:40.4,  airline:'IBERIA',            color:'#d44040'},
+  {origin:'Indonesia',   lon:113.9, lat:-0.8,  airline:'GARUDA INDONESIA',  color:'#0d6bbf'},
+  {origin:'Thailand',    lon:100.5, lat:13.7,  airline:'THAI AIRWAYS',      color:'#7b3dbf'},
+  {origin:'Greece',      lon:21.8,  lat:39.0,  airline:'AEGEAN AIR',        color:'#2255aa'},
   {origin:'Italy',       lon:12.5,  lat:41.9,  airline:'ITA AIRWAYS',       color:'#009246'},
-  {origin:'Portugal',    lon:-8.2,  lat:39.4,  airline:'TAP PORTUGAL',      color:'#006600'},
-  {origin:'Mexico',      lon:-102.5,lat:23.6,  airline:'AEROMEXICO',        color:'#0a2240'},
+  {origin:'Portugal',    lon:-8.2,  lat:39.4,  airline:'TAP PORTUGAL',      color:'#007a30'},
+  {origin:'Mexico',      lon:-102.5,lat:23.6,  airline:'AEROMEXICO',        color:'#1a4075'},
   {origin:'India',       lon:78.9,  lat:20.6,  airline:'AIR INDIA',         color:'#c8102e'},
-  {origin:'Cuba',        lon:-77.8, lat:21.5,  airline:'CUBANA',            color:'#003087'},
-  {origin:'South Korea', lon:127.8, lat:35.9,  airline:'KOREAN AIR',        color:'#00256c'},
-  {origin:'Morocco',     lon:-5.0,  lat:31.8,  airline:'ROYAL AIR MAROC',   color:'#cc0000'},
-  {origin:'Hong Kong',   lon:114.2, lat:22.3,  airline:'CATHAY PACIFIC',    color:'#005f6b'},
+  {origin:'Cuba',        lon:-77.8, lat:21.5,  airline:'CUBANA',            color:'#2060aa'},
+  {origin:'South Korea', lon:127.8, lat:35.9,  airline:'KOREAN AIR',        color:'#1a3a8a'},
+  {origin:'Morocco',     lon:-5.0,  lat:31.8,  airline:'ROYAL AIR MAROC',   color:'#c8102e'},
+  {origin:'Hong Kong',   lon:114.2, lat:22.3,  airline:'CATHAY PACIFIC',    color:'#006870'},
   {origin:'Turkey',      lon:35.2,  lat:38.9,  airline:'TURKISH AIRLINES',  color:'#c8102e'},
   {origin:'Austria',     lon:14.5,  lat:47.5,  airline:'AUSTRIAN',          color:'#c8102e'},
-  {origin:'Malaysia',    lon:109.7, lat:4.2,   airline:'MALAYSIA AIRLINES', color:'#cc0000'},
-  {origin:'Brazil',      lon:-51.9, lat:-14.2, airline:'LATAM BRASIL',      color:'#cc0000'},
+  {origin:'Malaysia',    lon:109.7, lat:4.2,   airline:'MALAYSIA AIRLINES', color:'#c8102e'},
+  {origin:'Brazil',      lon:-51.9, lat:-14.2, airline:'LATAM BRASIL',      color:'#c8102e'},
   {origin:'Senegal',     lon:-14.5, lat:14.5,  airline:'AIR SÉNÉGAL',       color:'#00853e'},
   {origin:'Ethiopia',    lon:40.5,  lat:9.1,   airline:'ETHIOPIAN',         color:'#009a44'},
   {origin:'Yemen',       lon:48.5,  lat:15.6,  airline:'YEMENIA',           color:'#ce1126'},
   {origin:'Taiwan',      lon:120.9, lat:23.7,  airline:'EVA AIR',           color:'#007b40'},
-  {origin:'Japan',       lon:138.3, lat:36.2,  airline:'ANA',               color:'#003087'}
+  {origin:'Japan',       lon:138.3, lat:36.2,  airline:'ANA',               color:'#1a3a8a'}
 ];
-
-const METHOD_COLORS = {
-  'moka pot': '#cf7f45',
-  'instant':  '#7fb069',
-  'blended':  '#e8b04b',
-  'cezve':    '#a06fbf',
-  'other':    '#7f9fc9'
-};
 
 /* ---------- MAP DIMENSIONS (projection-space) ---------- */
 const WM_W = 960, WM_H = 500;
 
+/* Pre-computed star positions for the night-sky atmosphere (deterministic). */
+const WM_STARS = Array.from({length: 42}, (_, i) => ({
+  x: ((i * 127 + 37) % 997) / 997,
+  y: ((i * 239 + 73) % 991) / 991,
+  r: 0.5 + ((i * 31) % 10) / 22,
+  a: 0.06 + ((i * 53) % 12) / 120
+}));
+
 /* ---------- STATE ---------- */
 let wmBuilt        = false;
-let wmLand         = null;   // topojson merged land feature
+let wmLand         = null;
 let wmProjection   = null;
-let wmTransform    = {k:1, x:0, y:0};
-let wmDots         = [];     // pre-computed dot positions in projection space
-let wmPins         = [];     // {origin, color, recId, rec, x, y, el}
+let wmTransform    = {k: 1, x: 0, y: 0};
+let wmDots         = [];
+let wmCountryPins  = [];  /* {origin, color, airline, recs[], x, y, el} — one per country */
 let wmDotTimer     = null;
 let wmRafPending   = false;
+let wmZoom         = null;
+let wmFitW         = WM_W;   /* actual fitted map width  (set after canvas is sized) */
+let wmFitH         = WM_H;   /* actual fitted map height */
 
 /* ---------- HELPERS ---------- */
 const _esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+function _recipeHasGenuineOrigin(r) {
+  return r.origin && !MAP_FUSION_ORIGINS.has(r.origin);
+}
+
 /* ---------- PUBLIC API ---------- */
 
-function initWorldView() {
-  if (wmBuilt) { _showLayer(); return; }
+function initWorldMap() {
+  if (wmBuilt) return;
 
   const haveLibs = typeof d3 !== 'undefined'
     && typeof d3.geoRobinson === 'function'
     && typeof topojson !== 'undefined';
 
-  if (!haveLibs) {
-    _buildFallbackDots();
-    return;
-  }
+  if (!haveLibs) { _buildFallback(); return; }
 
   d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-    .then(world => { _buildFromTopojson(world); })
-    .catch(() => { _buildFallbackDots(); });
+    .then(world => _buildFromTopojson(world))
+    .catch(() => _buildFallback());
 }
 
-function showWorldView() {
-  const wv = document.getElementById('world-view');
-  if (wv) { wv.style.display = 'flex'; wv.removeAttribute('aria-hidden'); }
-  if (!wmBuilt) { initWorldView(); }
-  _updateAbsentNote();
-}
-
-function hideWorldView() {
-  const wv = document.getElementById('world-view');
-  if (wv) { wv.style.display = 'none'; wv.setAttribute('aria-hidden', 'true'); }
-}
-
-/* ---------- BUILD FROM REAL TOPOJSON DATA ---------- */
+/* ---------- BUILD ---------- */
 
 function _buildFromTopojson(world) {
   wmBuilt = true;
 
-  /* Robinson projection, rotated so Asia isn't cut at the antimeridian */
+  /* Fit the projection to the actual container dimensions so the map fills
+     the full screen rather than leaving an empty band at the bottom. */
+  _resizeCanvas();
+  const canvas = document.getElementById('wvCanvas');
+  const fitW = canvas ? (canvas.clientWidth  || WM_W) : WM_W;
+  const fitH = canvas ? (canvas.clientHeight || WM_H) : WM_H;
+
   const proj = d3.geoRobinson()
     .rotate([-15, 0])
-    .fitExtent([[10, 12], [WM_W - 10, WM_H - 18]], {type: 'Sphere'});
+    .fitExtent([[10, Math.round(fitH * 0.024)], [fitW - 10, fitH - Math.round(fitH * 0.036)]], {type: 'Sphere'});
   wmProjection = proj;
+  /* Store fitted size so zoom translateExtent can use it */
+  wmFitW = fitW;
+  wmFitH = fitH;
 
-  /* Merge all country features into a single land polygon for fast containment tests */
   wmLand = topojson.merge(world, world.objects.countries.geometries);
 
-  /* Pre-compute dot field: sample every 4px in projection space */
-  _computeDotField(proj, WM_W, WM_H, 4);
+  _computeDotField(proj, fitW, fitH, 4);
+  _computeCountryPins(proj);
 
-  /* Compute pin positions for genuine-origin recipes only */
-  _computePins(proj);
+  _redrawCanvas(wmTransform);
 
-  /* Size the canvas to match its container then draw */
-  _resizeCanvas();
-  _scheduleRedot(wmTransform, true /* immediate */);
-
-  /* Render pin SVG */
   _renderPins();
-  _buildLegend();
-
-  /* Wire D3 zoom */
-  _setupZoom();
-
-  _showLayer();
+  _wireControls();
   _updateAbsentNote();
+  _setupZoom();
 }
 
 /* ---------- DOT FIELD ---------- */
@@ -153,21 +135,17 @@ function _computeDotField(projection, W, H, step) {
   }
 }
 
-/* Re-sample the dot field for the VISIBLE REGION at the current zoom so
-   screen-space density stays constant regardless of zoom level. */
 function _recomputeDotsForZoom(transform) {
   const canvas = document.getElementById('wvCanvas');
   if (!canvas || !wmProjection || !wmLand) return;
+  const dpr = window.devicePixelRatio || 1;
   const cw = canvas.width, ch = canvas.height;
 
-  const screenStep = 4;
-  const projStep   = screenStep / transform.k;
-
-  /* Visible region bounds in projection space */
+  const projStep = 4 / transform.k;
   const px0 = (-transform.x / transform.k) - projStep;
   const py0 = (-transform.y / transform.k) - projStep;
-  const px1 = ((cw - transform.x) / transform.k) + projStep;
-  const py1 = ((ch - transform.y) / transform.k) + projStep;
+  const px1 = ((cw / dpr - transform.x) / transform.k) + projStep;
+  const py1 = ((ch / dpr - transform.y) / transform.k) + projStep;
 
   const dots = [];
   for (let px = Math.max(0, px0); px <= Math.min(WM_W, px1); px += projStep) {
@@ -180,15 +158,15 @@ function _recomputeDotsForZoom(transform) {
   wmDots = dots;
 }
 
-/* ---------- CANVAS DRAWING ---------- */
+/* ---------- CANVAS RENDERING ---------- */
 
 function _resizeCanvas() {
   const canvas = document.getElementById('wvCanvas');
   if (!canvas) return;
-  const wv = canvas.parentElement;
+  const parent = canvas.parentElement;
   const dpr = window.devicePixelRatio || 1;
-  const w   = wv.clientWidth  || WM_W;
-  const h   = wv.clientHeight || WM_H;
+  const w   = parent.clientWidth  || WM_W;
+  const h   = parent.clientHeight || WM_H;
   canvas.width  = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   canvas.style.width  = w + 'px';
@@ -197,36 +175,84 @@ function _resizeCanvas() {
 
 function _redrawCanvas(transform) {
   const canvas = document.getElementById('wvCanvas');
-  if (!canvas || !wmDots.length) return;
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const cw  = canvas.width, ch = canvas.height;
   const dpr = window.devicePixelRatio || 1;
 
   ctx.clearRect(0, 0, cw, ch);
 
-  /* Deep navy background — the "in-flight, between destinations" night sky */
-  ctx.fillStyle = '#070f1a';
+  /* Deep navy night-sky gradient */
+  const bg = ctx.createRadialGradient(cw * 0.5, ch * 0.38, 0, cw * 0.5, ch * 0.52, cw * 0.72);
+  bg.addColorStop(0,    '#12233d');
+  bg.addColorStop(0.45, '#0b1729');
+  bg.addColorStop(1,    '#081324');
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, cw, ch);
 
-  /* Dots: dark blue-grey at low opacity, matching Brew Mode's night-sky palette */
-  ctx.fillStyle = 'rgba(55, 82, 112, 0.58)';
-  ctx.beginPath();
-  const r  = Math.max(0.8, 1.2 * dpr);
-  const k  = transform.k, tx = transform.x * dpr, ty = transform.y * dpr;
-  const kd = k * dpr; /* combined scale for dot positions */
+  /* Subtle top radial glow */
+  const glow = ctx.createRadialGradient(cw * 0.5, ch * 0.12, 0, cw * 0.5, ch * 0.12, cw * 0.42);
+  glow.addColorStop(0, 'rgba(30, 90, 185, 0.10)');
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, cw, ch);
 
-  for (const [x, y] of wmDots) {
-    const sx = x * kd + tx;
-    const sy = y * kd + ty;
-    if (sx < -r || sx > cw + r || sy < -r || sy > ch + r) continue;
+  /* Static stars */
+  ctx.beginPath();
+  WM_STARS.forEach(s => {
+    const sx = s.x * cw, sy = s.y * ch, r = s.r * dpr;
     ctx.moveTo(sx + r, sy);
     ctx.arc(sx, sy, r, 0, Math.PI * 2);
-  }
+  });
+  ctx.fillStyle = 'rgba(190, 215, 255, 0.25)';
   ctx.fill();
+
+  /* Faint latitude grid lines */
+  if (wmProjection) _drawGridLines(ctx, transform, dpr, cw, ch);
+
+  /* Land dots — soft blue, single beginPath for performance */
+  if (wmDots.length) {
+    const r  = Math.max(0.8, 1.1 * dpr);
+    const k  = transform.k;
+    const kd = k * dpr;
+    const tx = transform.x * dpr, ty = transform.y * dpr;
+
+    ctx.beginPath();
+    for (const [x, y] of wmDots) {
+      const sx = x * kd + tx, sy = y * kd + ty;
+      if (sx < -r || sx > cw + r || sy < -r || sy > ch + r) continue;
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    }
+    ctx.fillStyle = 'rgba(125, 163, 212, 0.44)';
+    ctx.fill();
+  }
 }
 
-/* Schedule a redraw. During active panning/zooming this fires via rAF.
-   After zoom settles (280ms) the dot field is re-sampled at the new level. */
+function _drawGridLines(ctx, transform, dpr, cw, ch) {
+  const k  = transform.k;
+  const kd = k * dpr;
+  const tx = transform.x * dpr, ty = transform.y * dpr;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(125, 163, 212, 0.055)';
+  ctx.lineWidth   = dpr;
+
+  [-60, -30, 0, 30, 60].forEach(lat => {
+    ctx.beginPath();
+    let started = false;
+    for (let lon = -180; lon <= 180; lon += 3) {
+      const xy = wmProjection([lon, lat]);
+      if (!xy) { started = false; continue; }
+      const sx = xy[0] * kd + tx, sy = xy[1] * kd + ty;
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
 function _scheduleRedot(transform, immediate) {
   if (!wmRafPending) {
     wmRafPending = true;
@@ -235,14 +261,12 @@ function _scheduleRedot(transform, immediate) {
       _redrawCanvas(transform);
     });
   }
-
   clearTimeout(wmDotTimer);
   if (!immediate) {
     wmDotTimer = setTimeout(() => {
       if (transform.k > 1.05) {
         _recomputeDotsForZoom(transform);
       } else {
-        /* Zoom ≈ 1: restore the full-resolution pre-computed field */
         if (wmProjection && wmLand) _computeDotField(wmProjection, WM_W, WM_H, 4);
       }
       _redrawCanvas(transform);
@@ -250,35 +274,27 @@ function _scheduleRedot(transform, immediate) {
   }
 }
 
-/* ---------- PINS ---------- */
+/* ---------- PER-COUNTRY PINS ---------- */
 
-function _recipeHasGenuineOrigin(r) {
-  /* The map pin filter rule — see product comment at top of file */
-  return r.origin && !MAP_FUSION_ORIGINS.has(r.origin);
-}
-
-function _computePins(projection) {
-  wmPins = [];
+function _computeCountryPins(projection) {
+  wmCountryPins = [];
   ORIGIN_PINS.forEach(p => {
-    /* Only include recipes with genuine single-country origins */
     const recs = recipes
       .filter(r => r.origin === p.origin && _recipeHasGenuineOrigin(r))
       .sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!recs.length) return;
 
-    const n = recs.length;
-    recs.forEach((rec, i) => {
-      /* Fan out multiple recipes from the same country so pins don't fully overlap */
-      const off = i - (n - 1) / 2;
-      const lon = p.lon + off * 1.4;
-      const lat = p.lat + off * 0.6;
-      const xy  = projection([lon, lat]);
-      if (!xy) return;
-      wmPins.push({
-        origin: p.origin, color: p.color,
-        recId: rec.id, rec,
-        x: xy[0], y: xy[1]
-      });
+    const xy = projection([p.lon, p.lat]);
+    if (!xy) return;
+
+    wmCountryPins.push({
+      origin:  p.origin,
+      color:   p.color,
+      airline: p.airline,
+      recs,
+      x: xy[0],
+      y: xy[1],
+      el: null
     });
   });
 }
@@ -286,100 +302,160 @@ function _computePins(projection) {
 function _renderPins() {
   const g = document.getElementById('wvPins');
   if (!g) return;
-  g.innerHTML = wmPins.map((p, i) => _pinMarkup(p, i)).join('');
-  /* Store el references */
+  g.innerHTML = wmCountryPins.map((p, i) => _pinMarkup(p, i)).join('');
   const els = g.querySelectorAll('.wm-pin');
-  wmPins.forEach((p, i) => { p.el = els[i]; });
-  _wirePins();
+  wmCountryPins.forEach((p, i) => { p.el = els[i]; });
+  _wirePinClicks();
 }
 
 function _pinMarkup(p, idx) {
-  return `<g class="wm-pin" data-id="${_esc(p.recId)}" data-origin="${_esc(p.origin)}"
+  const count = p.recs.length;
+  const delayGlow = (idx * 0.22).toFixed(2);
+  return `<g class="wm-pin" data-origin="${_esc(p.origin)}"
       transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
-    <g class="pin-pulse" style="animation-delay:${(idx * 0.13).toFixed(2)}s">
-      <path class="pin-drop"
-        d="M0,-19 C-8,-19 -13,-12 -13,-6 C-13,4 0,14 0,14 C0,14 13,4 13,-6 C13,-12 8,-19 0,-19 Z"
-        fill="${p.color}" stroke="rgba(255,255,255,0.4)" stroke-width="1.2"/>
-      <circle cx="0" cy="-6" r="4"   fill="rgba(255,255,255,.55)"/>
-      <circle cx="0" cy="-6" r="1.7" fill="rgba(255,255,255,.95)"/>
-    </g>
+    <circle class="pin-glow" cx="0" cy="0" r="18" fill="${p.color}" opacity="0.18"
+      style="animation-delay:${delayGlow}s"/>
+    <circle cx="0" cy="0" r="12" fill="${p.color}" stroke="rgba(255,255,255,0.28)" stroke-width="1.4"/>
+    <text class="pin-cup" x="0" y="5" text-anchor="middle" dominant-baseline="auto">☕</text>
+    ${count > 1 ? `<g class="pin-badge">
+      <circle cx="10" cy="-10" r="7" fill="#e8b04b" stroke="#081324" stroke-width="1.2"/>
+      <text x="10" y="-6.5" text-anchor="middle" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0b1729">${count}</text>
+    </g>` : ''}
+    <text class="wm-country-label" x="0" y="22" text-anchor="middle">${_esc(p.origin.toUpperCase())}</text>
   </g>`;
 }
 
-function _wirePins() {
+function _wirePinClicks() {
   document.querySelectorAll('#wvPins .wm-pin').forEach(pin => {
-    const id = pin.dataset.id;
-    pin.addEventListener('mouseenter',  () => _showPreview(pin, id));
-    pin.addEventListener('mouseleave',  _hidePreview);
-    pin.addEventListener('touchstart',  () => _showPreview(pin, id), {passive: true});
-    pin.addEventListener('click', e => { e.stopPropagation(); openDetail(id, pin); });
+    const origin = pin.dataset.origin;
+    const cp = wmCountryPins.find(p => p.origin === origin);
+    if (!cp) return;
+    pin.addEventListener('click', e => { e.stopPropagation(); _showPopup(pin, cp); });
+    pin.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _showPopup(pin, cp); }
+    });
+    pin.setAttribute('tabindex', '0');
+    pin.setAttribute('role', 'button');
+    pin.setAttribute('aria-label', `${cp.origin}: ${cp.recs.length} recipe${cp.recs.length > 1 ? 's' : ''}`);
   });
+
+  const wv = document.getElementById('world-view');
+  if (wv) {
+    wv.addEventListener('click', e => {
+      if (!e.target.closest('.wm-popup') && !e.target.closest('.wm-pin')) _closePopup();
+    });
+  }
 }
 
-/* ---------- PREVIEW POPUP ---------- */
+/* ---------- COUNTRY POPUP ---------- */
 
-function _showPreview(pinEl, id) {
-  const rec = recipes.find(r => r.id === id);
-  if (!rec) return;
-  const preview = document.getElementById('wvPreview');
-  if (!preview) return;
-  preview.innerHTML = boardingPassCard(rec);
-  preview.style.display = 'block';
+function _showPopup(pinEl, cp) {
+  _closePopup();
+  const popup = document.getElementById('wvPreview');
+  if (!popup) return;
 
-  /* Position above pin, clamp to viewport */
+  const rowsHTML = cp.recs.map(r => `
+    <div class="wm-popup-row" data-id="${_esc(r.id)}" tabindex="0" role="button" aria-label="Open ${_esc(r.name)}">
+      <span class="wm-popup-dot" style="background:${_esc(cp.color)}"></span>
+      <div class="wm-popup-info">
+        <div class="wm-popup-name">${_esc(r.name)}</div>
+        <div class="wm-popup-meta">
+          <span class="wm-popup-method">${_esc(r.method || '')}</span>
+          ${r.ratio ? `<span class="wm-popup-ratio">${_esc(r.ratio)}</span>` : ''}
+        </div>
+      </div>
+      <svg class="wm-popup-arrow" viewBox="0 0 12 12" fill="none">
+        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </div>`).join('<div class="wm-popup-div"></div>');
+
+  popup.innerHTML = `
+    <div class="wm-popup-head" style="background:linear-gradient(135deg,${cp.color}dd,${cp.color}99)">
+      <div class="wm-popup-head-text">
+        <div class="wm-popup-eyebrow">${_esc(cp.airline)}</div>
+        <div class="wm-popup-country">${_esc(cp.origin)}</div>
+      </div>
+      <button class="wm-popup-close" aria-label="Close">✕</button>
+    </div>
+    <div class="wm-popup-body">${rowsHTML}</div>`;
+
+  popup.querySelectorAll('.wm-popup-row[data-id]').forEach(row => {
+    const go = () => { _closePopup(); openDetail(row.dataset.id, row); };
+    row.addEventListener('click', go);
+    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  popup.querySelector('.wm-popup-close').addEventListener('click', e => { e.stopPropagation(); _closePopup(); });
+
+  popup.style.display = 'block';
+  popup.style.visibility = 'hidden';
+
+  const wv     = document.getElementById('world-view');
+  const wvRect = wv ? wv.getBoundingClientRect() : {left: 0, top: 0};
+  const wvW    = wv ? wv.clientWidth  : 300;
+  const wvH    = wv ? wv.clientHeight : 300;
   const pinRect = pinEl.getBoundingClientRect();
-  const wv      = document.getElementById('world-view');
-  const wvRect  = wv ? wv.getBoundingClientRect() : {left: 0, top: 0};
-
-  let px = pinRect.left - wvRect.left + pinRect.width / 2 - 140;
-  px = Math.min(Math.max(px, 8), (wv ? wv.clientWidth : window.innerWidth) - 292);
-
-  preview.style.visibility = 'hidden';
-  preview.style.left = px + 'px';
-  preview.style.top  = '0px';
 
   requestAnimationFrame(() => {
-    const h  = preview.offsetHeight;
-    const py = Math.max(8, (pinRect.top - wvRect.top) - h - 14);
-    preview.style.top        = py + 'px';
-    preview.style.visibility = 'visible';
-    preview.classList.add('visible');
-    if (typeof BREW_ANIM !== 'undefined') BREW_ANIM.initTSAScan(preview.querySelector('.bp-card'));
+    const pw = popup.offsetWidth  || 240;
+    const ph = popup.offsetHeight || 120;
+
+    let px = pinRect.left - wvRect.left + pinRect.width / 2 - pw / 2;
+    px = Math.min(Math.max(px, 8), wvW - pw - 8);
+
+    let py = (pinRect.top - wvRect.top) - ph - 20;
+    if (py < 8) py = (pinRect.top - wvRect.top) + pinRect.height + 14;
+    py = Math.min(Math.max(py, 8), wvH - ph - 8);
+
+    popup.style.left = px + 'px';
+    popup.style.top  = py + 'px';
+    popup.style.visibility = 'visible';
+    popup.classList.add('visible');
   });
 }
 
-function _hidePreview() {
-  const preview = document.getElementById('wvPreview');
-  if (!preview) return;
-  preview.classList.remove('visible');
-  setTimeout(() => {
-    if (!preview.classList.contains('visible')) preview.style.display = 'none';
-  }, 220);
+function _closePopup() {
+  const popup = document.getElementById('wvPreview');
+  if (!popup) return;
+  popup.classList.remove('visible');
+  popup.style.display = 'none';
 }
 
-/* ---------- LEGEND ---------- */
-
-function _buildLegend() {
-  const el = document.getElementById('wvLegendItems');
-  if (!el) return;
-  el.innerHTML = Object.entries(METHOD_COLORS).map(([m, c]) =>
-    `<div class="legend-item"><span class="legend-dot" style="background:${c}"></span>${m}</div>`
-  ).join('');
-}
-
-/* ---------- ABSENT NOTE (Fusion recipes not on map) ---------- */
+/* ---------- ABSENT NOTE ---------- */
 
 function _updateAbsentNote() {
   const el = document.getElementById('wvAbsentNote');
   if (!el) return;
-  const fusionCount = (typeof recipes !== 'undefined')
+  const n = (typeof recipes !== 'undefined')
     ? recipes.filter(r => MAP_FUSION_ORIGINS.has(r.origin)).length
     : 0;
-  if (fusionCount > 0) {
-    el.textContent = `${fusionCount} fusion recipe${fusionCount > 1 ? 's' : ''} not shown — no single home country`;
-  } else {
-    el.textContent = '';
-  }
+  el.textContent = n > 0
+    ? `${n} fusion recipe${n > 1 ? 's' : ''} not shown — no single home country`
+    : '';
+}
+
+/* ---------- ZOOM CONTROLS ---------- */
+
+function _wireControls() {
+  const zI = document.getElementById('wvZoomIn');
+  const zO = document.getElementById('wvZoomOut');
+  const zR = document.getElementById('wvZoomReset');
+  if (zI) zI.addEventListener('click', () => _zoomBy(1.45));
+  if (zO) zO.addEventListener('click', () => _zoomBy(1 / 1.45));
+  if (zR) zR.addEventListener('click', _zoomReset);
+}
+
+function _zoomBy(factor) {
+  if (!wmZoom) return;
+  const wv = document.getElementById('world-view');
+  if (!wv) return;
+  d3.select(wv).transition().duration(300).call(wmZoom.scaleBy, factor);
+}
+
+function _zoomReset() {
+  if (!wmZoom) return;
+  const wv = document.getElementById('world-view');
+  if (!wv) return;
+  d3.select(wv).transition().duration(420).call(wmZoom.transform, d3.zoomIdentity);
 }
 
 /* ---------- ZOOM & PAN ---------- */
@@ -387,89 +463,70 @@ function _updateAbsentNote() {
 function _applyTransform(t) {
   wmTransform = {k: t.k, x: t.x, y: t.y};
 
-  /* Move SVG pins — they live in projection space, we re-position in screen space */
-  wmPins.forEach(p => {
+  /* Zoom % readout */
+  const pct = document.getElementById('wvZoomPct');
+  if (pct) pct.textContent = Math.round(t.k * 100) + '%';
+
+  /* Reposition pins + counter-scale so they stay the same visual size */
+  const inv = (1 / t.k).toFixed(3);
+  wmCountryPins.forEach(p => {
     if (!p.el) return;
     const sx = p.x * t.k + t.x;
     const sy = p.y * t.k + t.y;
-    p.el.setAttribute('transform', `translate(${sx.toFixed(1)},${sy.toFixed(1)})`);
+    p.el.setAttribute('transform', `translate(${sx.toFixed(1)},${sy.toFixed(1)}) scale(${inv})`);
   });
 
-  _hidePreview();
+  /* Country labels fade in when zoomed enough */
+  const labelAlpha = t.k < 2.2 ? 0 : Math.min(1, (t.k - 2.2) / 1.0);
+  document.querySelectorAll('.wm-country-label').forEach(el => {
+    el.style.opacity = labelAlpha.toFixed(2);
+  });
+
+  _closePopup();
   _scheduleRedot(wmTransform, false);
 }
 
 function _setupZoom() {
-  const wv  = document.getElementById('world-view');
-  const svg = document.getElementById('wvSvg');
-  if (!wv || !svg) return;
+  const wv = document.getElementById('world-view');
+  if (!wv) return;
 
-  const zoom = d3.zoom()
-    .scaleExtent([1, 8])
-    .on('zoom', ev => { _applyTransform(ev.transform); });
+  wmZoom = d3.zoom()
+    .scaleExtent([1, 5])
+    .on('zoom', ev => _applyTransform(ev.transform));
 
-  /* Bind zoom to the container div but also make SVG a passthrough */
-  d3.select(wv).call(zoom).on('dblclick.zoom', null);
-
-  /* Keep pans bounded: don't let user scroll into void */
-  zoom.translateExtent([[0, 0], [WM_W, WM_H]]);
+  d3.select(wv).call(wmZoom).on('dblclick.zoom', null);
+  wmZoom.translateExtent([[0, 0], [wmFitW, wmFitH]]);
 }
 
 /* ---------- FALLBACK (no D3 available) ---------- */
 
-function _buildFallbackDots() {
+function _buildFallback() {
   wmBuilt = true;
-  /* Simple equirectangular approximation for pin placement */
-  const proj = ll => {
-    const lon = ll[0], lat = ll[1];
-    const x = ((lon - (-15) + 180 + 360) % 360) / 360 * WM_W;
+  const proj = ([lon, lat]) => {
+    const x = ((lon + 15 + 180) % 360) / 360 * WM_W;
     const y = (90 - lat) / 180 * WM_H;
     return [x, y];
   };
-  wmProjection = {invert: null}; /* signal that geoContains is unavailable */
 
-  _computePinsWithFn(proj);
-  _renderPins();
-  _buildLegend();
-
-  const canvas = document.getElementById('wvCanvas');
-  if (canvas) {
-    _resizeCanvas();
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#070f1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    /* Simple dot pattern without geographic accuracy */
-    ctx.fillStyle = 'rgba(55, 82, 112, 0.45)';
-    for (let x = 0; x < canvas.width; x += 6) {
-      for (let y = 0; y < canvas.height; y += 6) {
-        ctx.fillRect(x, y, 1.5, 1.5);
-      }
-    }
-  }
-
-  _showLayer();
-}
-
-function _computePinsWithFn(projection) {
-  wmPins = [];
+  wmCountryPins = [];
   ORIGIN_PINS.forEach(p => {
     const recs = recipes
       .filter(r => r.origin === p.origin && _recipeHasGenuineOrigin(r))
       .sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!recs.length) return;
-    const n = recs.length;
-    recs.forEach((rec, i) => {
-      const off = i - (n - 1) / 2;
-      const xy  = projection([p.lon + off * 1.4, p.lat + off * 0.6]);
-      if (!xy) return;
-      wmPins.push({origin: p.origin, color: p.color, recId: rec.id, rec, x: xy[0], y: xy[1]});
-    });
+    const xy = proj([p.lon, p.lat]);
+    wmCountryPins.push({origin: p.origin, color: p.color, airline: p.airline, recs, x: xy[0], y: xy[1], el: null});
   });
-}
 
-/* ---------- LAYER SHOW/HIDE ---------- */
+  _renderPins();
+  _wireControls();
+  _updateAbsentNote();
 
-function _showLayer() {
-  const wv = document.getElementById('world-view');
-  if (wv) { wv.style.display = 'flex'; wv.removeAttribute('aria-hidden'); }
+  const canvas = document.getElementById('wvCanvas');
+  if (canvas) {
+    _resizeCanvas();
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0b1729';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 }

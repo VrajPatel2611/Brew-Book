@@ -457,29 +457,7 @@ function switchScreen(target){
   });
   currentScreen = target;
   if(target === 'screen-collection') renderCollection();
-}
-
-/* ---------- view toggle (List / World) ---------- */
-let viewMode = 'list'; /* 'list' | 'world' */
-
-function setViewMode(mode, skipRender) {
-  if(mode === viewMode && !skipRender) return;
-  viewMode = mode;
-  /* Update pill button states */
-  document.querySelectorAll('.vt-seg').forEach(b => {
-    const on = b.dataset.view === mode;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
-  const content = document.getElementById('content');
-  if(mode === 'world'){
-    if(content) content.style.display = 'none';
-    showWorldView();
-  } else {
-    if(content) content.style.display = '';
-    hideWorldView();
-    if(!skipRender) render();
-  }
+  if(target === 'screen-world') initWorldMap();
 }
 
 /* ---------- detail (boarding pass paper) ---------- */
@@ -868,13 +846,6 @@ if(typeof runSplash === 'function'){
 }
 
 document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchScreen(t.dataset.target)));
-
-/* View toggle (List / World) */
-document.getElementById('viewToggle').addEventListener('click', e => {
-  const btn = e.target.closest('.vt-seg');
-  if(!btn) return;
-  setViewMode(btn.dataset.view);
-});
 
 document.getElementById('content').addEventListener('click', e => {
   const card = e.target.closest('.bp-card');
