@@ -12,8 +12,9 @@
 }
 .screen.active{display:flex}
 
-/* Matches Recipe Website Reference.html's .bb-page background exactly. */
-.screen-home{
+/* Matches the design reference files' .bb-page background exactly — shared
+   across Home/World/Detail/Collection per the reference token comments. */
+.screen-home,.screen-world,.screen-detail,.screen-collection{
   background:radial-gradient(130% 80% at 50% -10%,var(--bg-dark-1) 0%,var(--bg-dark-2) 54%,var(--bg-dark-3) 100%);
 }
 
@@ -392,7 +393,6 @@
 .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
 /* ─── RECIPE DETAIL SCREEN ─── */
-.screen-detail{background:var(--midnight)}
 .detail-content{flex:1;overflow-y:auto;padding:16px 18px 40px}
 
 .detail-breadcrumb{
@@ -520,29 +520,36 @@
 .detail-made-toggle.celebrate .puff:nth-child(5){animation-delay:.08s;--dx:9px}
 @keyframes puffUp{0%{opacity:.9;transform:translate(-50%,-50%) scale(.6)}100%{opacity:0;transform:translate(calc(-50% + var(--dx,0px)),-260%) scale(1.4)}}
 
-/* ─── FORM PANEL ─── */
-.panel{position:fixed;inset:0;background:rgba(20,13,9,.78);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center;z-index:300}
-@media(min-width:640px){.panel{align-items:center;padding:28px}}
+/* ─── FORM PANEL ───
+   Overlay/sheet/field chrome matches brew_book_collection_reference.html's
+   .bb-overlay/.bb-sheet/.bb-field exactly. The sheet keeps our existing
+   extra Detail-content fields (Story/Bean note/Ingredients/Steps/Notes) —
+   the reference intentionally only covers the card-level fields, this
+   section's styling is unrelated to that scope note. */
+.panel{position:fixed;inset:0;background:rgba(8,6,4,.66);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:300}
+@media(min-width:640px){.panel{align-items:center;padding:30px}}
 .panel.open{display:flex;animation:panelFade .22s ease}
 @keyframes panelFade{from{opacity:0}to{opacity:1}}
-.sheet{background:var(--roast-2);border:1px solid var(--line);width:100%;max-width:620px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:22px 20px 36px;animation:rise .22s ease-out}
-@media(min-width:640px){.sheet{border-radius:20px;max-height:86vh}}
-@keyframes rise{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
-.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
-.sheet-head h2{font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--foam);line-height:1.15}
-.close-btn{background:var(--roast-3);border:1px solid var(--line);color:var(--crema);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:border-color .15s}
-.close-btn:hover{border-color:var(--copper)}
-.field{margin-bottom:14px}
-.field label{display:block;font-size:12px;font-weight:700;color:var(--crema-dim);margin-bottom:5px}
-.field input,.field textarea,.field select{width:100%;background:var(--roast);border:1px solid var(--line);border-radius:9px;color:var(--crema);font-family:var(--font-body);font-size:14px;padding:10px 13px;outline:none;transition:border-color .15s}
-.field textarea{resize:vertical;min-height:68px}
+.sheet{background:#1c130d;border:1px solid rgba(242,228,207,.14);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:26px 26px 22px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7);animation:rise .2s ease-out}
+@media(min-width:640px){.sheet{border-radius:20px;max-height:88vh}}
+@keyframes rise{from{transform:translateY(18px) scale(.98);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px}
+.sheet-head h2{font-family:var(--font-display);font-weight:600;font-size:23px;color:var(--foam);line-height:1.15}
+.close-btn{background:rgba(242,228,207,.08);border:none;color:var(--crema-dim);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.close-btn:hover{background:rgba(242,228,207,.14)}
+.field{margin-bottom:12px}
+.field label{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted-3);margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;background:rgba(20,14,10,.55);border:1px solid rgba(242,228,207,.16);border-radius:9px;color:var(--foam);font-family:var(--font-body);font-size:13.5px;padding:9px 12px;outline:none;transition:border-color .15s}
+.field textarea{resize:vertical;min-height:68px;line-height:1.5}
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--copper)}
 .field .hint{font-size:11px;color:var(--crema-dim);opacity:.7;margin-top:4px}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.strength-picker{display:flex;gap:6px}
-.strength-picker button{flex:1;background:var(--roast);border:1px solid var(--line);border-radius:9px;padding:8px 4px;cursor:pointer;display:flex;justify-content:center;gap:2px;transition:all .15s}
-.strength-picker button.sel{border-color:var(--copper);background:rgba(207,127,69,.12)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.strength-picker,.color-picker{display:flex;gap:8px}
+.strength-dot{cursor:pointer;width:26px;height:26px;border-radius:50%;border:1px solid rgba(242,228,207,.2);transition:transform .1s}
+.strength-dot:hover{transform:scale(1.08)}
+.color-swatch{cursor:pointer;width:26px;height:26px;border-radius:50%;transition:transform .1s}
+.color-swatch:hover{transform:scale(1.08)}
 /* Detail-content section: dashed divider + mono section label */
 .form-section{margin-top:20px;padding-top:16px;border-top:1px dashed var(--line)}
 .form-section-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--copper);margin-bottom:13px}
@@ -558,12 +565,15 @@
 .repeat-add{margin-top:8px;width:100%;padding:10px;border-radius:9px;background:transparent;border:1px dashed var(--line);color:var(--copper);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:border-color .15s,background .15s}
 .repeat-add:hover{border-color:var(--copper);background:rgba(207,127,69,.08)}
 
-.form-actions{display:flex;gap:10px;margin-top:18px}
-.btn{flex:1;padding:13px;border-radius:10px;font-family:var(--font-body);font-weight:700;font-size:14px;cursor:pointer;border:1px solid var(--line);background:var(--roast-3);color:var(--crema);transition:border-color .15s}
-.btn:hover{border-color:var(--copper)}
-.btn.primary{background:var(--copper);border-color:var(--copper);color:#241a14}
-.btn.danger{color:var(--danger);border-color:rgba(217,107,90,.38)}
-.btn.danger:hover{border-color:var(--danger)}
+.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
+.btn{
+  cursor:pointer;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:11px 18px;border-radius:10px;border:none;background:none;color:var(--crema-dim);transition:color .15s;
+}
+.btn:hover{color:var(--crema)}
+.btn.primary{background:var(--copper);color:var(--bg-dark-2);padding:11px 20px}
+.btn.primary:hover{color:var(--bg-dark-2)}
+.btn.danger{color:var(--danger)}
 
 /* ─── BREW MODE ─── */
 .brew-mode{position:fixed;inset:0;z-index:400;background:var(--midnight);display:flex;flex-direction:column;overflow:hidden}
@@ -667,17 +677,27 @@
 .brew-finish .brew-btn{flex:none;padding:12px 24px;margin-top:6px}
 
 /* ─── COLLECTION SCREEN ─── */
-.screen-collection{background:var(--midnight)}
+
+/* Centered page-intro banner, matches brew_book_collection_reference.html's
+   .bb-intro exactly. Scoped to Collection — the other screens don't have
+   an equivalent block in their own references. */
+.coll-page-intro{max-width:640px;margin:0 auto;padding:60px 24px 6px;text-align:center;flex-shrink:0}
+.coll-page-intro-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:var(--copper);margin-bottom:16px}
+.coll-page-intro h1{font-family:var(--font-display);font-weight:600;font-size:clamp(34px,5vw,54px);line-height:1.02;letter-spacing:-1.2px;color:var(--foam)}
+.coll-page-intro h1 em{font-style:italic;font-weight:400;color:var(--copper)}
+.coll-page-intro p{max-width:560px;margin:14px auto 0;font-size:14.5px;line-height:1.6;color:var(--crema-dim)}
 
 .coll-header{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;
   padding:20px 18px 4px;flex-shrink:0;
 }
 .coll-header-text{flex:1;min-width:240px}
-.coll-eyebrow{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--copper);margin-bottom:6px}
-.coll-title{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,5vw,32px);color:var(--foam);line-height:1.1}
+.coll-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--copper);margin-bottom:12px}
+.coll-title{font-family:var(--font-display);font-weight:600;font-size:clamp(36px,5vw,54px);color:var(--foam);line-height:.98;letter-spacing:-1.4px}
 .coll-title em{font-style:italic;font-weight:400;color:var(--copper)}
-.coll-sub{font-family:var(--font-body);font-size:13px;color:var(--crema-dim);line-height:1.5;margin-top:8px;max-width:440px}
+.coll-sub{font-family:var(--font-body);font-size:15px;color:var(--crema-dim);line-height:1.6;margin-top:14px;max-width:520px}
+
+.coll-mine-count{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--crema-dim);padding:18px 18px 0;flex-shrink:0}
 
 .coll-toggle{
   display:flex;align-items:center;gap:3px;flex-shrink:0;
@@ -730,6 +750,14 @@
 /* "What's in your kitchen?" ingredient-match highlighting */
 .coll-card.coll-dim{opacity:.4}
 .coll-card.coll-match{box-shadow:0 2px 14px rgba(0,0,0,.45),0 1px 4px rgba(0,0,0,.25),-7px 0 22px -6px rgba(127,176,105,.6)}
+
+/* Landed Brews: a "tried" catalog card gets a highlighted border and a
+   rotated ink-stamp badge, matching brew_book_collection_reference.html's
+   .bb-card.tried/.bb-stamp exactly. */
+.coll-card.coll-tried{border-color:rgba(207,127,69,.33)}
+.coll-stamp{position:absolute;right:26px;top:38%;z-index:5;pointer-events:none;animation:collStampIn .28s ease-out;transform:translate(-50%,-50%) rotate(-18deg)}
+.coll-stamp-box{border:3px solid var(--copper);border-radius:10px;padding:4px 12px;font-family:var(--font-mono);font-weight:700;font-size:15px;letter-spacing:.12em;color:var(--copper);opacity:.9}
+@keyframes collStampIn{0%{transform:translate(-50%,-50%) rotate(-18deg) scale(1.6)}100%{transform:translate(-50%,-50%) rotate(-18deg) scale(1)}}
 
 .coll-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .coll-card-origin{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
@@ -786,13 +814,19 @@
 }
 
 .coll-add-card{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-  min-height:150px;border:1.5px dashed var(--line);border-radius:12px;background:transparent;
-  color:var(--crema-dim);cursor:pointer;transition:border-color .15s,color .15s,background .15s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  min-height:210px;border:1.5px dashed rgba(207,127,69,.4);border-radius:16px;background:rgba(207,127,69,.03);
+  cursor:pointer;transition:.15s;
 }
-.coll-add-card:hover{border-color:var(--copper);color:var(--copper);background:rgba(207,127,69,.06)}
-.coll-add-plus{font-size:28px;line-height:1;font-weight:300}
-.coll-add-label{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.coll-add-card:hover{background:rgba(207,127,69,.08);border-color:rgba(207,127,69,.5)}
+.coll-add-plus{
+  width:46px;height:46px;border-radius:50%;flex-shrink:0;
+  background:rgba(207,127,69,.14);border:1px solid rgba(207,127,69,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:300;line-height:1;color:var(--copper);
+}
+.coll-add-label{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--copper)}
+.coll-add-desc{font-size:12.5px;color:var(--text-muted-2);max-width:190px;text-align:center;line-height:1.4}
 
 /* ─── TOAST ─── */
 .toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);background:var(--copper);color:#241a14;font-weight:700;font-size:14px;padding:10px 22px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.45);z-index:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center;white-space:nowrap}
@@ -833,7 +867,6 @@
 [data-method-content]{transition:opacity .18s}
 
 /* ─── WORLD SCREEN ─── */
-.screen-world{background:var(--midnight)}
 
 /* Boarding Passes / World Map toggle reuses .coll-toggle/.coll-seg visuals;
    .world-toggle/.world-seg are just JS selector hooks, no extra CSS needed. */

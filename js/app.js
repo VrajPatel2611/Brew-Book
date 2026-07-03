@@ -82,7 +82,15 @@ const STYLE_CATEGORIES = [
   }
 ];
 
+/* Colour swatch choices for the custom-recipe form, matches
+   brew_book_collection_reference.html's PALETTE exactly. */
+const RECIPE_PALETTE = ['#cf7f45','#c0392b','#2f8f4e','#3a6db0','#d9893f'];
+const FORM_ACCENT = RECIPE_PALETTE[0];
+
+/* Custom recipes carry an explicit user-picked tagId (from the form's Tag
+   select) since they can't match any seed id list. */
 function getStyleCategory(r) {
+  if (r.tagId) return r.tagId;
   for (const cat of STYLE_CATEGORIES) {
     if (cat.ids.includes(r.id)) return cat.id;
   }
@@ -500,22 +508,28 @@ let collView = 'landed'; /* 'landed' | 'mine' */
 /* Ticket-stub card — shared by Collection, World's Boarding Passes view,
    and the Recipes/Home lanes. Matches Recipe Website Reference.html's
    .bb-card structure exactly (stripe + body + dashed/notched stub column).
-   Custom recipes (My Recipes) get edit/delete icon buttons; showRatio adds
-   the ratio + strength-beans column; matchState ('match'/'dim') reflects
-   the kitchen ingredient filter. */
+   Custom recipes (My Recipes) get edit/delete icon buttons and an optional
+   user-picked colour; showRatio adds the ratio + strength-beans column;
+   matchState ('match'/'dim') reflects the kitchen ingredient filter;
+   showTried adds the Landed-Brews-only ink-stamp + highlighted border for
+   recipes the user has actually made. */
 function collectionCard(r, opts){
   const custom     = !!(opts && opts.custom);
   const showRatio  = !!(opts && opts.showRatio);
+  const showTried  = !!(opts && opts.showTried);
   const matchState = opts && opts.matchState;
   const al = getAirline(r.serial || 0);
-  const color = al.color;
+  const color = r.color || al.color;
   const code = r.code || al.code;
   const catId = getStyleCategory(r);
   const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
+  const tried = showTried && !!r.tried;
   const matchClass  = matchState ? ` coll-${matchState}` : '';
+  const triedClass  = tried ? ' coll-tried' : '';
   const stripeColor = matchState === 'match' ? '#7fb069' : color;
-  return `<div class="coll-card${matchClass}" data-id="${esc(r.id)}">
+  return `<div class="coll-card${matchClass}${triedClass}" data-id="${esc(r.id)}">
     <span class="coll-card-stripe" style="background:${stripeColor}"></span>
+    ${tried ? `<div class="coll-stamp"><div class="coll-stamp-box">Brewed</div></div>` : ''}
     <div class="coll-card-inner">
       <div class="coll-card-body">
         <div class="coll-card-top">
@@ -550,6 +564,7 @@ function addRecipeCard(){
   return `<button class="coll-add-card" id="collAddCard" type="button">
     <span class="coll-add-plus">+</span>
     <span class="coll-add-label">Add a recipe</span>
+    <span class="coll-add-desc">Write up a brew that isn't in the terminal yet</span>
   </button>`;
 }
 
@@ -564,27 +579,33 @@ function syncCollToggle(){
 function renderCollection(){
   syncCollToggle();
 
-  const tried  = recipes.filter(r => r.tried).sort((a, b) => (a.serial || 0) - (b.serial || 0));
-  const mine   = recipes.filter(r => String(r.id).startsWith('custom-')).sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const catalog = recipes.filter(r => !String(r.id).startsWith('custom-')).sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const mine    = recipes.filter(r => String(r.id).startsWith('custom-')).sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const triedCount = catalog.filter(r => r.tried).length;
 
+  const progRow   = document.getElementById('collProgressRow');
   const progFill  = document.getElementById('collProgressFill');
   const progLabel = document.getElementById('collProgressLabel');
   if(progFill && progLabel){
-    const pct = recipes.length ? Math.round((tried.length / recipes.length) * 100) : 0;
+    const pct = catalog.length ? Math.round((triedCount / catalog.length) * 100) : 0;
     progFill.style.width = pct + '%';
-    progLabel.textContent = `${tried.length} / ${recipes.length} brewed`;
+    progLabel.textContent = `${triedCount} / ${catalog.length} brewed`;
   }
+  const mineCountEl = document.getElementById('collMineCount');
+  if(mineCountEl) mineCountEl.textContent = `${mine.length} recipe${mine.length === 1 ? '' : 's'} of your own`;
+  if(progRow) progRow.style.display = collView === 'landed' ? '' : 'none';
+  if(mineCountEl) mineCountEl.style.display = collView === 'mine' ? '' : 'none';
 
   const el = document.getElementById('collection-content');
 
   if(collView === 'landed'){
-    if(tried.length === 0){
-      el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No stamps yet</h2><p>Mark a brew as made to stamp your passport.</p></div>`;
+    if(catalog.length === 0){
+      el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No recipes yet</h2><p>The catalog is still loading.</p></div>`;
     } else {
-      el.innerHTML = tried.map(r => collectionCard(r)).join('');
+      el.innerHTML = catalog.map(r => collectionCard(r, {showRatio: true, showTried: true})).join('');
     }
   } else {
-    el.innerHTML = mine.map(r => collectionCard(r, {custom: true})).join('') + addRecipeCard();
+    el.innerHTML = mine.map(r => collectionCard(r, {custom: true, showRatio: true})).join('') + addRecipeCard();
   }
 
   updateNavCountPill();
@@ -908,8 +929,12 @@ function openForm(id){
       <div class="field"><label for="fMethod">Brew method</label><select id="fMethod">${METHODS.filter(m=>m!=='all').map(m=>`<option ${r&&r.method===m?'selected':''}>${m}</option>`).join('')}</select></div>
       <div class="field"><label for="fRatio">Ratio</label><input id="fRatio" type="text" placeholder="e.g. 1:4" value="${r?esc(r.ratio||''):''}"></div>
     </div>
-    <div class="field"><label for="fRatioLabel">What the ratio means</label><input id="fRatioLabel" type="text" placeholder="e.g. espresso : ice" value="${r?esc(r.ratioLabel||''):''}"></div>
-    <div class="field"><label>Strength</label><div class="strength-picker" id="fStrength">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" class="${n===strength?'sel':''}" aria-label="Strength ${n}">${[...Array(n)].map(()=>beanSVG(true)).join('')}</button>`).join('')}</div></div>
+    <div class="field-row">
+      <div class="field"><label for="fRatioLabel">What the ratio means</label><input id="fRatioLabel" type="text" placeholder="e.g. espresso : ice" value="${r?esc(r.ratioLabel||''):''}"></div>
+      <div class="field"><label for="fTag">Tag</label><select id="fTag">${STYLE_CATEGORIES.map(c=>`<option value="${c.id}" ${r&&getStyleCategory(r)===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Strength</label><div class="strength-picker" id="fStrength"></div></div>
+    <div class="field"><label>Colour</label><div class="color-picker" id="fColor"></div></div>
 
     <div class="form-section">
       <div class="form-section-label">Detail page content</div>
@@ -933,7 +958,17 @@ function openForm(id){
     <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>${r ? 'Save changes' : 'Save recipe'}</button></div>`;
 
   let selStrength = strength;
-  sheet.querySelectorAll('#fStrength button').forEach(b => b.onclick = () => { selStrength = +b.dataset.n; sheet.querySelectorAll('#fStrength button').forEach(x => x.classList.toggle('sel', +x.dataset.n === selStrength)); });
+  let selColor = r ? (r.color || FORM_ACCENT) : FORM_ACCENT;
+  function renderStrengthDots(){
+    sheet.querySelector('#fStrength').innerHTML = [1,2,3,4,5].map(n => `<span class="strength-dot" data-n="${n}" style="background:${n<=selStrength?`linear-gradient(150deg,#e9a25f,${selColor})`:'rgba(242,228,207,.1)'}"></span>`).join('');
+    sheet.querySelectorAll('#fStrength .strength-dot').forEach(el => el.onclick = () => { selStrength = +el.dataset.n; renderStrengthDots(); });
+  }
+  function renderColorSwatches(){
+    sheet.querySelector('#fColor').innerHTML = RECIPE_PALETTE.map(hex => `<span class="color-swatch" data-hex="${hex}" style="background:${hex};border:${selColor===hex?'2px solid var(--foam)':'1px solid rgba(242,228,207,.2)'};box-shadow:${selColor===hex?`0 0 0 3px ${hex}55`:'none'}"></span>`).join('');
+    sheet.querySelectorAll('#fColor .color-swatch').forEach(el => el.onclick = () => { selColor = el.dataset.hex; renderColorSwatches(); renderStrengthDots(); });
+  }
+  renderStrengthDots();
+  renderColorSwatches();
   sheet.querySelectorAll('[data-close]').forEach(b => b.onclick = closeForm);
 
   /* Repeatable ingredient rows: add appends a blank row; delete removes
@@ -991,6 +1026,8 @@ function openForm(id){
       method: sheet.querySelector('#fMethod').value,
       ratio: sheet.querySelector('#fRatio').value.trim(),
       ratioLabel: sheet.querySelector('#fRatioLabel').value.trim(),
+      tagId: sheet.querySelector('#fTag').value,
+      color: selColor,
       story: sheet.querySelector('#fStory').value.trim(),
       bean: sheet.querySelector('#fBean').value.trim(),
       strength: selStrength,
