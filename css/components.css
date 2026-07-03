@@ -12,6 +12,11 @@
 }
 .screen.active{display:flex}
 
+/* Matches Recipe Website Reference.html's .bb-page background exactly. */
+.screen-home{
+  background:radial-gradient(130% 80% at 50% -10%,var(--bg-dark-1) 0%,var(--bg-dark-2) 54%,var(--bg-dark-3) 100%);
+}
+
 /* ─── SPLASH ─── */
 .splash{
   position:fixed;inset:0;z-index:500;
@@ -60,18 +65,28 @@
 /* ─── RUNWAY STRIP ─── */
 .runway-strip{height:3px;background:var(--copper-grad);flex-shrink:0}
 
-/* ─── TOP NAV (persistent, spans every screen) ─── */
+/* ─── TOP NAV (persistent, spans every screen) ───
+   Colors/spacing pulled exactly from Recipe Website Reference.html's
+   .bb-header block (translucent + blurred, not solid var(--nav-bg)). */
 .top-nav{
   flex-shrink:0;position:relative;z-index:50;
-  background:var(--nav-bg);border-bottom:1px solid rgba(207,127,69,.18);
+  background:rgba(20,14,10,.72);
+  backdrop-filter:blur(18px) saturate(1.3);
+  -webkit-backdrop-filter:blur(18px) saturate(1.3);
+  border-bottom:1px solid rgba(207,127,69,.16);
 }
 .top-nav-inner{
-  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  padding:12px 18px;
+  display:flex;align-items:center;gap:26px;flex-wrap:wrap;
+  padding:18px 18px;
 }
-.tn-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.cuplogo{display:inline-block;width:32px;height:36px;flex-shrink:0}
-.cuplogo svg{width:100%;height:100%;overflow:visible}
+.tn-brand{display:flex;align-items:center;gap:11px;flex-shrink:0}
+.cuplogo{
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:38px;height:38px;border-radius:11px;
+  background:linear-gradient(150deg,var(--bg-dark-1),var(--bg-dark-2));
+  border:1px solid rgba(207,127,69,.3);
+}
+.cuplogo svg{width:22px;height:24px;overflow:visible}
 .cuplogo .w{
   fill:none;stroke-width:2.4;stroke-linecap:round;
   stroke-dasharray:28;stroke-dashoffset:28;opacity:0;
@@ -84,40 +99,40 @@
   22%{opacity:.6}60%{opacity:.28}
   100%{stroke-dashoffset:-11;opacity:0;transform:translateY(-7px)}
 }
-.brand-name{font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--foam);letter-spacing:-.5px;line-height:1;white-space:nowrap}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--foam);letter-spacing:-.3px;line-height:1;white-space:nowrap}
 .brand-name em{font-style:normal;color:var(--copper)}
 
-.tn-links{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+.tn-links{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:6px}
 .tn-right{display:flex;align-items:center;gap:12px;margin-left:auto;flex-wrap:wrap}
 
-/* Nav links reuse .nav-tab; pill-fills when active, plain text otherwise */
+/* Nav links reuse .nav-tab; solid-fill pill when active, plain text otherwise */
 .nav-tab{
-  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  font-family:var(--font-mono);font-size:12px;font-weight:400;letter-spacing:.05em;text-transform:uppercase;
   color:var(--crema-dim);background:transparent;border:none;border-radius:999px;
-  padding:8px 15px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;
+  padding:8px 17px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;
 }
 .nav-tab:hover{color:var(--crema)}
-.nav-tab.active{background:var(--copper-grad);color:#fff}
+.nav-tab.active{font-weight:700;background:var(--copper);color:var(--bg-dark-2)}
 
 .count-pill{
-  font-family:var(--font-mono);font-size:11px;color:var(--copper);
-  border:1px solid var(--copper-soft);border-radius:999px;
-  padding:6px 14px;white-space:nowrap;letter-spacing:.06em;flex-shrink:0;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--copper);
+  border:1px solid rgba(207,127,69,.4);border-radius:999px;
+  padding:8px 14px;white-space:nowrap;letter-spacing:.08em;flex-shrink:0;
 }
 
 /* ─── TOOLBAR (Recipes screen only) ─── */
 .toolbar{padding:10px 18px 10px;display:flex;flex-direction:column;gap:9px;flex-shrink:0}
 .search-row{display:flex;gap:9px;align-items:center;justify-content:flex-end}
-.search-wrap{position:relative;display:flex;align-items:center;width:230px;max-width:56vw}
-.search-icon{position:absolute;left:12px;width:13px;height:13px;color:var(--crema-dim);pointer-events:none;flex-shrink:0}
+.search-wrap{position:relative;display:flex;align-items:center;width:240px;max-width:56vw}
+.search-icon{position:absolute;left:15px;width:15px;height:15px;color:var(--text-muted-3);pointer-events:none;flex-shrink:0}
 .search{
-  width:100%;background:var(--roast-2);
-  border:1px solid var(--line);border-radius:10px;
-  color:var(--crema);font-family:var(--font-mono);font-size:13px;
-  padding:9px 12px 9px 32px;outline:none;transition:border-color .15s;
+  width:100%;background:rgba(46,34,26,.5);
+  border:1px solid rgba(242,228,207,.12);border-radius:12px;
+  color:var(--crema);font-family:var(--font-body);font-size:13px;
+  padding:9px 15px 9px 36px;outline:none;transition:border-color .15s;
 }
 .search:focus{border-color:var(--copper)}
-.search::placeholder{color:var(--crema-dim);opacity:.55}
+.search::placeholder{color:var(--text-muted-2)}
 .sort{
   background:var(--roast-2);border:1px solid var(--line);border-radius:8px;
   color:var(--crema);font-family:var(--font-mono);font-size:12px;
@@ -683,44 +698,47 @@
 
 .collection-content{
   flex:1;overflow-y:auto;align-content:start;
-  display:grid;grid-template-columns:1fr;gap:12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;
   padding:10px 18px 24px;
 }
 .collection-content .empty{grid-column:1/-1}
-@media(min-width:560px){.collection-content{grid-template-columns:1fr 1fr}}
-@media(min-width:900px){.collection-content{grid-template-columns:1fr 1fr 1fr;gap:14px}}
+@media(min-width:560px){.collection-content{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}}
+@media(min-width:900px){.collection-content{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
 
-/* ─── COLLECTION CARD (flat ticket-stub style) ─── */
-/* No overflow:hidden here on purpose: as a CSS Grid item, overflow other
-   than visible collapses this element's contribution to the row's auto
-   height (its "automatic minimum size" resolves to 0), which shrank every
-   card in the row down to ~1 line before content was clipped. The colored
-   stripe is rounded on its own corners instead of relying on clipping. */
+/* ─── COLLECTION CARD (ticket-stub style, matches Recipe Website
+   Reference.html's .bb-card exactly) ─── */
+/* Deliberately no overflow:hidden on .coll-card itself: as a CSS Grid item,
+   overflow other than visible collapses this element's contribution to the
+   row's auto-height sizing (its "automatic minimum size" resolves to 0),
+   which shrank every card in a row down to ~1 line before content was
+   clipped. Corners that need clipping (stripe, stub) are rounded on their
+   own instead of relying on the card clipping them. */
 .coll-card{
-  position:relative;
-  background:var(--roast-2);border:1px solid var(--line);border-radius:12px;
-  padding:16px 30px 16px 18px;cursor:pointer;
-  display:flex;flex-direction:column;gap:10px;
-  transition:border-color .15s,transform .15s;
+  position:relative;cursor:pointer;border-radius:16px;
+  background:rgba(40,28,20,.55);
+  backdrop-filter:blur(13px) saturate(1.3);
+  -webkit-backdrop-filter:blur(13px) saturate(1.3);
+  border:1px solid rgba(242,228,207,.12);
+  box-shadow:0 16px 34px -20px rgba(0,0,0,.6);
+  transition:transform .22s,box-shadow .22s;
 }
-.coll-card:hover{border-color:var(--copper-soft);transform:translateY(-2px)}
-.coll-card::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
-  border-radius:12px 0 0 12px;
-  background:var(--stub-color,var(--copper));
-}
+.coll-card:hover{transform:translateY(-7px);box-shadow:0 32px 56px -22px rgba(0,0,0,.75)}
+.coll-card-stripe{position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:16px 0 0 16px}
+.coll-card-inner{display:flex;align-items:stretch}
+.coll-card-body{flex:1;min-width:0;padding:16px 16px 15px 21px}
+
 /* "What's in your kitchen?" ingredient-match highlighting */
 .coll-card.coll-dim{opacity:.4}
 .coll-card.coll-match{box-shadow:0 2px 14px rgba(0,0,0,.45),0 1px 4px rgba(0,0,0,.25),-7px 0 22px -6px rgba(127,176,105,.6)}
-.coll-card.coll-match::before{background:var(--green)}
-.coll-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.coll-card-origin{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.coll-card-no{font-family:var(--font-mono);font-size:9.5px;color:var(--crema-dim);opacity:.6;margin-top:2px;letter-spacing:.05em}
+
+.coll-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.coll-card-origin{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.coll-card-no{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted-2);margin-top:2px}
 .coll-card-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .coll-badge{
-  width:26px;height:26px;border-radius:50%;flex-shrink:0;
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-mono);font-size:9.5px;font-weight:700;color:#fff;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;color:#fff;
 }
 .coll-icon-btn{
   width:24px;height:24px;border-radius:7px;flex-shrink:0;
@@ -731,25 +749,40 @@
 .coll-icon-btn:hover{border-color:var(--copper);color:var(--crema)}
 .coll-icon-btn[data-delete]:hover{border-color:var(--danger);color:var(--danger)}
 
-.coll-card-name{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--foam);line-height:1.2}
-.coll-card-desc{font-family:var(--font-body);font-style:italic;font-size:12.5px;color:var(--crema-dim);line-height:1.45}
-.coll-card-div{border-top:1px dashed var(--line);margin-top:2px}
+.coll-card-name{font-family:var(--font-display);font-weight:600;font-size:19px;line-height:1.08;color:var(--foam);margin-top:13px;letter-spacing:-.3px}
+.coll-card-desc{font-family:var(--font-display);font-style:italic;font-size:12px;line-height:1.4;color:var(--crema-dim);margin-top:5px;min-height:32px}
 
-.coll-card-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-.coll-card-method{display:flex;flex-direction:column;gap:3px;font-family:var(--font-mono)}
-.coll-card-method-label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--crema-dim);opacity:.65}
-.coll-card-method-val{font-size:12px;font-weight:700;text-transform:capitalize}
+.coll-card-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:13px;padding-top:11px;border-top:1px dashed rgba(242,228,207,.18)}
+.coll-card-method-label{font-family:var(--font-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted-2)}
+.coll-card-method-val{font-family:var(--font-mono);font-size:11px;font-weight:700;margin-top:2px;text-transform:capitalize}
+.coll-card-ratio{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--foam);line-height:1;text-align:right}
+.coll-card-beans{display:flex;gap:2px;justify-content:flex-end;margin-top:5px}
+/* coloredBeans() wraps its 5 <span class="bean"> in an inner <span
+   class="beans">; that wrapper needs its own flex context or the bean
+   spans stay display:inline and collapse to zero size regardless of their
+   width/height rules. */
+.coll-card-beans .beans{display:flex;gap:2px}
+.coll-card-beans .bean{width:8px;height:11px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:rgba(242,228,207,.14)}
+.coll-card-beans .bean.filled{background:linear-gradient(150deg,#e9a25f,var(--bean-color,#8f5526))}
 
-.coll-card-ratio{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
-.coll-card-ratio-val{font-family:var(--font-mono);font-weight:700;font-size:15px;line-height:1}
-.coll-card-ratio .beans{display:flex;gap:1px}
-.coll-card-ratio .bean{width:9px;height:11px}
-
+/* Right-edge "ticket stub" column — dashed left border + two circular
+   notches cut into the top/bottom edges, simulating a torn perforation. */
+.coll-card-stub{
+  position:relative;width:44px;flex-shrink:0;
+  border-left:2px dashed rgba(242,228,207,.22);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+  background:rgba(20,14,10,.3);
+}
+.coll-card-stub::before,.coll-card-stub::after{
+  content:'';position:absolute;left:-7px;width:14px;height:14px;border-radius:50%;
+  background:var(--bg-dark-2);
+}
+.coll-card-stub::before{top:-7px}
+.coll-card-stub::after{bottom:-7px}
 .coll-card-tag{
-  position:absolute;right:9px;top:50%;transform:translateY(-50%) rotate(90deg);
-  transform-origin:center;white-space:nowrap;
-  font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--crema-dim);opacity:.5;
+  writing-mode:vertical-rl;
+  font-family:var(--font-mono);font-size:7.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--text-muted-2);
 }
 
 .coll-add-card{
@@ -964,49 +997,102 @@
   height:1px;background:rgba(36,26,20,.08);margin:0 12px;
 }
 
-/* ─── HERO CARD (brew of the day) ─── */
+/* ─── HERO CARD (brew of the day) ───
+   Colors/spacing/portrait pulled exactly from Recipe Website Reference.html's
+   .bb-hero block. .hero-card/.hero-body/.hero-eyebrow/.hero-title/.hero-desc/
+   .hero-stats/.hero-brew-btn are shared with the Recipe Detail screen's hero
+   (.hero-card.detail-hero) — the corrections here apply to both, which is
+   correct since it's one shared "hero card" typography system. Only the new
+   flex layout (.hero-inner) and portrait are scoped to Home via descendant
+   selectors so Detail's own sphere-based layout (defined earlier in this
+   file) is untouched. */
 .hero-card{
   position:relative;overflow:hidden;
-  background:linear-gradient(145deg,rgba(46,34,26,.9),rgba(10,22,40,.95));
-  border-radius:var(--radius);
+  background:rgba(40,28,20,.5);
+  backdrop-filter:blur(16px) saturate(1.4);
+  -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  border-radius:24px;
   margin:0 18px 6px;
-  padding:26px 18px;
   cursor:pointer;
-  border:1px solid rgba(242,228,207,.09);
-  transition:transform .18s,box-shadow .18s;
+  border:1px solid rgba(242,228,207,.1);
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.7);
+  transition:transform .18s;
 }
-.hero-card:hover{transform:translateY(-2px);box-shadow:0 16px 40px -8px rgba(207,127,69,.22)}
+.hero-card:hover{transform:translateY(-2px)}
+.hero-card::before{
+  content:'';position:absolute;top:0;left:30px;right:30px;height:1.5px;
+  background:linear-gradient(90deg,transparent,rgba(255,247,236,.35),transparent);
+}
+.hero-glow{position:absolute;inset:0;pointer-events:none}
+
+/* Home's hero uses a real flex row (copy + portrait as siblings); Detail's
+   sphere-based hero doesn't use .hero-inner at all, so this is Home-only. */
+.hero-inner{position:relative;display:flex;align-items:center;gap:34px;padding:44px 46px;flex-wrap:wrap}
+.hero-inner .hero-body{flex:1;min-width:320px;max-width:none}
 
 .hero-body{position:relative;z-index:1;max-width:66%}
 .hero-eyebrow{
-  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
-  color:rgba(242,228,207,.5);margin-bottom:10px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.26em;text-transform:uppercase;
+  color:var(--copper);margin-bottom:14px;
 }
 .hero-title{
-  font-family:var(--font-display);font-weight:700;
-  font-size:clamp(26px,5.5vw,42px);
-  color:var(--foam);line-height:1.05;letter-spacing:-.02em;
-  margin:0 0 8px;
+  font-family:var(--font-display);font-weight:600;
+  font-size:clamp(40px,5vw,64px);
+  color:var(--foam);line-height:.96;letter-spacing:-1.8px;
+  margin:0;
 }
-.hero-title em{font-style:italic;font-weight:400}
-.hero-desc{font-size:13px;color:rgba(242,228,207,.55);line-height:1.45;margin:0 0 18px;max-width:38ch}
+.hero-title em{font-style:italic;font-weight:400;color:var(--copper)}
+.hero-desc{max-width:480px;margin:16px 0 0;font-size:15px;line-height:1.55;color:var(--crema-dim)}
 
-.hero-stats{display:flex;align-items:center;gap:26px;flex-wrap:wrap}
-.hero-stat{display:flex;flex-direction:column;gap:5px}
-.hero-stat-val{font-family:var(--font-mono);font-weight:700;font-size:19px;line-height:1;color:var(--foam)}
-.hero-stat-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--crema-dim);opacity:.7}
-.hero-stat .beans{display:flex;gap:1px}
-.hero-stat .bean{width:11px;height:14px}
+.hero-stats{display:flex;align-items:center;gap:24px;margin-top:24px;flex-wrap:wrap}
+.hero-stat{display:flex;flex-direction:column}
+.hero-stat-val{font-family:var(--font-display);font-weight:600;font-size:19px;line-height:1;color:var(--foam)}
+.hero-stat-label{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted-2);margin-top:5px}
+/* Scoped to .hero-inner so this only matches Home's colored-shape beans
+   (coloredBeans() output) — Detail's hero-stat still uses icons.js's SVG
+   beanSVG()/beansRow() (classes "bean full"/"bean ghost"), which must keep
+   its own default sizing untouched. */
+.hero-inner .hero-stat .beans{display:flex;gap:2px;margin-top:2px}
+.hero-inner .hero-stat .bean{width:8px;height:11px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:rgba(242,228,207,.14)}
+.hero-inner .hero-stat .bean.filled{background:linear-gradient(150deg,#e9a25f,var(--bean-color,#8f5526))}
 
 .hero-brew-btn{
-  display:flex;align-items:center;gap:8px;
-  background:var(--copper-grad);color:#fff;border:none;border-radius:999px;
-  padding:13px 22px;cursor:pointer;white-space:nowrap;
-  font-family:var(--font-mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  box-shadow:0 8px 22px -8px rgba(207,127,69,.6);
-  transition:transform .15s,box-shadow .15s;
+  display:inline-flex;align-items:center;gap:9px;
+  background:linear-gradient(135deg,#e9a25f,#cf7f45);color:var(--bg-dark-2);border:none;border-radius:999px;
+  padding:13px 24px;cursor:pointer;white-space:nowrap;
+  font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:0 14px 30px -10px rgba(207,127,69,.67);
+  transition:transform .15s;
 }
-.hero-brew-btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px -8px rgba(207,127,69,.75)}
+.hero-brew-btn:hover{transform:translateY(-1px)}
+
+/* Animated glowing coffee-cup portrait — Home's hero visual, replacing the
+   old flat sphere. Detail keeps its own .hero-sphere (defined earlier). */
+.hero-portrait{position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero-portrait-glow{position:absolute;border-radius:50%;animation:glowPulse 5s ease-in-out infinite}
+.hero-portrait-cup{
+  position:relative;border-radius:50%;
+  background:radial-gradient(circle at 35% 26%,#fff3df 0%,#f0c98c 24%,#caa05f 58%,#7a5230 100%);
+  border:2px solid rgba(255,247,236,.25);
+  box-shadow:0 26px 48px -14px rgba(0,0,0,.7),inset 0 6px 18px rgba(255,255,255,.4);
+}
+.hero-portrait-highlight{
+  position:absolute;left:50%;transform:translateX(-50%);
+  border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#fffaf0,rgba(255,250,240,.1));
+  opacity:.85;
+}
+.hero-steam{
+  position:absolute;width:3px;height:24px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(255,247,236,.6),transparent);
+  animation:steamRise 3.4s ease-in-out infinite;
+}
+@keyframes glowPulse{0%,100%{opacity:.5}50%{opacity:.85}}
+@keyframes steamRise{
+  0%{opacity:0;transform:translateY(6px) scaleY(.8)}
+  40%{opacity:.55}
+  100%{opacity:0;transform:translateY(-16px) scaleY(1.15)}
+}
 
 .hero-sphere{
   position:absolute;right:6%;top:50%;transform:translateY(-50%);
@@ -1015,15 +1101,27 @@
   background:radial-gradient(circle at 30% 26%,#fff8ea 0%,var(--sphere-color,var(--copper)) 44%,rgba(0,0,0,.4) 100%);
   box-shadow:0 26px 60px -14px rgba(0,0,0,.6);
 }
-/* Below ~640px the minimum-clamped sphere (120px) no longer fits beside
-   hero-body's 66% text column without overlapping — hide it and let the
-   text use the full width rather than fighting for space. The detail-hero
-   variant sets its own more specific max-width/margin, so it needs the
-   same override repeated at matching specificity. */
+/* Detail's hero-body has a lower min-width floor than the sphere needs, so
+   below ~640px it's hidden and the text takes the full width. Home's new
+   portrait shrinks fluidly with .hero-inner's flex-wrap instead, so it
+   doesn't need an equivalent hide rule. */
 @media(max-width:640px){
   .hero-sphere{display:none}
-  .hero-body{max-width:100%}
   .hero-card.detail-hero .hero-body{max-width:100%;margin-left:0}
+  /* Reference's .bb-hero-inner has no responsive rules (fixed-desktop mockup);
+     its 320px hero-body min-width overflows narrow viewports since it doesn't
+     shrink with flex-wrap, so this app-level fix lets it shrink to fit. */
+  .hero-inner{padding:28px 24px;gap:20px}
+  /* flex-basis:100% (not just min-width:0) forces the portrait onto its own
+     row below the copy — otherwise the shrinkable body never triggers wrap
+     and the fixed-size portrait ends up squeezed beside a narrowed column. */
+  .hero-inner .hero-body{min-width:0;flex-basis:100%}
+  .hero-portrait{margin:0 auto}
+}
+@media(max-width:480px){
+  .hero-portrait,.hero-portrait-glow{width:120px!important;height:120px!important}
+  .hero-portrait-cup{width:93.6px!important;height:93.6px!important}
+  .hero-portrait-highlight{top:16.8px!important;width:54px!important;height:19.2px!important}
 }
 
 /* ─── CATEGORY CHIPS RAIL ─── */
@@ -1035,38 +1133,38 @@
 .cat-rail::-webkit-scrollbar{display:none}
 .cat-chip{
   flex-shrink:0;
-  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--crema-dim);background:rgba(46,34,26,.55);
-  border:1px solid rgba(242,228,207,.12);border-radius:999px;
-  padding:7px 15px;cursor:pointer;
-  transition:background .18s,color .18s,border-color .18s,box-shadow .18s;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--crema-dim);background:rgba(46,34,26,.5);
+  border:1px solid rgba(242,228,207,.14);border-radius:999px;
+  padding:9px 17px;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s;
   white-space:nowrap;
 }
 .cat-chip.active{
-  background:var(--copper-grad);color:#fff;border-color:transparent;
-  box-shadow:0 4px 14px -4px rgba(207,127,69,.5);
+  font-weight:700;background:var(--copper);color:var(--bg-dark-2);border-color:var(--copper);
 }
 .cat-chip:not(.active):hover{border-color:var(--copper-soft);color:var(--crema)}
 
 /* ─── SECTION HEAD (above all lanes) ─── */
 .section-head{padding:22px 18px 2px}
-.section-eyebrow{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--copper);margin-bottom:6px}
-.section-title{font-family:var(--font-display);font-weight:700;font-size:clamp(22px,4.5vw,28px);color:var(--foam)}
+.section-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
+.section-title{font-family:var(--font-display);font-weight:600;font-size:clamp(22px,4.5vw,28px);color:var(--foam);letter-spacing:-.4px}
 
 /* ─── RECIPE LANES (wrapping grid, one section per flavour category) ─── */
-.recipe-lane{margin:18px 0 4px}
-.lane-head{display:flex;align-items:baseline;gap:10px;padding:0 18px;margin-bottom:12px}
-.lane-title{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--foam)}
-.lane-count{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--crema-dim);white-space:nowrap}
-.lane-rule{flex:1;height:1px;background:var(--line)}
+.recipe-lane{margin:36px 0 4px}
+.lane-head{display:flex;align-items:baseline;gap:14px;padding:0 18px;margin-bottom:14px}
+.lane-title{font-family:var(--font-display);font-weight:600;font-size:22px;color:var(--foam);letter-spacing:-.3px}
+.lane-count{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted-2);white-space:nowrap}
+.lane-rule{flex:1;height:1px;background:linear-gradient(90deg,rgba(207,127,69,.25),transparent)}
 
+/* auto-fill/minmax matches Recipe Website Reference.html's .bb-grid exactly —
+   it self-adjusts column count with no breakpoints needed. */
 .lane-grid{
-  display:grid;grid-template-columns:1fr;gap:12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;
   padding:0 18px 4px;
 }
-@media(min-width:560px){.lane-grid{grid-template-columns:1fr 1fr}}
-@media(min-width:900px){.lane-grid{grid-template-columns:1fr 1fr 1fr;gap:14px}}
-@media(min-width:1440px){.lane-grid{grid-template-columns:1fr 1fr 1fr 1fr;gap:16px}}
+@media(min-width:560px){.lane-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}}
+@media(min-width:900px){.lane-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
 
 /* ─── REDUCED MOTION ─── */
 @media(prefers-reduced-motion:reduce){
@@ -1223,8 +1321,8 @@
     gap:16px;
     padding:8px 34px 44px;
   }
-  .top-nav-inner{padding:18px 34px}
-  .toolbar{padding:16px 34px 16px}
+  .top-nav-inner{padding:18px 40px}
+  .toolbar{padding:16px 40px 16px}
   .coll-header{padding:26px 34px 4px}
   .coll-progress-row{padding:14px 34px 8px}
   .collection-content{padding:10px 34px 36px}

@@ -285,6 +285,20 @@ function renderKitchen(){
   document.getElementById('kitchenResult').style.display = active ? 'flex' : 'none';
 }
 
+/* Simple colored-shape bean strength indicator — matches Recipe Website
+   Reference.html's .bb-bean exactly (a CSS border-radius shape gradient-
+   filled with the recipe's own color, not our SVG bean icon set). Used by
+   the hero and by collectionCard()'s ratio/strength column. */
+function coloredBeans(n, color) {
+  let out = '';
+  for (let i = 0; i < 5; i++) {
+    out += i < n
+      ? `<span class="bean filled" style="--bean-color:${color}"></span>`
+      : `<span class="bean"></span>`;
+  }
+  return `<span class="beans">${out}</span>`;
+}
+
 /* ---------- HERO — brew of the day ---------- */
 function heroHTML(r) {
   const al   = getAirline(r.serial || 0);
@@ -295,27 +309,37 @@ function heroHTML(r) {
   const firstWord = nameParts[0];
   const restWords = nameParts.slice(1).join(' ');
   return `<div class="hero-card" data-id="${r.id}">
-    <div class="hero-body">
-      <div class="hero-eyebrow">Brew of the day · No. ${pad(r.serial || 0)} · ${esc(code)} ${esc((r.origin || 'Fusion').toUpperCase())}</div>
-      <h2 class="hero-title">${firstWord}${restWords ? ` <em style="color:${al.color}">${restWords}</em>` : ''}</h2>
-      ${r.description ? `<p class="hero-desc">${esc(r.description)}</p>` : ''}
-      <div class="hero-stats">
-        <div class="hero-stat">
-          <span class="hero-stat-val" style="color:${al.color}">${esc(r.ratio || '—')}</span>
-          <span class="hero-stat-label">Ratio</span>
+    <div class="hero-glow" aria-hidden="true" style="background:radial-gradient(circle at 82% 30%, ${al.color}33, transparent 46%)"></div>
+    <div class="hero-inner">
+      <div class="hero-body">
+        <div class="hero-eyebrow">Brew of the day · No. ${pad(r.serial || 0)} · ${esc(code)} ${esc((r.origin || 'Fusion').toUpperCase())}</div>
+        <h2 class="hero-title">${firstWord}${restWords ? ` <em>${restWords}</em>` : ''}</h2>
+        ${r.description ? `<p class="hero-desc">${esc(r.description)}</p>` : ''}
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-val">${esc(r.ratio || '—')}</span>
+            <span class="hero-stat-label">Ratio</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-val">${esc(r.method || '')}</span>
+            <span class="hero-stat-label">Method</span>
+          </div>
+          <div class="hero-stat">
+            ${coloredBeans(r.strength || 3, al.color)}
+            <span class="hero-stat-label">Strength</span>
+          </div>
+          <button class="hero-brew-btn" data-hero-brew type="button">Start Brewing <span aria-hidden="true">→</span></button>
         </div>
-        <div class="hero-stat">
-          <span class="hero-stat-val" style="color:${al.color}">${esc(r.method || '')}</span>
-          <span class="hero-stat-label">Method</span>
+      </div>
+      <div class="hero-portrait" aria-hidden="true" style="width:230px;height:230px">
+        <span class="hero-portrait-glow" style="width:230px;height:230px;background:radial-gradient(circle,${al.color}55,transparent 68%)"></span>
+        <div class="hero-portrait-cup" style="width:179.4px;height:179.4px">
+          <span class="hero-portrait-highlight" style="top:32.2px;width:103.5px;height:36.8px"></span>
+          <span class="hero-steam" style="left:40%;top:-7px"></span>
+          <span class="hero-steam" style="left:55%;top:-7px;animation-delay:.9s"></span>
         </div>
-        <div class="hero-stat">
-          ${beansRow(r.strength || 3)}
-          <span class="hero-stat-label">Strength</span>
-        </div>
-        <button class="hero-brew-btn" data-hero-brew type="button">Start Brewing <span aria-hidden="true">→</span></button>
       </div>
     </div>
-    <div class="hero-sphere" aria-hidden="true" style="--sphere-color:${al.color}"></div>
   </div>`;
 }
 
@@ -473,10 +497,12 @@ function _laneHTML(title, recs, kActive, kset) {
 /* ---------- collection screen ---------- */
 let collView = 'landed'; /* 'landed' | 'mine' */
 
-/* Flat "ticket stub" card — shared by Collection, World's Boarding Passes
-   view, and the Recipes/Home lanes. Custom recipes (My Recipes) get
-   edit/delete icon buttons; showRatio adds the ratio + strength-beans
-   column; matchState ('match'/'dim') reflects the kitchen ingredient filter. */
+/* Ticket-stub card — shared by Collection, World's Boarding Passes view,
+   and the Recipes/Home lanes. Matches Recipe Website Reference.html's
+   .bb-card structure exactly (stripe + body + dashed/notched stub column).
+   Custom recipes (My Recipes) get edit/delete icon buttons; showRatio adds
+   the ratio + strength-beans column; matchState ('match'/'dim') reflects
+   the kitchen ingredient filter. */
 function collectionCard(r, opts){
   const custom     = !!(opts && opts.custom);
   const showRatio  = !!(opts && opts.showRatio);
@@ -486,32 +512,37 @@ function collectionCard(r, opts){
   const code = r.code || al.code;
   const catId = getStyleCategory(r);
   const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
-  const matchClass = matchState ? ` coll-${matchState}` : '';
-  return `<div class="coll-card${matchClass}" data-id="${esc(r.id)}" style="--stub-color:${color}">
-    <div class="coll-card-top">
-      <div>
-        <div class="coll-card-origin" style="color:${color}">${esc(code)} · ${esc((r.origin || 'Fusion').toUpperCase())}</div>
-        <div class="coll-card-no">BREW NO. ${pad(r.serial || 0)}</div>
+  const matchClass  = matchState ? ` coll-${matchState}` : '';
+  const stripeColor = matchState === 'match' ? '#7fb069' : color;
+  return `<div class="coll-card${matchClass}" data-id="${esc(r.id)}">
+    <span class="coll-card-stripe" style="background:${stripeColor}"></span>
+    <div class="coll-card-inner">
+      <div class="coll-card-body">
+        <div class="coll-card-top">
+          <div>
+            <div class="coll-card-origin" style="color:${color}">${esc(code)} · ${esc((r.origin || 'Fusion').toUpperCase())}</div>
+            <div class="coll-card-no">Brew No. ${pad(r.serial || 0)}</div>
+          </div>
+          <div class="coll-card-right">
+            ${custom ? `<button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button><button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>` : ''}
+            <span class="coll-badge" style="background:${color}">${esc(code)}</span>
+          </div>
+        </div>
+        <h3 class="coll-card-name">${esc(r.name)}</h3>
+        <p class="coll-card-desc">${esc(r.description || '')}</p>
+        <div class="coll-card-footer">
+          <div>
+            <div class="coll-card-method-label">Method</div>
+            <div class="coll-card-method-val" style="color:${color}">${esc(r.method || '')}</div>
+          </div>
+          ${showRatio ? `<div>
+            <div class="coll-card-ratio">${esc(r.ratio || '—')}</div>
+            <div class="coll-card-beans">${coloredBeans(r.strength || 3, color)}</div>
+          </div>` : ''}
+        </div>
       </div>
-      <div class="coll-card-right">
-        ${custom ? `<button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button><button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>` : ''}
-        <span class="coll-badge" style="background:${color}">${esc(code)}</span>
-      </div>
+      ${catLabel ? `<div class="coll-card-stub"><span class="coll-card-tag">${esc(catLabel)}</span></div>` : ''}
     </div>
-    <h3 class="coll-card-name">${esc(r.name)}</h3>
-    ${r.description ? `<p class="coll-card-desc">${esc(r.description)}</p>` : ''}
-    <div class="coll-card-div"></div>
-    <div class="coll-card-bottom">
-      <div class="coll-card-method">
-        <span class="coll-card-method-label">METHOD</span>
-        <span class="coll-card-method-val" style="color:${color}">${esc(r.method || '')}</span>
-      </div>
-      ${showRatio ? `<div class="coll-card-ratio">
-        <span class="coll-card-ratio-val" style="color:${color}">${esc(r.ratio || '—')}</span>
-        ${beansRow(r.strength || 3)}
-      </div>` : ''}
-    </div>
-    ${catLabel ? `<span class="coll-card-tag">${esc(catLabel.toUpperCase())}</span>` : ''}
   </div>`;
 }
 

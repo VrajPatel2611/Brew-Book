@@ -15,6 +15,16 @@
   --green:       #7fb069;
   --radius:      14px;
 
+  /* Home design-reference tokens (see Recipe Website Reference.html) */
+  --accent-alt-1: #c98b3a;
+  --accent-alt-2: #b5683a;
+  --accent-alt-3: #a8894f;
+  --bg-dark-1:    #2c1e15;
+  --bg-dark-2:    #1a110b;
+  --bg-dark-3:    #0d0907;
+  --text-muted-2: #8d795f;
+  --text-muted-3: #a08868;
+
   /* Travel world */
   --midnight:      #0a1628;
   --pass-paper:    #faf8f3;
