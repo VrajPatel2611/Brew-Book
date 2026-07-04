@@ -152,13 +152,17 @@ function buyPicksHTML(id){
 
 /* ---------- method filter chips (in toolbar) ---------- */
 function buildChips(){
+  /* Method chips were removed from the toolbar (category chips in the list
+     cover this); guard in case the rail isn't present. */
   const chipsEl = document.getElementById('methodChips');
-  const order = ['all','moka pot','instant','blended','cezve','other'];
-  const present = new Set(['all']);
-  recipes.forEach(r => present.add(order.includes(r.method) ? r.method : 'other'));
-  const methods = order.filter(m => present.has(m));
-  chipsEl.innerHTML = methods.map(m => `<button class="chip" data-method="${m}">${m === 'all' ? 'ALL' : m.toUpperCase()}</button>`).join('');
-  chipsEl.onclick = e => { const b = e.target.closest('.chip'); if(!b) return; activeMethod = b.dataset.method; animateNext = true; render(); };
+  if(chipsEl){
+    const order = ['all','moka pot','instant','blended','cezve','other'];
+    const present = new Set(['all']);
+    recipes.forEach(r => present.add(order.includes(r.method) ? r.method : 'other'));
+    const methods = order.filter(m => present.has(m));
+    chipsEl.innerHTML = methods.map(m => `<button class="chip" data-method="${m}">${m === 'all' ? 'ALL' : m.toUpperCase()}</button>`).join('');
+    chipsEl.onclick = e => { const b = e.target.closest('.chip'); if(!b) return; activeMethod = b.dataset.method; animateNext = true; render(); };
+  }
 
   const triedEl = document.getElementById('triedChips');
   triedEl.innerHTML = [['all','ALL'],['totry','TO TRY'],['tried','MADE IT']].map(([v,l]) => `<button class="chip tried" data-tried="${v}">${l}</button>`).join('');
@@ -688,6 +692,7 @@ function switchScreen(target){
   }
   updateNavCountPill();
   if(window._syncSearchCollapse) window._syncSearchCollapse();
+  if(target === 'screen-home' && window._showToolbar) window._showToolbar();
 }
 
 /* ---------- detail (its own screen — breadcrumb, hero, story/ingredients/steps) ---------- */
@@ -1543,6 +1548,7 @@ document.getElementById('searchInput').oninput = e => {
   const topNav     = document.querySelector('.top-nav');
   const searchWrap = document.querySelector('.search-wrap');
   const searchInp  = document.getElementById('searchInput');
+  const toolbar    = document.querySelector('.toolbar');
   if(!content || !topNav || !searchWrap || !searchInp) return;
 
   function syncSearchCollapse(){
@@ -1553,9 +1559,25 @@ document.getElementById('searchInput').oninput = e => {
   }
   window._syncSearchCollapse = syncSearchCollapse;
 
+  /* Toolbar (filters + kitchen bar) slides up out of the way while you
+     scroll down the list and drops back in the moment you scroll up. */
+  let lastTop = 0;
+  function syncToolbar(){
+    if(!toolbar) return;
+    if(currentScreen !== 'screen-home'){ toolbar.classList.remove('toolbar-hidden'); return; }
+    const top = content.scrollTop;
+    if(top <= 40)                 toolbar.classList.remove('toolbar-hidden'); // at/near top
+    else if(top > lastTop + 4)    toolbar.classList.add('toolbar-hidden');    // scrolling down
+    else if(top < lastTop - 4)    toolbar.classList.remove('toolbar-hidden'); // scrolling up
+    lastTop = top;
+  }
+  window._syncToolbar = syncToolbar;
+  window._showToolbar = () => { if(toolbar){ toolbar.classList.remove('toolbar-hidden'); lastTop = content.scrollTop; } };
+
   content.addEventListener('scroll', () => {
     if(content.scrollTop <= 24) searchWrap.classList.remove('expanded');
     syncSearchCollapse();
+    syncToolbar();
   }, {passive:true});
 
   searchWrap.addEventListener('click', () => {
@@ -1570,7 +1592,9 @@ document.getElementById('searchInput').oninput = e => {
     syncSearchCollapse();
   });
 })();
-document.getElementById('sortSelect').onchange  = e => { sortBy = e.target.value; animateNext = true; render(); };
+/* Sort dropdown was removed from the toolbar; sortBy stays at its default. */
+const _sortSel = document.getElementById('sortSelect');
+if(_sortSel) _sortSel.onchange = e => { sortBy = e.target.value; animateNext = true; render(); };
 document.getElementById('exportBtn').onclick = exportRecipes;
 document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
 document.getElementById('importFile').onchange = e => { if(e.target.files[0]) importRecipes(e.target.files[0]); e.target.value=''; };

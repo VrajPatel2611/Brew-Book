@@ -21,7 +21,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=2">
   <link rel="stylesheet" href="./css/base.css">
-  <link rel="stylesheet" href="./css/components.css?v=24">
+  <link rel="stylesheet" href="./css/components.css?v=26">
 </head>
 <body>
 
@@ -126,24 +126,8 @@
     <div class="runway-strip" aria-hidden="true"></div>
 
     <div class="toolbar">
-      <div class="search-row">
-        <select class="sort" id="sortSelect" aria-label="Sort">
-          <option value="serial">Serial #</option>
-          <option value="newest">Newest</option>
-          <option value="rating">Top rated</option>
-          <option value="name">A–Z</option>
-        </select>
-      </div>
-      <div class="filter-rail" id="methodChips" role="group" aria-label="Filter by method"></div>
-      <div class="tried-row">
+      <div class="toolbar-row">
         <div class="tried-control" id="triedChips" role="group" aria-label="Filter by status"></div>
-        <div class="util-btns">
-          <button class="util-btn" id="exportBtn" title="Backup recipes">⬇</button>
-          <button class="util-btn" id="importBtn" title="Restore backup">⬆</button>
-          <button class="util-btn util-add" id="addBtn" title="New recipe" aria-label="Add recipe">＋</button>
-        </div>
-      </div>
-      <div class="kfilter" id="kfilter">
         <div class="if-collapsed" id="kitchenCollapsed">
           <span class="if-pan" aria-hidden="true">
             <svg viewBox="0 0 26 26" fill="none"><circle cx="11" cy="14" r="6.5" stroke="#cf7f45" stroke-width="1.6"/><path d="M11 9.5 a4.5 4.5 0 0 1 0 9" stroke="#e9a25f" stroke-width="1.4" fill="none" opacity=".5"/><path d="M17.5 14 L24 14" stroke="#cf7f45" stroke-width="1.6" stroke-linecap="round"/><path d="M9 4 C8 6,10 6.5,9 8.5 M12 4 C11 6,13 6.5,12 8.5" stroke="#c9b59c" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".7"/></svg>
@@ -152,12 +136,17 @@
           <div class="if-active-icons" id="kitchenIcons" style="display:none"></div>
           <button class="if-add" id="kitchenToggle" aria-label="Open ingredient filter">+</button>
         </div>
-        <div class="if-expand" id="kitchenExpand" style="display:none">
-          <div class="if-chips" id="kitchenChips" role="group" aria-label="Ingredients you have"></div>
-          <div class="if-result" id="kitchenResult" style="display:none">
-            <span class="if-result-txt">Showing <b id="kitchenCount">0</b> recipes you can make</span>
-            <button class="if-clear" id="kitchenClear">Clear all</button>
-          </div>
+        <div class="util-btns">
+          <button class="util-btn" id="exportBtn" title="Backup recipes">⬇</button>
+          <button class="util-btn" id="importBtn" title="Restore backup">⬆</button>
+          <button class="util-btn util-add" id="addBtn" title="New recipe" aria-label="Add recipe">＋</button>
+        </div>
+      </div>
+      <div class="if-expand" id="kitchenExpand" style="display:none">
+        <div class="if-chips" id="kitchenChips" role="group" aria-label="Ingredients you have"></div>
+        <div class="if-result" id="kitchenResult" style="display:none">
+          <span class="if-result-txt">Showing <b id="kitchenCount">0</b> recipes you can make</span>
+          <button class="if-clear" id="kitchenClear">Clear all</button>
         </div>
       </div>
     </div>
@@ -281,6 +270,6 @@
 <script src="./js/data.js"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
-<script src="./js/app.js?v=17"></script>
+<script src="./js/app.js?v=18"></script>
 </body>
 </html>

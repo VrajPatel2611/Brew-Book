@@ -121,8 +121,21 @@
   padding:8px 14px;white-space:nowrap;letter-spacing:.08em;flex-shrink:0;
 }
 
-/* ─── TOOLBAR (Recipes screen only) ─── */
-.toolbar{padding:10px 18px 10px;display:flex;flex-direction:column;gap:9px;flex-shrink:0}
+/* ─── TOOLBAR (Recipes screen only) ───
+   One tidy row: status filters · kitchen bar (fills the middle) · util
+   buttons. Collapses upward when the list is scrolled down (see the
+   .toolbar-hidden rule), like the header search. */
+.toolbar{
+  padding:10px 18px 10px;display:flex;flex-direction:column;gap:9px;flex-shrink:0;
+  overflow:hidden;max-height:320px;
+  transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .24s,
+             padding .32s cubic-bezier(.4,0,.2,1),transform .32s cubic-bezier(.4,0,.2,1);
+}
+.toolbar.toolbar-hidden{
+  max-height:0;opacity:0;padding-top:0;padding-bottom:0;
+  transform:translateY(-8px);pointer-events:none;
+}
+.toolbar-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .search-row{display:flex;gap:9px;align-items:center;justify-content:flex-end}
 .search-wrap{position:relative;display:flex;align-items:center;width:240px;max-width:56vw;transition:width .28s cubic-bezier(.4,0,.2,1)}
 .search-icon{position:absolute;left:15px;width:15px;height:15px;color:var(--text-muted-3);pointer-events:none;flex-shrink:0;transition:left .28s cubic-bezier(.4,0,.2,1),color .2s}
@@ -172,11 +185,11 @@
 
 /* ─── TRIED SEGMENTED CONTROL ─── */
 .tried-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.tried-control{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tried-control{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-shrink:0}
 .tried-control .chip{border:none;border-right:1px solid var(--line);border-radius:0;padding:5px 13px}
 .tried-control .chip:last-child{border-right:none}
 .tried-control .chip.active{background:var(--copper);color:var(--roast)}
-.util-btns{display:flex;gap:6px;align-items:center}
+.util-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
 .util-btn{
   background:var(--roast-2);border:1px solid var(--line);color:var(--crema-dim);
   border-radius:8px;width:30px;height:30px;
@@ -190,6 +203,7 @@
 /* ─── INGREDIENT (KITCHEN) FILTER ─── */
 .kfilter{display:flex;flex-direction:column}
 .if-collapsed{
+  flex:1;min-width:170px;
   display:flex;align-items:center;gap:10px;
   background:var(--roast-2);border:1px solid var(--line);border-radius:11px;
   padding:9px 11px;cursor:pointer;transition:border-color .15s,box-shadow .15s;
@@ -198,7 +212,7 @@
 .if-collapsed.active{border-bottom:2px solid var(--copper);box-shadow:0 4px 16px -8px rgba(207,127,69,.55)}
 .if-pan{width:24px;height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .if-pan svg{width:100%;height:100%}
-.if-prompt{flex:1;font-size:13.5px;color:var(--crema-dim)}
+.if-prompt{flex:1;min-width:0;font-size:13.5px;color:var(--crema-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .if-active-icons{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
 .if-active-icons .mini{width:23px;height:23px;border-radius:6px;background:var(--roast-3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .if-active-icons .mini .ing-ico{width:16px;height:16px;display:flex}
