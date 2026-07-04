@@ -725,109 +725,120 @@ function openDetail(id, cardEl){
 
   function bodyContentHTML(){
     const { ingredients, steps, note } = activeContent();
-    const catId    = getStyleCategory(r);
-    const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
-    const hasSteps = steps && steps.length > 0;
 
-    const ingHTML = ingredients.map((i, idx) => `<li>
-      <label class="check-row">
-        <input type="checkbox">
-        <span class="check-box" aria-hidden="true"></span>
+    const ingHTML = ingredients.map((i) => `<div class="check-row" data-check role="button" tabindex="0" aria-pressed="false">
+        <span class="check-box" aria-hidden="true" style="--check-color:${al.color}"></span>
         <span class="check-text">${esc(i)}</span>
-      </label>
-    </li>`).join('');
+      </div>`).join('');
 
     const stepHTML = steps.map((s, idx) => {
       const st = (typeof s === 'string') ? {c: s} : s;
-      return `<li class="timeline-item">
-        <span class="timeline-num" style="background:${al.color}">${idx + 1}</span>
+      const notLast = idx < steps.length - 1;
+      return `<div class="timeline-item">
+        ${notLast ? `<span class="timeline-line" style="background:linear-gradient(180deg, ${al.color}55, rgba(242,228,207,.08))"></span>` : ''}
+        <span class="timeline-num" style="border:1.5px solid ${al.color}66;color:${al.color}">${idx + 1}</span>
         <div class="timeline-body">
-          ${st.t ? `<h4 class="timeline-title">${esc(st.t)}</h4>` : ''}
-          <p class="timeline-text">${esc(st.c)}</p>
+          ${st.t ? `<div class="timeline-title">${esc(st.t)}</div>` : ''}
+          <div class="timeline-text">${esc(st.c)}</div>
         </div>
-      </li>`;
+      </div>`;
     }).join('');
 
     return `<div class="detail-columns">
-      <div class="detail-col">
+      <div class="detail-col detail-col-left">
         ${r.story ? `<div class="detail-block">
-          <div class="detail-block-label">The Story</div>
+          <div class="detail-block-label">The story</div>
           <p class="detail-story-text">${esc(r.story)}</p>
         </div>` : ''}
 
-        ${r.bean ? `<div class="detail-callout detail-callout-bean">
-          <div class="detail-callout-label">🫘 Bean Note</div>
+        ${r.bean ? `<div class="detail-bean-note">
+          <div class="detail-bean-note-label">☕ Bean note</div>
           <p>${esc(r.bean)}</p>
         </div>` : ''}
 
         ${buyPicksHTML(r.id)}
 
-        ${note ? `<p class="method-note">${esc(note)}</p>` : ''}
-        <div class="detail-block">
+        <div class="detail-block detail-ing-section">
           <div class="detail-block-label">What you'll need</div>
-          <ul class="detail-check-list">${ingHTML}</ul>
+          <div class="detail-check-list">${ingHTML}</div>
         </div>
       </div>
 
-      <div class="detail-col">
-        <div class="detail-block">
-          <div class="detail-block-label">How to make <span class="detail-block-count">· ${steps.length} step${steps.length===1?'':'s'}</span></div>
-          <ol class="detail-timeline">${stepHTML}</ol>
+      <div class="detail-col detail-col-right">
+        <div class="detail-steps-head">
+          <div class="detail-block-label">How to make</div>
+          <span class="detail-steps-count">· ${steps.length} step${steps.length===1?'':'s'}</span>
         </div>
+        <div class="detail-timeline">${stepHTML}</div>
 
-        ${r.notes ? `<div class="detail-callout detail-callout-notes">
-          <div class="detail-callout-label">✎ Notes</div>
+        ${note ? `<p class="method-note">${esc(note)}</p>` : ''}
+
+        ${r.notes ? `<div class="detail-notes-box">
+          <div class="detail-notes-label">✎ Notes</div>
           <p>${esc(r.notes)}</p>
         </div>` : ''}
-
-        ${hasSteps ? `<button class="hero-brew-btn detail-start-btn" data-brew type="button">Start the Recipe <span aria-hidden="true">→</span></button>` : ''}
       </div>
     </div>`;
   }
 
-  content.innerHTML = `
-    <div class="detail-breadcrumb">
-      <button class="crumb-back" data-back type="button">← Recipes</button>
-      <span class="crumb-sep">/</span>
-      <span class="crumb-cat">${esc((STYLE_CATEGORIES.find(c => c.id === getStyleCategory(r)) || {}).label || 'Recipe')}</span>
-      <span class="crumb-sep">/</span>
-      <span class="crumb-current">${esc(r.name)}</span>
-      <div class="crumb-owner-actions">
-        <button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button>
-        <button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>
-      </div>
-    </div>
+  const isCustom  = String(r.id).startsWith('custom-');
+  const anySteps  = (activeContent().steps || []).length > 0;
 
-    <div class="hero-card detail-hero" style="--stub-color:${al.color}">
-      <div class="hero-sphere sphere-left" aria-hidden="true" style="--sphere-color:${al.color}"></div>
-      <div class="hero-body">
-        <div class="hero-eyebrow" style="color:${al.color}">Boarding pass · Brew no. ${pad(r.serial || 0)} · ${esc(code)} ${esc((r.origin || 'Fusion').toUpperCase())}</div>
-        <h1 class="hero-title">${esc(r.name)}</h1>
-        ${r.description ? `<p class="hero-desc">${esc(r.description)}</p>` : ''}
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <span class="hero-stat-val" style="color:${al.color}">${esc(r.ratio || '—')}</span>
-            <span class="hero-stat-label">Ratio</span>
+  content.innerHTML = `
+    <div class="detail-inner">
+      <div class="detail-breadcrumb">
+        <button class="crumb-back" data-back type="button">← Recipes</button>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-cat">${esc((STYLE_CATEGORIES.find(c => c.id === getStyleCategory(r)) || {}).label || 'Recipe')}</span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-current">${esc(r.name)}</span>
+        ${isCustom ? `<div class="crumb-owner-actions">
+          <button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button>
+          <button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>
+        </div>` : ''}
+      </div>
+
+      <div class="detail-hero">
+        <span class="detail-hero-stripe" style="background:${al.color}"></span>
+        <div class="detail-hero-glow" style="background:radial-gradient(circle at 85% 20%, ${al.color}30, transparent 48%)"></div>
+        <div class="detail-hero-inner">
+          <div class="hero-portrait" aria-hidden="true" style="width:180px;height:180px">
+            <span class="hero-portrait-glow" style="width:180px;height:180px;background:radial-gradient(circle,${al.color}55,transparent 68%)"></span>
+            <div class="hero-portrait-cup" style="width:140.4px;height:140.4px">
+              <span class="hero-portrait-highlight" style="top:25.2px;width:81px;height:28.8px"></span>
+              <span class="hero-steam" style="left:40%;top:-7px"></span>
+              <span class="hero-steam" style="left:55%;top:-7px;animation-delay:.9s"></span>
+            </div>
           </div>
-          <div class="hero-stat">
-            <span class="hero-stat-val" style="color:${al.color}">${esc(r.method || '')}</span>
-            <span class="hero-stat-label">Method</span>
-          </div>
-          <div class="hero-stat">
-            ${beansRow(r.strength || 3)}
-            <span class="hero-stat-label">Strength</span>
+          <div class="detail-hero-copy">
+            <div class="detail-hero-eyebrow" style="color:${al.color}">Boarding pass · Brew No. ${pad(r.serial || 0)} · ${esc(code)} ${esc(r.origin || 'Fusion')}</div>
+            <h1 class="detail-hero-title">${esc(r.name)}</h1>
+            ${r.description ? `<p class="detail-hero-sub">${esc(r.description)}</p>` : ''}
+            <div class="detail-hero-stats">
+              <div class="detail-stat"><div class="detail-stat-value">${esc(r.ratio || '—')}</div><div class="detail-stat-label">Ratio</div></div>
+              <div class="detail-stat"><div class="detail-stat-value detail-stat-method">${esc(r.method || '')}</div><div class="detail-stat-label">Method</div></div>
+              <div class="detail-stat"><div class="detail-beans">${coloredBeans(r.strength || 3, al.color)}</div><div class="detail-stat-label">Strength</div></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="detail-made-row">
-      <button class="detail-made-toggle ${r.tried?'on':''}" data-made type="button"><span class="box">✓</span>${r.tried?'Made it':'Mark as made'}<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>
-      <div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>${[1,2,3,4,5].map(i=>`<button data-star="${i}" class="${i<=(r.rating||0)?'on':''}" aria-label="${i} star">★</button>`).join('')}</div></div>
-    </div>
+      ${methodTabsHTML()}
+      <div data-method-content>${bodyContentHTML()}</div>
 
-    ${methodTabsHTML()}
-    <div data-method-content>${bodyContentHTML()}</div>`;
+      <div class="detail-made-row">
+        <button class="detail-made-toggle ${r.tried?'on':''}" data-made type="button"><span class="box">✓</span>${r.tried?'Made it':'Mark as made'}<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>
+        <div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>${[1,2,3,4,5].map(i=>`<button data-star="${i}" class="${i<=(r.rating||0)?'on':''}" aria-label="${i} star">★</button>`).join('')}</div></div>
+      </div>
+
+      <div class="detail-cta-footer">
+        <div class="detail-cta-text">
+          <div class="detail-cta-label">Ready when you are</div>
+          <div class="detail-cta-title">Brew the ${esc(r.name)}, step by step</div>
+        </div>
+        ${anySteps ? `<button class="detail-start-btn" data-brew type="button">▶ Start the recipe</button>` : ''}
+      </div>
+    </div>`;
 
   switchScreen('screen-detail');
   content.scrollTop = 0;
@@ -840,6 +851,19 @@ function openDetail(id, cardEl){
   }
   wireBrewBtn();
 
+  /* Click (or Enter/Space) an ingredient row to strike it through. */
+  function wireChecks(){
+    content.querySelectorAll('[data-check]').forEach(row => {
+      const toggle = () => {
+        const on = row.classList.toggle('checked');
+        row.setAttribute('aria-pressed', on ? 'true' : 'false');
+      };
+      row.onclick = toggle;
+      row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); } };
+    });
+  }
+  wireChecks();
+
   const picksToggle = content.querySelector('[data-picks-toggle]');
   if(picksToggle) picksToggle.onclick = () => { picksToggle.classList.toggle('open'); content.querySelector('[data-picks-body]').classList.toggle('open'); };
 
@@ -851,6 +875,7 @@ function openDetail(id, cardEl){
       if(mc){
         mc.innerHTML = bodyContentHTML();
         wireBrewBtn();
+        wireChecks();
         const pt = content.querySelector('[data-picks-toggle]');
         if(pt) pt.onclick = () => { pt.classList.toggle('open'); content.querySelector('[data-picks-body]').classList.toggle('open'); };
       }
@@ -881,8 +906,10 @@ function openDetail(id, cardEl){
     if(r.rating > 0) r.tried = true;
     await saveRecipes(); render(); renderCollection(); renderWorldPasses(); openDetail(id, cardEl);
   });
-  content.querySelector('[data-edit]').onclick = () => openForm(r.id);
-  content.querySelector('[data-delete]').onclick = async () => {
+  const editBtn = content.querySelector('[data-edit]');
+  if(editBtn) editBtn.onclick = () => openForm(r.id);
+  const deleteBtn = content.querySelector('[data-delete]');
+  if(deleteBtn) deleteBtn.onclick = async () => {
     if(!confirm(`Delete "${r.name}"? This can’t be undone.`)) return;
     recipes = recipes.filter(x => x.id !== r.id);
     rememberSeedDeletion(r.id);
