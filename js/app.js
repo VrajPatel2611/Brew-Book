@@ -150,10 +150,12 @@ function buyPicksHTML(id){
     </div>`;
 }
 
-/* ---------- method filter chips (in toolbar) ---------- */
+/* ---------- method filter chips (removed from the toolbar) ----------
+   The method rail and the "All / To try / Made it" status control were
+   removed from the UI; activeMethod/triedFilter simply stay at their
+   defaults ('all') since there's no control left to change them. Guarded
+   so nothing throws if these elements aren't in the DOM. */
 function buildChips(){
-  /* Method chips were removed from the toolbar (category chips in the list
-     cover this); guard in case the rail isn't present. */
   const chipsEl = document.getElementById('methodChips');
   if(chipsEl){
     const order = ['all','moka pot','instant','blended','cezve','other'];
@@ -165,8 +167,10 @@ function buildChips(){
   }
 
   const triedEl = document.getElementById('triedChips');
-  triedEl.innerHTML = [['all','ALL'],['totry','TO TRY'],['tried','MADE IT']].map(([v,l]) => `<button class="chip tried" data-tried="${v}">${l}</button>`).join('');
-  triedEl.onclick = e => { const b = e.target.closest('.chip'); if(!b) return; triedFilter = b.dataset.tried; animateNext = true; render(); };
+  if(triedEl){
+    triedEl.innerHTML = [['all','ALL'],['totry','TO TRY'],['tried','MADE IT']].map(([v,l]) => `<button class="chip tried" data-tried="${v}">${l}</button>`).join('');
+    triedEl.onclick = e => { const b = e.target.closest('.chip'); if(!b) return; triedFilter = b.dataset.tried; animateNext = true; render(); };
+  }
 }
 function syncChips(){
   document.querySelectorAll('#methodChips .chip').forEach(b => b.classList.toggle('active', b.dataset.method === activeMethod));
@@ -245,13 +249,11 @@ function isMakeable(r, kset){
   for(const t of toks){ if(!kset.has(t)) return false; }
   return true;
 }
-function kitchenActiveIcons(){
-  const names = [...kitchen];
-  const shown = names.slice(0,4);
-  let h = shown.map(n => `<span class="mini">${ingredientIcon(n.toLowerCase())}</span>`).join('');
-  if(names.length > 4) h += `<span class="if-more">+${names.length-4} more</span>`;
-  return h;
-}
+/* Kitchen ("what's in your kitchen?") ingredient filter now lives as an
+   icon button in the header with a dropdown panel, instead of a permanent
+   bar under the toolbar. The button shows a small count badge when active;
+   the dropdown holds the same ingredient chips + "N recipes you can make"
+   result row as before. */
 function buildKitchen(){
   const wrap = document.getElementById('kitchenChips');
   if(!wrap) return;
@@ -264,43 +266,46 @@ function buildKitchen(){
     if(kitchen.has(n)) kitchen.delete(n); else kitchen.add(n);
     renderKitchen(); render();
   };
-  document.getElementById('kitchenCollapsed').onclick = e => {
-    if(e.target.closest('#kitchenToggle')) return;
-    kitchenOpen = !kitchenOpen; renderKitchen();
-  };
-  document.getElementById('kitchenToggle').onclick = e => {
-    e.stopPropagation();
-    if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }
-    else if(kitchen.size > 0){ kitchen.clear(); renderKitchen(); render(); }
-    else { kitchenOpen = true; renderKitchen(); }
-  };
-  document.getElementById('kitchenClear').onclick = () => { kitchen.clear(); renderKitchen(); render(); };
+
+  const toggleWrap = document.getElementById('kitchenToggleWrap');
+  const toggleBtn  = document.getElementById('kitchenHeaderToggle');
+  if(toggleWrap && toggleBtn){
+    toggleBtn.onclick = e => {
+      e.stopPropagation();
+      kitchenOpen = !kitchenOpen; renderKitchen();
+    };
+    /* Click anywhere outside the dropdown closes it. */
+    document.addEventListener('click', e => {
+      if(!kitchenOpen) return;
+      if(!toggleWrap.contains(e.target)){ kitchenOpen = false; renderKitchen(); }
+    });
+  }
+
+  const clearBtn = document.getElementById('kitchenClear');
+  if(clearBtn) clearBtn.onclick = () => { kitchen.clear(); renderKitchen(); render(); };
+
   renderKitchen();
 }
 function renderKitchen(){
-  const collapsed = document.getElementById('kitchenCollapsed');
-  if(!collapsed) return;
+  const toggleWrap = document.getElementById('kitchenToggleWrap');
+  const dropdown    = document.getElementById('kitchenDropdown');
+  const badge        = document.getElementById('kitchenBadge');
+  const toggleBtn    = document.getElementById('kitchenHeaderToggle');
+  if(!toggleWrap) return;
   const active = kitchen.size > 0;
-  collapsed.classList.toggle('active', kitchenOpen || active);
-  document.getElementById('kitchenExpand').style.display = kitchenOpen ? 'block' : 'none';
-  const prompt = document.getElementById('kitchenPrompt');
-  const icons  = document.getElementById('kitchenIcons');
-  const toggle = document.getElementById('kitchenToggle');
-  if(!kitchenOpen && active){
-    prompt.style.display = 'none';
-    icons.style.display = 'flex';
-    icons.innerHTML = kitchenActiveIcons();
-    toggle.textContent = '×'; toggle.classList.add('clear');
-    toggle.setAttribute('aria-label','Clear ingredients');
-  } else {
-    prompt.style.display = 'block';
-    icons.style.display = 'none';
-    toggle.classList.remove('clear');
-    toggle.textContent = kitchenOpen ? '×' : '+';
-    toggle.setAttribute('aria-label', kitchenOpen ? 'Close ingredient filter' : 'Open ingredient filter');
+
+  toggleWrap.classList.toggle('has-active', active);
+  toggleWrap.classList.toggle('open', kitchenOpen);
+  if(dropdown) dropdown.style.display = kitchenOpen ? 'block' : 'none';
+  if(toggleBtn) toggleBtn.setAttribute('aria-expanded', kitchenOpen ? 'true' : 'false');
+  if(badge){
+    if(active){ badge.textContent = kitchen.size; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
   }
+
   document.querySelectorAll('#kitchenChips .if-chip').forEach(c => c.classList.toggle('sel', kitchen.has(c.dataset.name)));
-  document.getElementById('kitchenResult').style.display = active ? 'flex' : 'none';
+  const result = document.getElementById('kitchenResult');
+  if(result) result.style.display = active ? 'flex' : 'none';
 }
 
 /* Simple colored-shape bean strength indicator — matches Recipe Website
@@ -691,8 +696,8 @@ function switchScreen(target){
     if(worldView === 'map') initWorldMap();
   }
   updateNavCountPill();
-  if(window._syncSearchCollapse) window._syncSearchCollapse();
-  if(target === 'screen-home' && window._showToolbar) window._showToolbar();
+  if(window._collapseSearch) window._collapseSearch();
+  if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }
 }
 
 /* ---------- detail (its own screen — breadcrumb, hero, story/ingredients/steps) ---------- */
@@ -1540,57 +1545,24 @@ document.getElementById('searchInput').oninput = e => {
   clearTimeout(searchTimer); searchTimer = setTimeout(render, 120);
 };
 
-/* Header search collapses to just its icon when the Recipes list is scrolled
-   down (frees vertical space); tap the icon or scroll back to the top to
-   expand the full field. Only active on the Recipes/home screen. */
+/* Header search is always just its icon by default (no full bar shown on
+   landing) — tap it to expand the input inline, and it collapses again on
+   blur or when you switch away from it. No scroll-position logic needed
+   since there's nothing else in the header competing for space. */
 (function(){
-  const content    = document.getElementById('content');
-  const topNav     = document.querySelector('.top-nav');
-  const searchWrap = document.querySelector('.search-wrap');
+  const searchWrap = document.getElementById('searchWrap');
   const searchInp  = document.getElementById('searchInput');
-  const toolbar    = document.querySelector('.toolbar');
-  if(!content || !topNav || !searchWrap || !searchInp) return;
+  if(!searchWrap || !searchInp) return;
 
-  function syncSearchCollapse(){
-    const collapse = currentScreen === 'screen-home'
-      && content.scrollTop > 24
-      && !searchWrap.classList.contains('expanded');
-    topNav.classList.toggle('search-collapsed', collapse);
-  }
-  window._syncSearchCollapse = syncSearchCollapse;
-
-  /* Toolbar (filters + kitchen bar) slides up out of the way while you
-     scroll down the list and drops back in the moment you scroll up. */
-  let lastTop = 0;
-  function syncToolbar(){
-    if(!toolbar) return;
-    if(currentScreen !== 'screen-home'){ toolbar.classList.remove('toolbar-hidden'); return; }
-    const top = content.scrollTop;
-    if(top <= 40)                 toolbar.classList.remove('toolbar-hidden'); // at/near top
-    else if(top > lastTop + 4)    toolbar.classList.add('toolbar-hidden');    // scrolling down
-    else if(top < lastTop - 4)    toolbar.classList.remove('toolbar-hidden'); // scrolling up
-    lastTop = top;
-  }
-  window._syncToolbar = syncToolbar;
-  window._showToolbar = () => { if(toolbar){ toolbar.classList.remove('toolbar-hidden'); lastTop = content.scrollTop; } };
-
-  content.addEventListener('scroll', () => {
-    if(content.scrollTop <= 24) searchWrap.classList.remove('expanded');
-    syncSearchCollapse();
-    syncToolbar();
-  }, {passive:true});
+  window._collapseSearch = () => searchWrap.classList.remove('expanded');
 
   searchWrap.addEventListener('click', () => {
-    if(!topNav.classList.contains('search-collapsed')) return;
+    if(searchWrap.classList.contains('expanded')) return;
     searchWrap.classList.add('expanded');
-    topNav.classList.remove('search-collapsed');
     searchInp.focus();
   });
 
-  searchInp.addEventListener('blur', () => {
-    searchWrap.classList.remove('expanded');
-    syncSearchCollapse();
-  });
+  searchInp.addEventListener('blur', () => searchWrap.classList.remove('expanded'));
 })();
 /* Sort dropdown was removed from the toolbar; sortBy stays at its default. */
 const _sortSel = document.getElementById('sortSelect');

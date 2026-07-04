@@ -121,116 +121,72 @@
   padding:8px 14px;white-space:nowrap;letter-spacing:.08em;flex-shrink:0;
 }
 
-/* ─── TOOLBAR (Recipes screen only) ───
-   One tidy row: status filters · kitchen bar (fills the middle) · util
-   buttons. Collapses upward when the list is scrolled down (see the
-   .toolbar-hidden rule), like the header search. */
-.toolbar{
-  padding:10px 18px 10px;display:flex;flex-direction:column;gap:9px;flex-shrink:0;
-  overflow:hidden;max-height:320px;
-  transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .24s,
-             padding .32s cubic-bezier(.4,0,.2,1),transform .32s cubic-bezier(.4,0,.2,1);
+/* ─── HEADER ICON TOGGLES (kitchen filter + search) ───
+   Both sit in the header as plain 38px icon buttons — no bars, no rows
+   below the header. Click either to open its panel; the search field
+   expands inline, the kitchen filter drops a panel down from its icon. */
+.icon-toggle{
+  width:38px;height:38px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;position:relative;
+  background:rgba(46,34,26,.5);border:1px solid rgba(242,228,207,.12);
+  color:var(--text-muted-3);cursor:pointer;transition:border-color .15s,color .15s,background .15s;
 }
-.toolbar.toolbar-hidden{
-  max-height:0;opacity:0;padding-top:0;padding-bottom:0;
-  transform:translateY(-8px);pointer-events:none;
+.icon-toggle:hover{border-color:var(--copper-soft);color:var(--crema)}
+.icon-toggle .kitchen-icon{width:18px;height:18px}
+.icon-badge{
+  position:absolute;top:-4px;right:-4px;min-width:15px;height:15px;padding:0 3px;
+  border-radius:999px;background:var(--copper);color:var(--bg-dark-2);
+  font-family:var(--font-mono);font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;line-height:1;
 }
-.toolbar-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.search-row{display:flex;gap:9px;align-items:center;justify-content:flex-end}
-.search-wrap{position:relative;display:flex;align-items:center;width:240px;max-width:56vw;transition:width .28s cubic-bezier(.4,0,.2,1)}
-.search-icon{position:absolute;left:15px;width:15px;height:15px;color:var(--text-muted-3);pointer-events:none;flex-shrink:0;transition:left .28s cubic-bezier(.4,0,.2,1),color .2s}
-.search{
-  width:100%;background:rgba(46,34,26,.5);
-  border:1px solid rgba(242,228,207,.12);border-radius:12px;
-  color:var(--crema);font-family:var(--font-body);font-size:13px;
-  padding:9px 15px 9px 36px;outline:none;
-  transition:border-color .15s,color .2s,padding .28s cubic-bezier(.4,0,.2,1);
+.kitchen-toggle-wrap.has-active .icon-toggle{border-color:var(--copper);color:var(--copper)}
+.kitchen-toggle-wrap.open .icon-toggle{border-color:var(--copper);color:var(--copper);background:rgba(207,127,69,.12)}
+
+/* Dropdown panel anchored to the header bar itself (not the small icon
+   wrap) so its right edge always lands at the viewport's right edge,
+   regardless of where the icon wraps to on narrow screens — anchoring to
+   the icon directly let the panel overflow off the left edge on mobile. */
+.kitchen-dropdown{
+  position:absolute;top:100%;right:14px;z-index:60;
+  width:min(380px,calc(100vw - 28px));
+  background:#1c130d;border:1px solid rgba(242,228,207,.14);border-radius:14px;
+  box-shadow:0 24px 48px -16px rgba(0,0,0,.7);
+  padding:14px 14px 12px;
+  margin-top:10px;
+  animation:dropIn .16s ease-out;
 }
-.search:focus{border-color:var(--copper)}
-.search::placeholder{color:var(--text-muted-2);transition:color .18s}
-/* Accent the icon while a search term is active (visible even when collapsed) */
+@keyframes dropIn{0%{opacity:0;transform:translateY(-6px) scale(.98)}100%{opacity:1;transform:none}}
+.kitchen-dropdown-label{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--crema-dim);margin-bottom:10px}
+.kitchen-dropdown .if-chips{-webkit-mask-image:none;mask-image:none;flex-wrap:wrap;overflow:visible;padding:0}
+.kitchen-dropdown .if-result{padding:10px 0 0;margin-top:4px;border-top:1px dashed var(--line)}
+
+/* ─── SEARCH ───
+   Always icon-only by default on Home; click to expand the input inline,
+   collapses again on blur (or when a screen switch resets it). */
+.search-wrap{
+  position:relative;display:flex;align-items:center;
+  width:38px;cursor:pointer;
+  transition:width .22s cubic-bezier(.4,0,.2,1);
+}
+.search-wrap.expanded{width:240px;max-width:56vw;cursor:auto}
+.search-icon{position:absolute;left:11px;width:15px;height:15px;color:var(--copper);pointer-events:none;flex-shrink:0;transition:left .22s cubic-bezier(.4,0,.2,1),color .2s}
+.search-wrap.expanded .search-icon{left:15px;color:var(--text-muted-3)}
 .search-wrap.has-term .search-icon{color:var(--copper)}
+.search{
+  width:100%;height:38px;background:rgba(46,34,26,.5);
+  border:1px solid rgba(242,228,207,.12);border-radius:12px;
+  color:transparent;font-family:var(--font-body);font-size:13px;
+  padding:9px 0 9px 36px;outline:none;cursor:pointer;
+  transition:border-color .15s,color .15s,padding .22s cubic-bezier(.4,0,.2,1);
+}
+.search::placeholder{color:transparent;transition:color .15s}
+.search-wrap.expanded .search{padding:9px 15px 9px 36px;color:var(--crema);cursor:auto}
+.search-wrap.expanded .search::placeholder{color:var(--text-muted-2)}
+.search:focus{border-color:var(--copper)}
 
-/* Collapse-on-scroll: on the Recipes list, once scrolled down the search bar
-   shrinks to just its icon, tucked into the top-right corner. Tap it (or
-   scroll back to the top) to expand the full field again. */
-.top-nav.search-collapsed .search-wrap{width:38px;cursor:pointer}
-.top-nav.search-collapsed .search-wrap .search{
-  padding-right:0;padding-left:36px;color:transparent;cursor:pointer;
-}
-.top-nav.search-collapsed .search-wrap .search::placeholder{color:transparent}
-.top-nav.search-collapsed .search-wrap .search-icon{left:11px;color:var(--copper)}
-.sort{
-  background:var(--roast-2);border:1px solid var(--line);border-radius:8px;
-  color:var(--crema);font-family:var(--font-mono);font-size:12px;
-  padding:9px 10px;outline:none;cursor:pointer;flex-shrink:0;
-}
-.sort:focus{border-color:var(--copper)}
-
-/* ─── FILTER RAIL ─── */
-.filter-rail{
-  display:flex;gap:7px;overflow-x:auto;
-  scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px;
-}
-.filter-rail::-webkit-scrollbar{display:none}
-.chip{
-  background:transparent;border:1px solid var(--line);
-  color:var(--crema-dim);border-radius:4px;
-  padding:4px 11px;font-size:11px;font-family:var(--font-mono);
-  font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-  cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;
-}
-.chip:hover{border-color:var(--copper-soft);color:var(--crema)}
-.chip.active{background:var(--copper-grad);border-color:transparent;color:var(--foam)}
-
-/* ─── TRIED SEGMENTED CONTROL ─── */
-.tried-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.tried-control{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-shrink:0}
-.tried-control .chip{border:none;border-right:1px solid var(--line);border-radius:0;padding:5px 13px}
-.tried-control .chip:last-child{border-right:none}
-.tried-control .chip.active{background:var(--copper);color:var(--roast)}
-.util-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
-.util-btn{
-  background:var(--roast-2);border:1px solid var(--line);color:var(--crema-dim);
-  border-radius:8px;width:30px;height:30px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;cursor:pointer;transition:all .15s;
-}
-.util-btn:hover{border-color:var(--copper-soft);color:var(--crema)}
-.util-add{background:var(--copper);border-color:var(--copper);color:var(--roast);font-weight:700;font-size:17px}
-.util-add:hover{background:#df8f50}
-
-/* ─── INGREDIENT (KITCHEN) FILTER ─── */
-.kfilter{display:flex;flex-direction:column}
-.if-collapsed{
-  flex:1;min-width:170px;
-  display:flex;align-items:center;gap:10px;
-  background:var(--roast-2);border:1px solid var(--line);border-radius:11px;
-  padding:9px 11px;cursor:pointer;transition:border-color .15s,box-shadow .15s;
-}
-.if-collapsed:hover{border-color:var(--copper-soft)}
-.if-collapsed.active{border-bottom:2px solid var(--copper);box-shadow:0 4px 16px -8px rgba(207,127,69,.55)}
-.if-pan{width:24px;height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.if-pan svg{width:100%;height:100%}
-.if-prompt{flex:1;min-width:0;font-size:13.5px;color:var(--crema-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.if-active-icons{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
-.if-active-icons .mini{width:23px;height:23px;border-radius:6px;background:var(--roast-3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.if-active-icons .mini .ing-ico{width:16px;height:16px;display:flex}
-.if-active-icons .mini svg{width:16px;height:16px}
-.if-more{font-family:var(--font-mono);font-size:10.5px;color:var(--copper);font-weight:700;margin-left:3px;white-space:nowrap}
-.if-add{
-  width:27px;height:27px;border-radius:50%;flex-shrink:0;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  background:transparent;border:1.5px solid var(--copper-soft);color:var(--copper);
-  font-size:16px;line-height:1;transition:all .15s;
-}
-.if-add:hover{border-color:var(--copper)}
-.if-add.clear{background:var(--copper-grad);border-color:transparent;color:var(--foam);font-size:14px}
-.if-expand{padding-top:9px}
+/* ─── INGREDIENT (KITCHEN) FILTER — chips inside the header dropdown ─── */
 .if-chips{
   display:flex;gap:7px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none;
-  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 20px),transparent);
-  mask-image:linear-gradient(90deg,#000 calc(100% - 20px),transparent);
 }
 .if-chips::-webkit-scrollbar{display:none}
 .if-chip{
@@ -251,6 +207,18 @@
 .if-result-txt b{color:var(--foam);font-weight:700}
 .if-clear{background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:12px;color:var(--crema-dim);text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--line)}
 .if-clear:hover{color:var(--crema)}
+
+/* ─── UTIL BUTTONS (Collection screen: backup / restore / add recipe) ─── */
+.util-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.util-btn{
+  background:var(--roast-2);border:1px solid var(--line);color:var(--crema-dim);
+  border-radius:8px;width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;cursor:pointer;transition:all .15s;
+}
+.util-btn:hover{border-color:var(--copper-soft);color:var(--crema)}
+.util-add{background:var(--copper);border-color:var(--copper);color:var(--roast);font-weight:700;font-size:17px}
+.util-add:hover{background:#df8f50}
 
 /* ─── HOME CONTENT SCROLL ─── */
 .home-content{
@@ -1304,7 +1272,6 @@
   .top-nav-inner{padding:9px 11px;gap:10px}
   .brand-name{font-size:17px}
   .search-wrap{width:100%;max-width:none}
-  .toolbar{padding:7px 11px 7px;gap:7px}
   .bp-grid{padding:4px 11px 22px;gap:7px}
   .bp-name{font-size:13.5px}
   .bp-gate{width:50px}
@@ -1324,7 +1291,6 @@
 @media(min-width:560px){
   .bp-grid{grid-template-columns:1fr 1fr;gap:12px}
   .top-nav-inner{padding:12px 20px}
-  .toolbar{padding:11px 20px 11px}
   .bp-grid{padding:6px 20px 30px}
 }
 
@@ -1393,7 +1359,6 @@
 
   /* comfortably wider content areas */
   .top-nav-inner{padding:14px 26px}
-  .toolbar{padding:14px 26px 14px;gap:11px}
   .coll-header{padding:22px 26px 4px}
   .coll-progress-row{padding:14px 26px 8px}
   .collection-content{padding:10px 26px 28px}
@@ -1419,7 +1384,6 @@
   }
   .bp-grid{gap:16px;padding:8px 30px 42px}
   .top-nav-inner{padding:16px 30px}
-  .toolbar{padding:15px 30px 15px}
   .coll-header{padding:24px 30px 4px}
   .coll-progress-row{padding:14px 30px 8px}
   .collection-content{padding:10px 30px 32px}
@@ -1441,7 +1405,6 @@
     padding:8px 34px 44px;
   }
   .top-nav-inner{padding:18px 40px}
-  .toolbar{padding:16px 40px 16px}
   .coll-header{padding:26px 34px 4px}
   .coll-progress-row{padding:14px 34px 8px}
   .collection-content{padding:10px 34px 36px}
