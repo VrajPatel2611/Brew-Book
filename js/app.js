@@ -687,6 +687,7 @@ function switchScreen(target){
     if(worldView === 'map') initWorldMap();
   }
   updateNavCountPill();
+  if(window._syncSearchCollapse) window._syncSearchCollapse();
 }
 
 /* ---------- detail (its own screen — breadcrumb, hero, story/ingredients/steps) ---------- */
@@ -1528,7 +1529,47 @@ document.addEventListener('pointerdown', e => {
 
 let searchTimer = null;
 document.getElementById('addBtn').onclick = () => openForm(null);
-document.getElementById('searchInput').oninput = e => { searchTerm = e.target.value; clearTimeout(searchTimer); searchTimer = setTimeout(render, 120); };
+document.getElementById('searchInput').oninput = e => {
+  searchTerm = e.target.value;
+  document.querySelector('.search-wrap').classList.toggle('has-term', !!e.target.value.trim());
+  clearTimeout(searchTimer); searchTimer = setTimeout(render, 120);
+};
+
+/* Header search collapses to just its icon when the Recipes list is scrolled
+   down (frees vertical space); tap the icon or scroll back to the top to
+   expand the full field. Only active on the Recipes/home screen. */
+(function(){
+  const content    = document.getElementById('content');
+  const topNav     = document.querySelector('.top-nav');
+  const searchWrap = document.querySelector('.search-wrap');
+  const searchInp  = document.getElementById('searchInput');
+  if(!content || !topNav || !searchWrap || !searchInp) return;
+
+  function syncSearchCollapse(){
+    const collapse = currentScreen === 'screen-home'
+      && content.scrollTop > 24
+      && !searchWrap.classList.contains('expanded');
+    topNav.classList.toggle('search-collapsed', collapse);
+  }
+  window._syncSearchCollapse = syncSearchCollapse;
+
+  content.addEventListener('scroll', () => {
+    if(content.scrollTop <= 24) searchWrap.classList.remove('expanded');
+    syncSearchCollapse();
+  }, {passive:true});
+
+  searchWrap.addEventListener('click', () => {
+    if(!topNav.classList.contains('search-collapsed')) return;
+    searchWrap.classList.add('expanded');
+    topNav.classList.remove('search-collapsed');
+    searchInp.focus();
+  });
+
+  searchInp.addEventListener('blur', () => {
+    searchWrap.classList.remove('expanded');
+    syncSearchCollapse();
+  });
+})();
 document.getElementById('sortSelect').onchange  = e => { sortBy = e.target.value; animateNext = true; render(); };
 document.getElementById('exportBtn').onclick = exportRecipes;
 document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
