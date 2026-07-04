@@ -224,6 +224,7 @@
 .home-content{
   flex:1;overflow-y:auto;overflow-x:hidden;
   scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+  padding-top:20px;
 }
 .home-content::-webkit-scrollbar{width:3px}
 .home-content::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
@@ -1285,6 +1286,7 @@
   .coll-progress-row{padding:12px 11px 6px}
   .collection-content{padding:8px 11px 20px}
   .world-map-wrap{padding:8px 11px 20px}
+  .home-content{padding-top:16px}
 }
 
 /* ── 2-column card grid starts at 560px ── */
@@ -1363,6 +1365,7 @@
   .coll-progress-row{padding:14px 26px 8px}
   .collection-content{padding:10px 26px 28px}
   .world-map-wrap{padding:10px 26px 28px}
+  .home-content{padding-top:22px}
   .brand-name{font-size:22px}
   .bp-name{font-size:17px}
 
@@ -1388,6 +1391,7 @@
   .coll-progress-row{padding:14px 30px 8px}
   .collection-content{padding:10px 30px 32px}
   .world-map-wrap{padding:10px 30px 32px}
+  .home-content{padding-top:24px}
   .brand-name{font-size:23px}
   .bp-name{font-size:18px}
   .detail-content{padding:0 0 56px}
@@ -1409,4 +1413,5 @@
   .coll-progress-row{padding:14px 34px 8px}
   .collection-content{padding:10px 34px 36px}
   .world-map-wrap{padding:10px 34px 36px}
+  .home-content{padding-top:26px}
 }
