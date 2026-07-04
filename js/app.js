@@ -45,11 +45,17 @@ const AIRLINES = {
   38:{name:'ANA',code:'NH',color:'#003087'}
 };
 function getAirline(serial){ return AIRLINES[serial] || {name:'BREW BOOK AIR',code:'BB',color:'#cf7f45'}; }
+/* amt can be negative to darken (used by the world map's pin livery). */
 function hexLighten(hex,amt){
   amt = amt || 42;
   const n = parseInt(hex.slice(1),16);
-  const r = Math.min(255,(n>>16)+amt), g = Math.min(255,((n>>8)&255)+amt), b = Math.min(255,(n&255)+amt);
+  const clamp = v => Math.max(0,Math.min(255,v));
+  const r = clamp((n>>16)+amt), g = clamp(((n>>8)&255)+amt), b = clamp((n&255)+amt);
   return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function hexToRgb(hex){
+  const n = parseInt(hex.slice(1),16);
+  return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
 }
 
 /* ---------- STYLE CATEGORIES (for hero + horizontal lanes) ----------

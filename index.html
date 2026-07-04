@@ -21,7 +21,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=2">
   <link rel="stylesheet" href="./css/base.css">
-  <link rel="stylesheet" href="./css/components.css?v=19">
+  <link rel="stylesheet" href="./css/components.css?v=21">
 </head>
 <body>
 
@@ -194,6 +194,13 @@
       <div id="world-view" class="world-view" aria-label="World coffee map">
         <canvas id="wvCanvas" class="wv-canvas" aria-hidden="true"></canvas>
         <svg id="wvSvg" class="wv-svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="pinBadgeGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#e9a25f"/>
+              <stop offset="45%" stop-color="#cf7f45"/>
+              <stop offset="100%" stop-color="#8f5526"/>
+            </linearGradient>
+          </defs>
           <g id="wvPins"></g>
         </svg>
         <!-- Country popup (boarding-pass style, shown on pin click) -->
@@ -202,7 +209,7 @@
         <div class="wv-controls" id="wvControls" aria-label="Map zoom controls">
           <button class="wv-ctrl" id="wvZoomIn"    title="Zoom in"    aria-label="Zoom in">+</button>
           <button class="wv-ctrl" id="wvZoomOut"   title="Zoom out"   aria-label="Zoom out">−</button>
-          <button class="wv-ctrl" id="wvZoomReset" title="Reset view" aria-label="Reset map">⊞</button>
+          <button class="wv-ctrl" id="wvZoomReset" title="Reset view" aria-label="Reset map">RST</button>
         </div>
         <!-- Zoom percentage (bottom-left) -->
         <div class="wv-zoom-pct" id="wvZoomPct" aria-live="polite">100%</div>
@@ -273,7 +280,7 @@
 <!-- App -->
 <script src="./js/data.js"></script>
 <script src="./js/icons.js"></script>
-<script src="./js/worldmap.js?v=3"></script>
-<script src="./js/app.js?v=13"></script>
+<script src="./js/worldmap.js?v=4"></script>
+<script src="./js/app.js?v=14"></script>
 </body>
 </html>

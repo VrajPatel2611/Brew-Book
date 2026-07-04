@@ -73,6 +73,19 @@ function _recipeHasGenuineOrigin(r) {
   return r.origin && !MAP_FUSION_ORIGINS.has(r.origin);
 }
 
+/* Pin "livery": each pin's glow + glossy gradient fill are derived from its
+   own base colour (rather than a small hardcoded lookup table, since our
+   pin palette spans ~20 airline colours vs. the design reference's four) —
+   lighten for the glow/top gradient stop, darken for the bottom stop,
+   matching brew_book_worldmap_reference.html's LIVERY relationships. */
+function _pinLivery(hex) {
+  return {
+    glow: hexToRgb(hexLighten(hex, 30)),
+    g1:   hexLighten(hex, 26),
+    g2:   hexLighten(hex, -34)
+  };
+}
+
 /* ---------- PUBLIC API ---------- */
 
 function initWorldMap() {
@@ -311,17 +324,27 @@ function _renderPins() {
 function _pinMarkup(p, idx) {
   const count = p.recs.length;
   const delayGlow = (idx * 0.22).toFixed(2);
+  const lv = _pinLivery(p.color);
+  const gradId = `pinGrad-${idx}`;
+  const label = _esc(p.origin.toUpperCase());
+  const labelW = Math.max(30, label.length * 6.4 + 14);
   return `<g class="wm-pin" data-origin="${_esc(p.origin)}"
       transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
-    <circle class="pin-glow" cx="0" cy="0" r="18" fill="${p.color}" opacity="0.18"
+    <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${lv.g1}"/><stop offset="100%" stop-color="${lv.g2}"/>
+    </linearGradient></defs>
+    <circle class="pin-glow" cx="0" cy="0" r="16" fill="rgb(${lv.glow})" opacity="0.5"
       style="animation-delay:${delayGlow}s"/>
-    <circle cx="0" cy="0" r="12" fill="${p.color}" stroke="rgba(255,255,255,0.28)" stroke-width="1.4"/>
+    <circle cx="0" cy="0" r="12" fill="url(#${gradId})" stroke="rgba(255,255,255,0.32)" stroke-width="1.4"/>
     <text class="pin-cup" x="0" y="5" text-anchor="middle" dominant-baseline="auto">☕</text>
     ${count > 1 ? `<g class="pin-badge">
-      <circle cx="10" cy="-10" r="7" fill="#e8b04b" stroke="#081324" stroke-width="1.2"/>
-      <text x="10" y="-6.5" text-anchor="middle" font-family="monospace" font-size="8.5" font-weight="bold" fill="#0b1729">${count}</text>
+      <circle cx="10" cy="-10" r="8" fill="url(#pinBadgeGrad)" stroke="#081324" stroke-width="1.5"/>
+      <text x="10" y="-6.7" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#fff">${count}</text>
     </g>` : ''}
-    <text class="wm-country-label" x="0" y="22" text-anchor="middle">${_esc(p.origin.toUpperCase())}</text>
+    <g class="wm-country-label-wrap">
+      <rect x="${(-labelW / 2).toFixed(1)}" y="19" width="${labelW.toFixed(1)}" height="16" rx="6" fill="rgba(8,16,30,.8)"/>
+      <text class="wm-country-label" x="0" y="30" text-anchor="middle">${label}</text>
+    </g>
   </g>`;
 }
 
@@ -354,23 +377,23 @@ function _showPopup(pinEl, cp) {
   const popup = document.getElementById('wvPreview');
   if (!popup) return;
 
-  const rowsHTML = cp.recs.map(r => `
+  const rowsHTML = cp.recs.map(r => {
+    const catId    = getStyleCategory(r);
+    const catLabel = (STYLE_CATEGORIES.find(c => c.id === catId) || {}).label || '';
+    const meta     = [r.method, catLabel].filter(Boolean).join(' · ');
+    return `
     <div class="wm-popup-row" data-id="${_esc(r.id)}" tabindex="0" role="button" aria-label="Open ${_esc(r.name)}">
       <span class="wm-popup-dot" style="background:${_esc(cp.color)}"></span>
       <div class="wm-popup-info">
         <div class="wm-popup-name">${_esc(r.name)}</div>
-        <div class="wm-popup-meta">
-          <span class="wm-popup-method">${_esc(r.method || '')}</span>
-          ${r.ratio ? `<span class="wm-popup-ratio">${_esc(r.ratio)}</span>` : ''}
-        </div>
+        <div class="wm-popup-meta">${_esc(meta)}</div>
       </div>
-      <svg class="wm-popup-arrow" viewBox="0 0 12 12" fill="none">
-        <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-    </div>`).join('<div class="wm-popup-div"></div>');
+      ${r.ratio ? `<span class="wm-popup-ratio">${_esc(r.ratio)}</span>` : ''}
+    </div>`;
+  }).join('');
 
   popup.innerHTML = `
-    <div class="wm-popup-head" style="background:linear-gradient(135deg,${cp.color}dd,${cp.color}99)">
+    <div class="wm-popup-head">
       <div class="wm-popup-head-text">
         <div class="wm-popup-eyebrow">${_esc(cp.airline)}</div>
         <div class="wm-popup-country">${_esc(cp.origin)}</div>
@@ -476,9 +499,10 @@ function _applyTransform(t) {
     p.el.setAttribute('transform', `translate(${sx.toFixed(1)},${sy.toFixed(1)}) scale(${inv})`);
   });
 
-  /* Country labels fade in when zoomed enough */
-  const labelAlpha = t.k < 2.2 ? 0 : Math.min(1, (t.k - 2.2) / 1.0);
-  document.querySelectorAll('.wm-country-label').forEach(el => {
+  /* Country labels fade in only once zoomed in past ~1.2x, fully visible by
+     2x — matches brew_book_worldmap_reference.html's labelOpacity ramp. */
+  const labelAlpha = t.k < 1.2 ? 0 : Math.min(1, (t.k - 1.2) / 0.8);
+  document.querySelectorAll('.wm-country-label-wrap').forEach(el => {
     el.style.opacity = labelAlpha.toFixed(2);
   });
 
