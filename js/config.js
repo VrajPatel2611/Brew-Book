@@ -12,6 +12,6 @@
    Until you fill these in, the app runs exactly as before off the bundled
    seed data, so nothing breaks in the meantime. */
 window.BB_CONFIG = {
-  SUPABASE_URL: 'YOUR-PROJECT-URL',
-  SUPABASE_ANON_KEY: 'YOUR-ANON-KEY'
+  SUPABASE_URL: 'https://bgsuyazgifofgmhnlfcr.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnc3V5YXpnaWZvZmdtaG5sZmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjk1NTUsImV4cCI6MjA5ODkwNTU1NX0.XqWzLG56KjvfaL_JhQBe-_V9Hz0UIYh1H42WboWdiU4'
 };
