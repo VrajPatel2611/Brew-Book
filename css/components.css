@@ -21,7 +21,7 @@
 /* ─── SPLASH ─── */
 .splash{
   position:fixed;inset:0;z-index:500;
-  background:var(--midnight);
+  background:radial-gradient(130% 80% at 50% -10%,var(--bg-dark-1) 0%,var(--bg-dark-2) 54%,var(--bg-dark-3) 100%);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   overflow:hidden;
 }
@@ -35,33 +35,75 @@
 
 .splash-center{
   position:relative;z-index:1;
-  display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;
   padding:0 20px;
 }
-.splash-cup{width:118px;height:128px}
 
-.cup-draw{fill:none;stroke-dasharray:300;stroke-dashoffset:300}
-.cup-steam{opacity:0;fill:none}
+/* Framed illustration — fades + rises into place first, with a soft
+   pulsing copper glow behind it and a couple of steam wisps drifting up
+   from the cup, echoing the hero portrait's steam treatment elsewhere. */
+.splash-portrait{
+  position:relative;width:min(280px,62vw);aspect-ratio:736/1058;
+  border-radius:20px;overflow:hidden;
+  border:1px solid rgba(242,228,207,.14);
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.7);
+  opacity:0;transform:translateY(22px) scale(.94);
+  animation:splashPortraitIn .9s cubic-bezier(.16,.9,.3,1) .15s forwards;
+}
+.splash-portrait-glow{
+  position:absolute;inset:-30%;z-index:0;
+  background:radial-gradient(circle,rgba(207,127,69,.35),transparent 68%);
+  animation:glowPulse 4.5s ease-in-out infinite;
+}
+.splash-portrait-img{
+  position:relative;z-index:1;display:block;width:100%;height:100%;
+  object-fit:cover;object-position:50% 30%;
+  filter:saturate(.9) contrast(1.02);
+}
+.splash-steam{
+  position:absolute;z-index:2;width:3px;height:26px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(255,247,236,.7),transparent);
+  opacity:0;
+  animation:splashSteamRise 3.2s ease-in-out .9s infinite;
+}
+.splash-steam.s1{left:44%;bottom:30%}
+.splash-steam.s2{left:52%;bottom:31%;animation-delay:1.5s}
+.splash-steam.s3{left:60%;bottom:29%;animation-delay:2.1s}
+@keyframes splashPortraitIn{to{opacity:1;transform:none}}
+@keyframes splashSteamRise{
+  0%{opacity:0;transform:translateY(6px) scaleY(.8)}
+  35%{opacity:.6}
+  100%{opacity:0;transform:translateY(-22px) scaleY(1.2)}
+}
 
 .splash-title{
   font-family:var(--font-display);font-weight:700;font-size:52px;
   color:var(--foam);letter-spacing:-1px;line-height:1;
   text-shadow:0 0 40px rgba(207,127,69,.35);
   opacity:0;transform:translateY(14px);
+  animation:splashFadeUp .6s ease-out .75s forwards;
 }
 .splash-title em{font-style:normal;color:var(--copper)}
 .splash-tagline{
   font-family:var(--font-mono);font-size:12px;color:var(--copper);
   letter-spacing:.2em;text-transform:uppercase;
   opacity:0;transform:translateY(8px);
+  animation:splashFadeUp .5s ease-out 1.05s forwards;
 }
+@keyframes splashFadeUp{to{opacity:1;transform:none}}
 .splash-skip{
   position:absolute;bottom:30px;right:28px;
   font-family:var(--font-body);font-size:13px;color:var(--crema);
   border-bottom:1px solid var(--copper);padding-bottom:2px;
   opacity:0;cursor:pointer;transition:color .15s;
+  animation:splashFadeIn .5s ease-out 1.3s forwards;
 }
 .splash-skip:hover{color:var(--copper)}
+@keyframes splashFadeIn{to{opacity:1}}
+@media(prefers-reduced-motion:reduce){
+  .splash-portrait,.splash-title,.splash-tagline,.splash-skip{animation:none;opacity:1;transform:none}
+  .splash-portrait-glow,.splash-steam{animation:none;opacity:0}
+}
 
 /* ─── RUNWAY STRIP ─── */
 .runway-strip{height:3px;background:var(--copper-grad);flex-shrink:0}

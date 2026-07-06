@@ -21,7 +21,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=2">
   <link rel="stylesheet" href="./css/base.css">
-  <link rel="stylesheet" href="./css/components.css?v=31">
+  <link rel="stylesheet" href="./css/components.css?v=32">
 </head>
 <body>
 
@@ -68,14 +68,13 @@
 <div id="splash" class="splash" aria-hidden="true">
   <div class="splash-stars" id="splashStars"></div>
   <div class="splash-center">
-    <svg class="splash-cup" viewBox="0 0 120 132" fill="none" aria-hidden="true">
-      <path class="cup-draw" d="M22 52 H98 L92 106 a14 14 0 0 1-14 12 H50 a14 14 0 0 1-14-12 Z" stroke="#cf7f45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <path class="cup-draw" d="M98 63 a18 18 0 0 1 0 36" stroke="#cf7f45" stroke-width="2.6" stroke-linecap="round"/>
-      <path class="cup-draw" d="M20 52 H100" stroke="#e9a25f" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="cup-steam s1" d="M42 45 C37 36 46 29 41 20" stroke="#cf7f45" stroke-width="2.2" stroke-linecap="round"/>
-      <path class="cup-steam s2" d="M60 45 C55 36 64 29 59 20" stroke="#e9a25f" stroke-width="2.2" stroke-linecap="round"/>
-      <path class="cup-steam s3" d="M78 45 C73 36 82 29 77 20" stroke="#cf7f45" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
+    <div class="splash-portrait">
+      <span class="splash-portrait-glow" aria-hidden="true"></span>
+      <img class="splash-portrait-img" src="./img/splash-machine.webp" alt="" aria-hidden="true">
+      <span class="splash-steam s1" aria-hidden="true"></span>
+      <span class="splash-steam s2" aria-hidden="true"></span>
+      <span class="splash-steam s3" aria-hidden="true"></span>
+    </div>
     <h1 class="splash-title">BREW <em>BOOK</em></h1>
     <p class="splash-tagline">38 DESTINATIONS · 22 COUNTRIES · YOUR COFFEE PASSPORT</p>
   </div>
@@ -267,6 +266,6 @@
 <script src="./js/data.js"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
-<script src="./js/app.js?v=20"></script>
+<script src="./js/app.js?v=21"></script>
 </body>
 </html>

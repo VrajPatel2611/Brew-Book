@@ -1479,10 +1479,25 @@ buildKitchen();
 if(typeof runSplash === 'function'){
   runSplash();
 } else {
-  /* Fallback when animations.js isn't loaded: hide splash after 1.6 s */
+  /* Fallback when animations.js isn't loaded: hide splash after the
+     portrait/title/tagline/skip entrance sequence has fully played
+     (~2.6s) plus a short beat to actually look at it. */
   const sp = document.getElementById('splash');
   if(sp){
-    setTimeout(() => { sp.style.transition = 'opacity .5s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 520); }, 1600);
+    const starsEl = document.getElementById('splashStars');
+    if(starsEl){
+      let html = '';
+      for(let i = 0; i < 34; i++){
+        const size  = (Math.random() * 2 + 1).toFixed(1);
+        const left  = (Math.random() * 100).toFixed(1);
+        const top   = (Math.random() * 100).toFixed(1);
+        const dur   = (Math.random() * 3 + 2.5).toFixed(1);
+        const delay = (Math.random() * 3).toFixed(1);
+        html += `<span class="star-dot" style="width:${size}px;height:${size}px;left:${left}%;top:${top}%;--dur:${dur}s;--delay:${delay}s"></span>`;
+      }
+      starsEl.innerHTML = html;
+    }
+    setTimeout(() => { sp.style.transition = 'opacity .5s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 520); }, 2900);
     document.getElementById('splashSkip').onclick = () => { sp.style.transition = 'opacity .25s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 280); };
   }
 }
