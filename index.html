@@ -19,9 +19,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Karla:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="./css/tokens.css?v=2">
-  <link rel="stylesheet" href="./css/base.css">
-  <link rel="stylesheet" href="./css/components.css?v=32">
+  <link rel="stylesheet" href="./css/tokens.css?v=4">
+  <link rel="stylesheet" href="./css/base.css?v=2">
+  <link rel="stylesheet" href="./css/components.css?v=36">
+
+  <!-- Set the theme before first paint so there's no flash of the wrong mode -->
+  <script>
+    (function(){
+      try{
+        var t = localStorage.getItem('bb-theme');
+        if(t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+    })();
+  </script>
 </head>
 <body>
 
@@ -131,6 +142,15 @@
         </svg>
         <input id="searchInput" class="search" type="text" placeholder="Search recipes…" aria-label="Search recipes">
       </div>
+      <button class="icon-toggle theme-toggle" id="themeToggle" aria-label="Switch to light theme">
+        <svg class="theme-ico theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2.5v2.4M12 19.1v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7"/>
+        </svg>
+        <svg class="theme-ico theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 14.5A8 8 0 1 1 9.5 4 6.2 6.2 0 0 0 20 14.5Z"/>
+        </svg>
+      </button>
       <span class="count-pill" id="navCountPill">— BREWS</span>
     </div>
   </div>
@@ -266,6 +286,6 @@
 <script src="./js/data.js"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
-<script src="./js/app.js?v=21"></script>
+<script src="./js/app.js?v=22"></script>
 </body>
 </html>

@@ -1,5 +1,11 @@
-/* ===== Brew Book — Design tokens ===== */
+/* ===== Brew Book — Design tokens =====
+   Default :root is the DARK theme (unchanged values). The light theme is a
+   warm "latte cream" palette applied via :root[data-theme="light"] below —
+   it only overrides surface/text/hairline tokens, so the accent, per-recipe
+   colours, and the deliberately-dark immersive screens (World map panel,
+   Brew Mode) are shared across both modes. */
 :root {
+  color-scheme: dark;
   /* Coffee world */
   --roast:       #241a14;
   --roast-2:     #2e221a;
@@ -25,6 +31,26 @@
   --text-muted-2: #8d795f;
   --text-muted-3: #a08868;
 
+  /* ── Themeable surfaces / hairlines (dark defaults = original raw values,
+        so dark mode renders byte-identical; light theme overrides below) ── */
+  --page-1: #2c1e15;                    /* screen radial gradient */
+  --page-2: #1a110b;
+  --page-3: #0d0907;
+  --app-bg: #241a14;                    /* body / behind-everything */
+  --surf-1:   rgba(40,28,20,.55);       /* cards, hero */
+  --surf-2:   rgba(46,34,26,.5);        /* inputs, chips, toggles */
+  --surf-nav: rgba(20,14,10,.72);       /* sticky top nav */
+  --surf-stub: rgba(20,14,10,.3);       /* ticket-stub column */
+  --surf-note: rgba(46,34,26,.4);       /* detail bean-note callout */
+  --surf-modal: #1c130d;                /* add/edit sheet + kitchen dropdown */
+  --surf-field: rgba(20,14,10,.55);     /* form inputs */
+  --hair-10: rgba(242,228,207,.1);
+  --hair-12: rgba(242,228,207,.12);
+  --hair-14: rgba(242,228,207,.14);
+  --hair-18: rgba(242,228,207,.18);
+  --hair-22: rgba(242,228,207,.22);
+  --hair-30: rgba(242,228,207,.3);
+
   /* Travel world */
   --midnight:      #0a1628;
   --pass-paper:    #faf8f3;
@@ -45,4 +71,42 @@
   --font-display: 'Fraunces', Georgia, serif;
   --font-body:    'Karla', -apple-system, sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
+}
+
+/* ===== LIGHT THEME — "latte cream" ===== */
+:root[data-theme="light"] {
+  color-scheme: light;
+  /* Text: dark espresso ink instead of cream */
+  --foam:        #241a14;   /* primary headings */
+  --crema:       #2f2015;   /* body text */
+  --crema-dim:   #6f5c46;   /* secondary text */
+  --text-muted-2:#8a745c;   /* muted labels */
+  --text-muted-3:#96805f;
+  --copper-soft: #a5542a;   /* copper reads too light as text on cream */
+
+  /* Surfaces: warm cream paper */
+  --app-bg:  #f3ebdd;
+  --page-1:  #f7f1e6;
+  --page-2:  #f3ebdd;
+  --page-3:  #ece1cf;
+  --surf-1:   #fffdf8;                 /* cards / hero — crisp warm white */
+  --surf-2:   #f6efe3;                 /* inputs, chips, toggles */
+  --surf-nav: rgba(250,245,236,.82);   /* translucent cream nav */
+  --surf-stub: rgba(120,88,48,.05);
+  --surf-note: rgba(120,88,48,.06);
+  --surf-modal: #fdf8ef;
+  --surf-field: #ffffff;
+
+  /* Control surfaces (were roast tints) */
+  --roast-2: #f1e8d8;
+  --roast-3: #ece1cd;
+  --line:    #e4d8c4;
+
+  /* Hairlines: faint dark instead of faint cream */
+  --hair-10: rgba(58,40,22,.1);
+  --hair-12: rgba(58,40,22,.13);
+  --hair-14: rgba(58,40,22,.14);
+  --hair-18: rgba(58,40,22,.2);
+  --hair-22: rgba(58,40,22,.24);
+  --hair-30: rgba(58,40,22,.3);
 }

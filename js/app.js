@@ -1552,6 +1552,24 @@ document.addEventListener('pointerdown', e => {
   if(el && typeof spawnRipple === 'function') spawnRipple(el, e);
 }, {passive:true});
 
+/* Light / dark theme toggle. Initial theme is set inline in <head> before
+   first paint; here we just wire the button and persist the choice. */
+(function(){
+  const btn = document.getElementById('themeToggle');
+  if(!btn) return;
+  const sync = () => {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    btn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+  };
+  sync();
+  btn.onclick = () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('bb-theme', next); }catch(e){}
+    sync();
+  };
+})();
+
 let searchTimer = null;
 document.getElementById('addBtn').onclick = () => openForm(null);
 document.getElementById('searchInput').oninput = e => {

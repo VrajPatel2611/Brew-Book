@@ -15,7 +15,7 @@
 /* Matches the design reference files' .bb-page background exactly — shared
    across Home/World/Detail/Collection per the reference token comments. */
 .screen-home,.screen-world,.screen-detail,.screen-collection{
-  background:radial-gradient(130% 80% at 50% -10%,var(--bg-dark-1) 0%,var(--bg-dark-2) 54%,var(--bg-dark-3) 100%);
+  background:radial-gradient(130% 80% at 50% -10%,var(--page-1) 0%,var(--page-2) 54%,var(--page-3) 100%);
 }
 
 /* ─── SPLASH ─── */
@@ -45,7 +45,7 @@
 .splash-portrait{
   position:relative;width:min(280px,62vw);aspect-ratio:736/1058;
   border-radius:20px;overflow:hidden;
-  border:1px solid rgba(242,228,207,.14);
+  border:1px solid var(--hair-14);
   box-shadow:0 30px 70px -20px rgba(0,0,0,.7);
   opacity:0;transform:translateY(22px) scale(.94);
   animation:splashPortraitIn .9s cubic-bezier(.16,.9,.3,1) .15s forwards;
@@ -113,7 +113,7 @@
    .bb-header block (translucent + blurred, not solid var(--nav-bg)). */
 .top-nav{
   flex-shrink:0;position:relative;z-index:50;
-  background:rgba(20,14,10,.72);
+  background:var(--surf-nav);
   backdrop-filter:blur(18px) saturate(1.3);
   -webkit-backdrop-filter:blur(18px) saturate(1.3);
   border-bottom:1px solid rgba(207,127,69,.16);
@@ -170,11 +170,17 @@
 .icon-toggle{
   width:38px;height:38px;border-radius:12px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;position:relative;
-  background:rgba(46,34,26,.5);border:1px solid rgba(242,228,207,.12);
+  background:var(--surf-2);border:1px solid var(--hair-12);
   color:var(--text-muted-3);cursor:pointer;transition:border-color .15s,color .15s,background .15s;
 }
 .icon-toggle:hover{border-color:var(--copper-soft);color:var(--crema)}
 .icon-toggle .kitchen-icon{width:18px;height:18px}
+/* Theme toggle: show the sun in dark mode (tap → light) and the moon in
+   light mode (tap → dark). */
+.theme-toggle .theme-ico{width:18px;height:18px}
+.theme-toggle .theme-moon{display:none}
+:root[data-theme="light"] .theme-toggle .theme-sun{display:none}
+:root[data-theme="light"] .theme-toggle .theme-moon{display:block}
 .icon-badge{
   position:absolute;top:-4px;right:-4px;min-width:15px;height:15px;padding:0 3px;
   border-radius:999px;background:var(--copper);color:var(--bg-dark-2);
@@ -191,7 +197,7 @@
 .kitchen-dropdown{
   position:absolute;top:100%;right:14px;z-index:60;
   width:min(380px,calc(100vw - 28px));
-  background:#1c130d;border:1px solid rgba(242,228,207,.14);border-radius:14px;
+  background:var(--surf-modal);border:1px solid var(--hair-14);border-radius:14px;
   box-shadow:0 24px 48px -16px rgba(0,0,0,.7);
   padding:14px 14px 12px;
   margin-top:10px;
@@ -215,8 +221,8 @@
 .search-wrap.expanded .search-icon{left:15px;color:var(--text-muted-3)}
 .search-wrap.has-term .search-icon{color:var(--copper)}
 .search{
-  width:100%;height:38px;background:rgba(46,34,26,.5);
-  border:1px solid rgba(242,228,207,.12);border-radius:12px;
+  width:100%;height:38px;background:var(--surf-2);
+  border:1px solid var(--hair-12);border-radius:12px;
   color:transparent;font-family:var(--font-body);font-size:13px;
   padding:9px 0 9px 36px;outline:none;cursor:pointer;
   transition:border-color .15s,color .15s,padding .22s cubic-bezier(.4,0,.2,1);
@@ -452,9 +458,9 @@
 /* ── Boarding-pass hero (coffee-cup portrait + copy) ── */
 .detail-hero{
   position:relative;margin-top:18px;border-radius:24px;overflow:hidden;
-  background:rgba(40,28,20,.55);
+  background:var(--surf-1);
   backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);
-  border:1px solid rgba(242,228,207,.12);
+  border:1px solid var(--hair-12);
   box-shadow:0 30px 70px -30px rgba(0,0,0,.7);
 }
 .detail-hero-stripe{position:absolute;left:0;top:0;bottom:0;width:6px}
@@ -471,7 +477,7 @@
 .detail-stat-label{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted-2);margin-top:5px}
 .detail-beans{margin-top:2px}
 .detail-beans .beans{display:flex;gap:2px}
-.detail-beans .bean{width:9px;height:12px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:rgba(242,228,207,.14)}
+.detail-beans .bean{width:9px;height:12px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:var(--hair-14)}
 .detail-beans .bean.filled{background:linear-gradient(150deg,#e9a25f,var(--bean-color,#8f5526))}
 
 .detail-made-row{
@@ -499,10 +505,10 @@
 .detail-col-right{display:block}
 
 .detail-block-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--copper);margin-bottom:9px}
-.detail-story-text{font-family:var(--font-display);font-style:italic;font-size:14.5px;line-height:1.65;color:#d8c6ad}
+.detail-story-text{font-family:var(--font-display);font-style:italic;font-size:14.5px;line-height:1.65;color:var(--crema-dim)}
 
 /* Neutral "Bean note" callout (left rail) */
-.detail-bean-note{margin-top:26px;border-radius:14px;background:rgba(46,34,26,.4);border:1px solid rgba(242,228,207,.1);padding:16px 18px}
+.detail-bean-note{margin-top:26px;border-radius:14px;background:var(--surf-note);border:1px solid var(--hair-10);padding:16px 18px}
 .detail-bean-note-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted-3);margin-bottom:7px}
 .detail-bean-note p{font-size:12.5px;line-height:1.55;color:var(--crema-dim)}
 
@@ -518,14 +524,14 @@
 .check-row:focus-visible{outline:2px solid var(--copper);outline-offset:2px;border-radius:6px}
 .check-box{
   width:19px;height:19px;flex-shrink:0;border-radius:6px;margin-top:1px;
-  border:1.5px solid rgba(242,228,207,.3);
+  border:1.5px solid var(--hair-30);
   display:flex;align-items:center;justify-content:center;
   transition:background .15s,border-color .15s;
 }
 .check-box::after{content:'✓';font-size:11px;font-weight:900;color:transparent;transition:color .15s}
 .check-row.checked .check-box{background:var(--check-color,var(--copper));border-color:var(--check-color,var(--copper))}
 .check-row.checked .check-box::after{color:#1a110b}
-.check-text{font-family:var(--font-body);font-size:13.5px;line-height:1.45;color:#e7d6bf}
+.check-text{font-family:var(--font-body);font-size:13.5px;line-height:1.45;color:var(--crema)}
 .check-row.checked .check-text{color:#7e6e58;text-decoration:line-through}
 
 /* Numbered step timeline, connected by a vertical gradient rule */
@@ -548,7 +554,7 @@
 .timeline-text{font-family:var(--font-body);font-size:14px;line-height:1.6;color:var(--crema-dim);margin-top:5px;max-width:480px}
 
 /* Dashed CTA footer with the Start-the-recipe pill */
-.detail-cta-footer{display:flex;align-items:center;gap:16px;margin-top:36px;padding:24px 0 10px;border-top:1px dashed rgba(242,228,207,.14)}
+.detail-cta-footer{display:flex;align-items:center;gap:16px;margin-top:36px;padding:24px 0 10px;border-top:1px dashed var(--hair-14)}
 .detail-cta-text{flex:1}
 .detail-cta-label{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted-2)}
 .detail-cta-title{font-family:var(--font-display);font-size:17px;color:var(--foam);margin-top:3px}
@@ -609,16 +615,16 @@
 @media(min-width:640px){.panel{align-items:center;padding:30px}}
 .panel.open{display:flex;animation:panelFade .22s ease}
 @keyframes panelFade{from{opacity:0}to{opacity:1}}
-.sheet{background:#1c130d;border:1px solid rgba(242,228,207,.14);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:26px 26px 22px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7);animation:rise .2s ease-out}
+.sheet{background:var(--surf-modal);border:1px solid var(--hair-14);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:26px 26px 22px;box-shadow:0 40px 80px -20px rgba(0,0,0,.7);animation:rise .2s ease-out}
 @media(min-width:640px){.sheet{border-radius:20px;max-height:88vh}}
 @keyframes rise{from{transform:translateY(18px) scale(.98);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px}
 .sheet-head h2{font-family:var(--font-display);font-weight:600;font-size:23px;color:var(--foam);line-height:1.15}
 .close-btn{background:rgba(242,228,207,.08);border:none;color:var(--crema-dim);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s}
-.close-btn:hover{background:rgba(242,228,207,.14)}
+.close-btn:hover{background:var(--hair-14)}
 .field{margin-bottom:12px}
 .field label{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted-3);margin-bottom:6px}
-.field input,.field textarea,.field select{width:100%;background:rgba(20,14,10,.55);border:1px solid rgba(242,228,207,.16);border-radius:9px;color:var(--foam);font-family:var(--font-body);font-size:13.5px;padding:9px 12px;outline:none;transition:border-color .15s}
+.field input,.field textarea,.field select{width:100%;background:var(--surf-field);border:1px solid var(--hair-18);border-radius:9px;color:var(--foam);font-family:var(--font-body);font-size:13.5px;padding:9px 12px;outline:none;transition:border-color .15s}
 .field textarea{resize:vertical;min-height:68px;line-height:1.5}
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--copper)}
 .field .hint{font-size:11px;color:var(--crema-dim);opacity:.7;margin-top:4px}
@@ -695,7 +701,7 @@
   position:absolute;top:100%;right:18px;z-index:5;
   width:min(280px,calc(100vw - 36px));margin-top:6px;
   background:rgba(46,34,26,.92);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
-  border:1px solid rgba(242,228,207,.12);border-radius:12px;
+  border:1px solid var(--hair-12);border-radius:12px;
   padding:12px 14px;box-shadow:0 16px 40px -8px rgba(0,0,0,.55);
 }
 .brew-ing-popover-title{font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
@@ -738,7 +744,7 @@
 /* Bottom controls */
 .brew-footer{display:flex;align-items:center;gap:12px;padding:14px 18px 28px;flex-shrink:0;z-index:1;position:relative}
 .brew-footer-mid{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--crema-dim);white-space:nowrap}
-.brew-footer-dot{color:rgba(242,228,207,.3)}
+.brew-footer-dot{color:var(--hair-30)}
 .brew-btn{flex:1;padding:14px;border-radius:12px;font-family:var(--font-body);font-weight:700;font-size:14px;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--crema-dim);transition:all .15s}
 .brew-btn:hover{border-color:rgba(255,255,255,.2);color:var(--crema)}
 .brew-btn.primary{background:var(--copper-grad);border-color:transparent;color:#fff}
@@ -783,7 +789,7 @@
 
 .coll-toggle{
   display:flex;align-items:center;gap:3px;flex-shrink:0;
-  background:rgba(46,34,26,.5);border:1px solid rgba(242,228,207,.12);border-radius:12px;padding:4px;
+  background:var(--surf-2);border:1px solid var(--hair-12);border-radius:12px;padding:4px;
 }
 .coll-seg{
   font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
@@ -794,7 +800,7 @@
 .coll-seg:not(.active):hover{color:var(--crema)}
 
 .coll-progress-row{display:flex;align-items:center;gap:14px;padding:14px 18px 8px;flex-shrink:0}
-.coll-progress-bar{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.coll-progress-bar{flex:1;height:4px;background:var(--hair-14);border-radius:3px;overflow:hidden}
 .coll-progress-fill{height:100%;width:0;background:var(--copper-grad);border-radius:3px;transition:width .4s ease}
 .coll-progress-label{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--crema-dim);white-space:nowrap;letter-spacing:.04em}
 
@@ -817,10 +823,10 @@
    own instead of relying on the card clipping them. */
 .coll-card{
   position:relative;cursor:pointer;border-radius:16px;
-  background:rgba(40,28,20,.55);
+  background:var(--surf-1);
   backdrop-filter:blur(13px) saturate(1.3);
   -webkit-backdrop-filter:blur(13px) saturate(1.3);
-  border:1px solid rgba(242,228,207,.12);
+  border:1px solid var(--hair-12);
   box-shadow:0 16px 34px -20px rgba(0,0,0,.6);
   transition:transform .22s,box-shadow .22s;
 }
@@ -875,7 +881,7 @@
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
 
-.coll-card-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:auto;padding-top:11px;border-top:1px dashed rgba(242,228,207,.18)}
+.coll-card-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:auto;padding-top:11px;border-top:1px dashed var(--hair-18)}
 .coll-card-method-label{font-family:var(--font-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted-2)}
 .coll-card-method-val{font-family:var(--font-mono);font-size:11px;font-weight:700;margin-top:2px;text-transform:capitalize}
 .coll-card-ratio{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--foam);line-height:1;text-align:right}
@@ -885,20 +891,20 @@
    spans stay display:inline and collapse to zero size regardless of their
    width/height rules. */
 .coll-card-beans .beans{display:flex;gap:2px}
-.coll-card-beans .bean{width:8px;height:11px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:rgba(242,228,207,.14)}
+.coll-card-beans .bean{width:8px;height:11px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:var(--hair-14)}
 .coll-card-beans .bean.filled{background:linear-gradient(150deg,#e9a25f,var(--bean-color,#8f5526))}
 
 /* Right-edge "ticket stub" column — dashed left border + two circular
    notches cut into the top/bottom edges, simulating a torn perforation. */
 .coll-card-stub{
   position:relative;width:44px;flex-shrink:0;
-  border-left:2px dashed rgba(242,228,207,.22);
+  border-left:2px dashed var(--hair-22);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
-  background:rgba(20,14,10,.3);
+  background:var(--surf-stub);
 }
 .coll-card-stub::before,.coll-card-stub::after{
   content:'';position:absolute;left:-7px;width:14px;height:14px;border-radius:50%;
-  background:var(--bg-dark-2);
+  background:var(--page-2);
 }
 .coll-card-stub::before{top:-7px}
 .coll-card-stub::after{bottom:-7px}
@@ -1060,7 +1066,7 @@
 
 .wv-absent-note{
   position:absolute;bottom:46px;left:14px;
-  font-family:var(--font-mono);font-size:10px;color:rgba(242,228,207,.3);
+  font-family:var(--font-mono);font-size:10px;color:var(--hair-30);
   letter-spacing:.04em;pointer-events:none;z-index:10;
 }
 
@@ -1148,13 +1154,13 @@
    file) is untouched. */
 .hero-card{
   position:relative;overflow:hidden;
-  background:rgba(40,28,20,.5);
+  background:var(--surf-1);
   backdrop-filter:blur(16px) saturate(1.4);
   -webkit-backdrop-filter:blur(16px) saturate(1.4);
   border-radius:24px;
   margin:0 18px 6px;
   cursor:pointer;
-  border:1px solid rgba(242,228,207,.1);
+  border:1px solid var(--hair-10);
   box-shadow:0 30px 70px -30px rgba(0,0,0,.7);
   transition:transform .18s;
 }
@@ -1193,7 +1199,7 @@
    beanSVG()/beansRow() (classes "bean full"/"bean ghost"), which must keep
    its own default sizing untouched. */
 .hero-inner .hero-stat .beans{display:flex;gap:2px;margin-top:2px}
-.hero-inner .hero-stat .bean{width:8px;height:11px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:rgba(242,228,207,.14)}
+.hero-inner .hero-stat .bean{width:8px;height:11px;border-radius:50% 50% 48% 48% / 60% 60% 40% 40%;background:var(--hair-14)}
 .hero-inner .hero-stat .bean.filled{background:linear-gradient(150deg,#e9a25f,var(--bean-color,#8f5526))}
 
 .hero-brew-btn{
@@ -1266,8 +1272,8 @@
 .cat-chip{
   flex-shrink:0;
   font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--crema-dim);background:rgba(46,34,26,.5);
-  border:1px solid rgba(242,228,207,.14);border-radius:999px;
+  color:var(--crema-dim);background:var(--surf-2);
+  border:1px solid var(--hair-14);border-radius:999px;
   padding:9px 17px;cursor:pointer;
   transition:background .15s,color .15s,border-color .15s;
   white-space:nowrap;
@@ -1354,9 +1360,9 @@
 ══════════════════════════════════════════ */
 @media(min-width:900px){
 
-  /* outer canvas */
+  /* outer canvas (gutter behind the width-capped, centred shell) */
   html,body{
-    background:#0d0907;
+    background:var(--page-3);
     overflow:hidden;
   }
 
