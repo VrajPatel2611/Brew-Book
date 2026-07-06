@@ -282,10 +282,30 @@
 <script src="https://cdn.jsdelivr.net/npm/d3-geo-projection@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 
+<!-- Backend config + Supabase client (Phase 1: read-only recipe catalog).
+     app.js awaits window.bbSupabaseReady; if config is still the placeholder
+     or the import fails, it stays null and the app falls back to seed data. -->
+<script src="./js/config.js?v=1"></script>
+<script>window.bbSupabaseReady = new Promise(function(res){ window.__bbResolveSupabase = res; });</script>
+<script type="module">
+  const c = window.BB_CONFIG || {};
+  const configured = c.SUPABASE_URL && c.SUPABASE_ANON_KEY
+    && !/YOUR-PROJECT|YOUR-ANON/.test(c.SUPABASE_URL + c.SUPABASE_ANON_KEY);
+  let client = null;
+  if (configured) {
+    try {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      client = createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY);
+    } catch (e) { client = null; }
+  }
+  window.bbSupabase = client;
+  window.__bbResolveSupabase(client);
+</script>
+
 <!-- App -->
 <script src="./js/data.js"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
-<script src="./js/app.js?v=23"></script>
+<script src="./js/app.js?v=24"></script>
 </body>
 </html>

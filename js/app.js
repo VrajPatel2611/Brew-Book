@@ -103,32 +103,103 @@ function getStyleCategory(r) {
   return 'other';
 }
 
-/* ---------- storage ---------- */
+/* ---------- storage ----------
+   Phase 1 data split:
+     • CATALOG   — the shared recipe content, read from Supabase (source of
+       truth) and cached locally for offline / fallback. Read-only here.
+     • USER DATA — this browser's own state: tried/rating per recipe + any
+       custom recipes. Stays client-side in Phase 1 (moves to a per-user
+       table in Phase 2). Persisted via storeGet/storeSet under USERDATA_KEY.
+   Nothing breaks before Supabase is configured: the app falls back to the
+   bundled SEED, so it behaves exactly as it did when recipes were hardcoded. */
 const hasClaudeStorage = typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function';
-async function storeGet(){ if(hasClaudeStorage){ const r = await window.storage.get(STORE_KEY); return r ? r.value : null; } return localStorage.getItem(STORE_KEY); }
-async function storeSet(value){ if(hasClaudeStorage){ const r = await window.storage.set(STORE_KEY, value); return !!r; } localStorage.setItem(STORE_KEY, value); return true; }
+const USERDATA_KEY = 'brewbook-userdata-v1';
+const CATALOG_CACHE_KEY = 'brewbook-catalog-cache-v1';
+
+async function storeGet(key){ if(hasClaudeStorage){ const r = await window.storage.get(key); return r ? r.value : null; } return localStorage.getItem(key); }
+async function storeSet(key, value){ if(hasClaudeStorage){ const r = await window.storage.set(key, value); return !!r; } localStorage.setItem(key, value); return true; }
+
+/* Map a Supabase row (snake_case) to the recipe shape the UI expects. */
+function rowToRecipe(row){
+  return {
+    id: row.id, serial: row.serial, name: row.name, origin: row.origin,
+    method: row.method, ratio: row.ratio, ratioLabel: row.ratio_label,
+    strength: row.strength, description: row.description, story: row.story,
+    bean: row.bean, notes: row.notes,
+    ingredients: row.ingredients || [], steps: row.steps || [], methods: row.methods || [],
+    roasterPicks: row.roaster_picks || null,
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : 0,
+    tried: false, rating: 0
+  };
+}
+/* Bundled seed → same shape (offline / not-yet-configured fallback). */
+function seedCatalog(){ return SEED.map(s => ({...s, roasterPicks: ROASTER_PICKS[s.id] || null})); }
+
+/* This browser's own data: { custom:[…], state:{ id:{tried,rating} } }.
+   Migrates the old v2 blob (which stored the whole recipe array) on first run
+   so existing tried/rating/custom recipes carry over. */
+function loadUserData(){
+  try{
+    const raw = localStorage.getItem(USERDATA_KEY);
+    if(raw){ const d = JSON.parse(raw); return { custom: d.custom || [], state: d.state || {} }; }
+  }catch(e){}
+  try{
+    const legacy = localStorage.getItem(STORE_KEY);
+    if(legacy){
+      const arr = JSON.parse(legacy);
+      const custom = arr.filter(r => String(r.id).startsWith('custom-'));
+      const state = {};
+      arr.forEach(r => { if(r.tried || r.rating) state[r.id] = { tried: !!r.tried, rating: r.rating || 0 }; });
+      return { custom, state };
+    }
+  }catch(e){}
+  return { custom: [], state: {} };
+}
 
 async function loadRecipes(){
-  let saved = null;
-  try{ saved = await storeGet(); }catch(e){ saved = null; }
-  if(saved){ try{ recipes = JSON.parse(saved); }catch(e){ recipes = []; } } else { recipes = []; }
-  let deletedSeeds = [];
-  try{ deletedSeeds = JSON.parse(localStorage.getItem(STORE_KEY + '-removed') || '[]'); }catch(e){}
-  let added = false;
-  for(const s of SEED){ if(!recipes.some(r => r.id === s.id) && !deletedSeeds.includes(s.id)){ recipes.push({...s}); added = true; } }
-  if(added) await saveRecipes(true);
+  const user = loadUserData();
+
+  let catalog = null;
+  const sb = await (window.bbSupabaseReady || Promise.resolve(null));
+  if(sb){
+    try{
+      const { data, error } = await sb.from('recipes').select('*').is('owner_id', null);
+      if(error) throw error;
+      if(data && data.length){
+        catalog = data.map(rowToRecipe);
+        try{ localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }catch(e){ /* fall through to cache / seed */ }
+  }
+  if(!catalog){
+    try{ const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || 'null'); if(cached && cached.length) catalog = cached.map(rowToRecipe); }catch(e){}
+  }
+  if(!catalog) catalog = seedCatalog();
+
+  /* Overlay this browser's tried/rating onto the catalog, then append customs. */
+  recipes = catalog
+    .map(c => ({ ...c, tried: !!(user.state[c.id] && user.state[c.id].tried), rating: (user.state[c.id] && user.state[c.id].rating) || 0 }))
+    .concat(user.custom || []);
+
   render();
   renderCollection();
   renderWorldPasses();
 }
+
+/* Persist only what this browser owns — custom recipes + tried/rating state.
+   The catalog is read-only here (edited in the Supabase dashboard), so it is
+   never written back. Existing callers can keep calling saveRecipes() as-is. */
 async function saveRecipes(silent){
-  try{ const ok = await storeSet(JSON.stringify(recipes)); if(!ok && !silent) showToast('Couldn’t save — try again'); }
+  try{
+    const custom = recipes.filter(r => String(r.id).startsWith('custom-'));
+    const state = {};
+    recipes.forEach(r => { if(r.tried || r.rating) state[r.id] = { tried: !!r.tried, rating: r.rating || 0 }; });
+    const ok = await storeSet(USERDATA_KEY, JSON.stringify({ custom, state }));
+    if(!ok && !silent) showToast('Couldn’t save — try again');
+  }
   catch(e){ if(!silent) showToast('Couldn’t save — try again'); }
 }
-function rememberSeedDeletion(id){
-  if(!id.startsWith('seed-')) return;
-  try{ const k = STORE_KEY + '-removed'; const arr = JSON.parse(localStorage.getItem(k) || '[]'); if(!arr.includes(id)){ arr.push(id); localStorage.setItem(k, JSON.stringify(arr)); } }catch(e){}
-}
+function rememberSeedDeletion(id){ /* no-op in Phase 1 — only custom recipes are deletable */ }
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -140,7 +211,10 @@ function nextSerial(){ return recipes.reduce((m,r)=>Math.max(m, r.serial||0), 0)
 function showToast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'), 2400); }
 
 function buyPicksHTML(id){
-  const picks = ROASTER_PICKS[id];
+  /* Prefer the recipe's own roaster_picks (from the DB row); fall back to the
+     bundled ROASTER_PICKS map for the seed / offline case. */
+  const rec = recipes.find(x => x.id === id);
+  const picks = (rec && rec.roasterPicks) || ROASTER_PICKS[id];
   if(!picks || (!picks.bluetokai && !picks.thirdwave)) return '';
   const bt = picks.bluetokai || [], tw = picks.thirdwave || [];
   return `<button class="detail-picks-toggle" data-picks-toggle><span>🛒 Which beans to buy (Blue Tokai · Third Wave)</span><span class="chev">▾</span></button>
