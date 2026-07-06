@@ -1370,33 +1370,15 @@
 ══════════════════════════════════════════ */
 @media(min-width:900px){
 
-  /* outer canvas (gutter behind the width-capped, centred shell) */
-  html,body{
-    background:var(--page-3);
-    overflow:hidden;
-  }
-
-  /* centred shell — override inset:0 */
-  .page-shell{
-    position:fixed;
-    inset:auto;          /* reset shorthand */
-    top:0;bottom:0;
-    left:50%;
-    transform:translateX(-50%);
-    width:min(1080px,100vw);
-    box-shadow:0 0 80px rgba(0,0,0,.65);
-  }
-
-  /* brew-mode is a genuine full-screen overlay independent of the page
-     flow, so it must follow the same centred column so it doesn't bleed
-     into the dark canvas either side. */
+  /* Full-bleed: the app fills the whole viewport at every size rather than
+     sitting in a width-capped centred column. The card grids auto-fill, so
+     wider screens simply show more cards per row. */
+  .page-shell,
   .brew-mode{
     position:fixed;
-    inset:auto;
-    top:0;bottom:0;
-    left:50%;
-    transform:translateX(-50%);
-    width:min(1080px,100vw);
+    inset:0;
+    left:0;right:0;transform:none;width:auto;
+    box-shadow:none;
   }
 
   /* form panel keeps full-screen dark backdrop but the sheet is already capped */
@@ -1442,10 +1424,6 @@
 
 /* ── 3-column stays but wider cards at 1200px ── */
 @media(min-width:1200px){
-  .page-shell,
-  .brew-mode{
-    width:min(1200px,100vw);
-  }
   .bp-grid{gap:16px;padding:8px 30px 42px}
   .top-nav-inner{padding:16px 30px}
   .coll-header{padding:24px 30px 4px}
@@ -1458,12 +1436,8 @@
   .detail-content{padding:0 0 56px}
 }
 
-/* ── 4-column on very large / ultrawide (1440px+) ── */
+/* ── Extra breathing room on very large / ultrawide (1440px+) ── */
 @media(min-width:1440px){
-  .page-shell,
-  .brew-mode{
-    width:min(1380px,100vw);
-  }
   .bp-grid{
     grid-template-columns:1fr 1fr 1fr 1fr;
     gap:16px;
