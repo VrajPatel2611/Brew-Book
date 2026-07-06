@@ -689,7 +689,7 @@ function switchScreen(target){
     if(on) t.setAttribute('aria-current','page'); else t.removeAttribute('aria-current');
   });
   currentScreen = target;
-  if(target === 'screen-collection'){ renderCollection(); }
+  if(target === 'screen-collection'){ renderCollection(); if(window._resetCollHeaderScroll) window._resetCollHeaderScroll(); }
   if(target === 'screen-world'){
     syncWorldToggle();
     renderWorldPasses();
@@ -1563,6 +1563,29 @@ document.getElementById('searchInput').oninput = e => {
   });
 
   searchInp.addEventListener('blur', () => searchWrap.classList.remove('expanded'));
+})();
+
+/* Collection screen: header/toggle/progress row slides up out of the way
+   while the grid is scrolled down, and drops back in on scroll-up or near
+   the top — mirrors the old Home toolbar-hide behavior. */
+(function(){
+  const content     = document.getElementById('collection-content');
+  const headerGroup = document.getElementById('collHeaderGroup');
+  if(!content || !headerGroup) return;
+
+  let lastTop = 0;
+  content.addEventListener('scroll', () => {
+    const top = content.scrollTop;
+    if(top <= 40)               headerGroup.classList.remove('coll-header-hidden');
+    else if(top > lastTop + 4)  headerGroup.classList.add('coll-header-hidden');
+    else if(top < lastTop - 4)  headerGroup.classList.remove('coll-header-hidden');
+    lastTop = top;
+  }, {passive:true});
+
+  window._resetCollHeaderScroll = () => {
+    headerGroup.classList.remove('coll-header-hidden');
+    lastTop = content.scrollTop;
+  };
 })();
 /* Sort dropdown was removed from the toolbar; sortBy stays at its default. */
 const _sortSel = document.getElementById('sortSelect');

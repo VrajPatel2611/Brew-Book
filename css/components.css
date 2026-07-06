@@ -715,6 +715,18 @@
 
 /* ─── COLLECTION SCREEN ─── */
 
+/* Header + progress row + mine-count slide up out of the way while the
+   grid below is scrolled down, and drop back in the moment you scroll
+   back up (or land near the top) — same idea as the old Home toolbar,
+   just without any replacement icon. */
+.coll-header-group{
+  flex-shrink:0;overflow:hidden;max-height:400px;
+  transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .24s,transform .32s cubic-bezier(.4,0,.2,1);
+}
+.coll-header-group.coll-header-hidden{
+  max-height:0;opacity:0;transform:translateY(-8px);pointer-events:none;
+}
+
 .coll-header{
   display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;
   padding:20px 18px 4px;flex-shrink:0;
