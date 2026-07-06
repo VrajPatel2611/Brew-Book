@@ -156,34 +156,47 @@ function loadUserData(){
   return { custom: [], state: {} };
 }
 
-async function loadRecipes(){
+/* Read the last cached Supabase response (DB rows) if we have one. */
+function loadCachedCatalog(){
+  try{ const c = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || 'null'); if(c && c.length) return c.map(rowToRecipe); }catch(e){}
+  return null;
+}
+
+/* Build the working `recipes` array (catalog + this browser's state/customs)
+   and paint every screen. */
+function applyCatalog(catalog){
   const user = loadUserData();
-
-  let catalog = null;
-  const sb = await (window.bbSupabaseReady || Promise.resolve(null));
-  if(sb){
-    try{
-      const { data, error } = await sb.from('recipes').select('*').is('owner_id', null);
-      if(error) throw error;
-      if(data && data.length){
-        catalog = data.map(rowToRecipe);
-        try{ localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(data)); }catch(e){}
-      }
-    }catch(e){ /* fall through to cache / seed */ }
-  }
-  if(!catalog){
-    try{ const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || 'null'); if(cached && cached.length) catalog = cached.map(rowToRecipe); }catch(e){}
-  }
-  if(!catalog) catalog = seedCatalog();
-
-  /* Overlay this browser's tried/rating onto the catalog, then append customs. */
   recipes = catalog
     .map(c => ({ ...c, tried: !!(user.state[c.id] && user.state[c.id].tried), rating: (user.state[c.id] && user.state[c.id].rating) || 0 }))
     .concat(user.custom || []);
-
   render();
   renderCollection();
   renderWorldPasses();
+}
+
+/* Instant load, then background refresh (stale-while-revalidate):
+   1. Paint immediately from the local cache — or the bundled seed on a first
+      visit — so the app appears at hardcoded speed, with no network wait.
+   2. Fetch the live catalog from Supabase in the background; only if it
+      actually changed do we re-cache and re-paint. */
+function loadRecipes(){
+  applyCatalog(loadCachedCatalog() || seedCatalog());
+  refreshCatalog();
+}
+
+async function refreshCatalog(){
+  const sb = await (window.bbSupabaseReady || Promise.resolve(null));
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.from('recipes').select('*').is('owner_id', null);
+    if(error || !data || !data.length) return;
+    const raw = JSON.stringify(data);
+    if(raw === localStorage.getItem(CATALOG_CACHE_KEY)) return;   // unchanged → no repaint
+    try{ localStorage.setItem(CATALOG_CACHE_KEY, raw); }catch(e){}
+    /* Don't yank the page out from under an open Recipe Detail / Brew Mode. */
+    if(currentScreen === 'screen-detail' || (typeof brewState !== 'undefined' && brewState)) return;
+    applyCatalog(data.map(rowToRecipe));
+  }catch(e){ /* keep whatever we already painted */ }
 }
 
 /* Persist only what this browser owns — custom recipes + tried/rating state.
