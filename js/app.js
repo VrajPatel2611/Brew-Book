@@ -402,6 +402,29 @@ function updateNavCountPill(){
   }
 }
 
+/* ---------- shared empty-state illustration ----------
+   One hand-drawn line-art mark (a pour into a cup) reused across every
+   empty/no-results state, recoloured via currentColor so it themes for
+   free in both light and dark mode. ctaLabel/ctaId are optional — pass
+   both to render a small pill button and wire its onclick separately. */
+function emptyStateHTML(opts){
+  const { title, body, ctaLabel, ctaId } = opts || {};
+  return `<div class="empty">
+    <svg class="empty-illustration" viewBox="0 0 80 96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M17 18 C15 13 21 11 19 6" stroke-width="1.8" opacity=".5"/>
+      <path d="M30 18 C28 13 34 11 32 6" stroke-width="1.8" opacity=".5"/>
+      <path d="M14 20 L54 20 L44 44 L24 44 Z" stroke-width="2.2"/>
+      <path d="M20 26 L48 26 M24 32 L44 32" stroke-width="1.5" opacity=".8"/>
+      <path d="M34 44 L34 52" stroke-width="1.5" stroke-dasharray="2 4"/>
+      <path d="M27 54 L27 58 C18 62 16 82 34 86 C52 82 50 62 41 58 L41 54 Z" stroke-width="2.2"/>
+      <path d="M23 74 C30 78 38 78 45 74" stroke-width="1.5" opacity=".6"/>
+    </svg>
+    <h2>${esc(title)}</h2>
+    <p>${esc(body)}</p>
+    ${ctaLabel ? `<button class="empty-cta" id="${esc(ctaId)}" type="button">${esc(ctaLabel)}</button>` : ''}
+  </div>`;
+}
+
 /* ---------- render (home — list view) ---------- */
 function render(){
   updateNavCountPill();
@@ -427,7 +450,21 @@ function render(){
   const content = document.getElementById('content');
 
   if(list.length === 0){
-    content.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>${recipes.length===0?'No brews yet':'Nothing matches'}</h2><p>${recipes.length===0?'Tap ＋ to write your first one.':'Try a different search or filter.'}</p></div>`;
+    const hasFilters = !!searchTerm || kitchen.size > 0 || activeMethod !== 'all' || triedFilter !== 'all';
+    content.innerHTML = recipes.length === 0
+      ? emptyStateHTML({title:'No brews yet', body:'Add your first recipe to get started.', ctaLabel:'+ Add a recipe', ctaId:'emptyAddBtn'})
+      : emptyStateHTML({title:'Nothing matches', body:'Try a different search or clear your filters.', ctaLabel: hasFilters ? 'Clear filters' : null, ctaId:'emptyClearBtn'});
+    const addBtn = document.getElementById('emptyAddBtn');
+    if(addBtn) addBtn.onclick = () => openForm(null);
+    const clearBtn = document.getElementById('emptyClearBtn');
+    if(clearBtn) clearBtn.onclick = () => {
+      searchTerm = '';
+      const si = document.getElementById('searchInput'); if(si) si.value = '';
+      document.querySelector('.search-wrap')?.classList.remove('has-term');
+      kitchen.clear(); if(typeof renderKitchen === 'function') renderKitchen();
+      activeMethod = 'all'; triedFilter = 'all'; syncChips();
+      animateNext = true; render();
+    };
     if(animateNext){ animateNext = false; }
     return;
   }
@@ -463,7 +500,7 @@ function render(){
   </div>`;
 
   if(filteredForLanes.length === 0){
-    html += `<div class="empty"><div class="empty-ring"></div><h2>Nothing here</h2><p>Try a different category.</p></div>`;
+    html += emptyStateHTML({title:'Nothing here', body:'Try a different category.', ctaLabel:'Show all categories', ctaId:'emptyAllCatBtn'});
   } else if(activeCategory !== 'all'){
     /* Single-category view: one grid, no repeated section title (already shown above) */
     html += _laneHTML(null, filteredForLanes, kActive, kset);
@@ -492,6 +529,9 @@ function render(){
     animateNext = true;
     render();
   };
+
+  const allCatBtn = document.getElementById('emptyAllCatBtn');
+  if(allCatBtn) allCatBtn.onclick = () => { activeCategory = 'all'; animateNext = true; render(); };
 
   /* Wire hero click + its "Start Brewing" shortcut */
   const heroEl = content.querySelector('.hero-card');
@@ -615,7 +655,7 @@ function renderCollection(){
 
   if(collView === 'landed'){
     if(catalog.length === 0){
-      el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No recipes yet</h2><p>The catalog is still loading.</p></div>`;
+      el.innerHTML = emptyStateHTML({title:'No recipes yet', body:'The catalog is still loading.'});
     } else {
       el.innerHTML = catalog.map(r => collectionCard(r, {showRatio: true, showTried: true})).join('');
     }
@@ -671,7 +711,7 @@ function renderWorldPasses(){
   const el = document.getElementById('worldPasses');
   if(!el) return;
   if(genuine.length === 0){
-    el.innerHTML = `<div class="empty"><div class="empty-ring"></div><h2>No flights yet</h2><p>Recipes need a real country of origin to show up here.</p></div>`;
+    el.innerHTML = emptyStateHTML({title:'No flights yet', body:'Recipes need a real country of origin to show up here.'});
     return;
   }
   el.innerHTML = genuine.map(r => collectionCard(r, {showRatio: true})).join('');

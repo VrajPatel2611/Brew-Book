@@ -371,10 +371,20 @@
 }
 
 /* ─── EMPTY STATE ─── */
-.empty{text-align:center;padding:60px 20px;color:var(--crema-dim)}
-.empty-ring{width:88px;height:88px;border:2px solid var(--copper-soft);border-radius:50%;margin:0 auto 18px;opacity:.3}
+.empty{
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:60px 20px;color:var(--crema-dim);
+}
+.empty-illustration{width:72px;height:86px;color:var(--copper-soft);margin-bottom:18px;opacity:.85}
 .empty h2{font-family:var(--font-display);color:var(--crema);font-size:20px;margin-bottom:7px}
-.empty p{font-size:14px}
+.empty p{font-size:14px;max-width:280px}
+.empty-cta{
+  margin-top:16px;cursor:pointer;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--bg-dark-2);background:var(--copper);border:none;border-radius:999px;
+  padding:10px 18px;transition:transform .15s,background .15s;
+}
+.empty-cta:hover{background:#df8f50;transform:translateY(-1px)}
 
 /* ─── WORLD MAP SCREEN ─── */
 .screen-map{background:var(--midnight);overflow:hidden}
