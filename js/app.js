@@ -1631,6 +1631,15 @@ if(typeof runSplash === 'function'){
 
 document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchScreen(t.dataset.target)));
 
+/* Clicking the logo/brand from anywhere returns to the Recipes home. */
+(function(){
+  const brand = document.getElementById('brandHome');
+  if(!brand) return;
+  const goHome = () => switchScreen('screen-home');
+  brand.addEventListener('click', goHome);
+  brand.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); goHome(); } });
+})();
+
 document.getElementById('content').addEventListener('click', e => {
   const card = e.target.closest('.coll-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
