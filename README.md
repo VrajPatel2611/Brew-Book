@@ -125,4 +125,14 @@ GSAP + Lenis CDN placeholders are commented in `index.html` — uncomment for th
 
 ---
 
-*Built with ☕ and Claude.*
+## License & copyright
+
+**Copyright © 2026 Vraj Patel. All rights reserved.**
+
+This repository is public for viewing only — it is **not** open source. The code,
+design, illustrations, and recipe content may not be copied, reused, redistributed,
+or used for commercial purposes without prior written permission. See [`LICENSE`](./LICENSE).
+
+---
+
+*Built with ☕ by Vraj Patel.*
