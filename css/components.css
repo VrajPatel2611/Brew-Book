@@ -210,6 +210,44 @@
 .kitchen-dropdown .if-chips{-webkit-mask-image:none;mask-image:none;flex-wrap:wrap;overflow:visible;padding:0}
 .kitchen-dropdown .if-result{padding:10px 0 0;margin-top:4px;border-top:1px dashed var(--line)}
 
+/* ─── ACCOUNT (sign-in / cloud sync) ───
+   Same icon-button + dropdown pattern as the kitchen filter above, so it
+   inherits .icon-toggle and the header-anchored dropdown behaviour. The
+   dropdown body reuses .field / .btn / .btn.primary from the recipe form. */
+.account-toggle-wrap{position:relative}
+.account-icon{width:19px;height:19px}
+.account-toggle-wrap.open .icon-toggle{border-color:var(--copper);color:var(--copper);background:rgba(207,127,69,.12)}
+.account-toggle-wrap.signed-in .icon-toggle{border-color:var(--copper-soft);color:var(--copper)}
+.account-avatar{
+  width:22px;height:22px;border-radius:50%;background:var(--copper-grad);
+  color:var(--bg-dark-2);font-family:var(--font-mono);font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;line-height:1;text-transform:uppercase;
+}
+.account-dropdown{
+  position:absolute;top:100%;right:14px;z-index:60;
+  width:min(300px,calc(100vw - 28px));
+  background:var(--surf-modal);border:1px solid var(--hair-14);border-radius:14px;
+  box-shadow:0 24px 48px -16px rgba(0,0,0,.7);
+  padding:16px 16px 14px;
+  margin-top:10px;
+  animation:dropIn .16s ease-out;
+}
+.account-dropdown-label{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--crema-dim);margin-bottom:12px}
+.account-dropdown .field{margin-bottom:10px}
+.account-btn-full{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px}
+.account-divider{display:flex;align-items:center;gap:10px;margin:12px 0;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--crema-dim)}
+.account-divider::before,.account-divider::after{content:'';flex:1;height:1px;background:var(--hair-14)}
+.account-google-btn{border:1px solid var(--hair-18);color:var(--crema)}
+.account-google-btn:hover{border-color:var(--copper-soft);color:var(--foam)}
+.account-google-btn svg{width:15px;height:15px}
+.account-email{font-size:13px;color:var(--crema);margin-bottom:9px;word-break:break-all}
+.account-sync-row{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;color:var(--crema-dim);margin-bottom:14px}
+.account-sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+.account-sync-dot.syncing{background:var(--copper)}
+.account-sync-dot.error{background:var(--danger)}
+.account-hint{font-size:11px;line-height:1.5;color:var(--crema-dim);margin-top:9px;min-height:14px}
+.account-hint.error{color:var(--danger)}
+
 /* ─── SEARCH ───
    Always icon-only by default on Home; click to expand the input inline,
    collapses again on blur (or when a screen switch resets it). */

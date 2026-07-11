@@ -115,6 +115,18 @@ function getStyleCategory(r) {
 const hasClaudeStorage = typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function';
 const USERDATA_KEY = 'brewbook-userdata-v1';
 const CATALOG_CACHE_KEY = 'brewbook-catalog-cache-v1';
+/* Phase 2: when signed in, personal data is sourced from Supabase but mirrored
+   here (tagged with the user's id) for instant paint / offline fallback. The
+   guest USERDATA_KEY above is left untouched while signed in, so signing out
+   restores the exact pre-sign-in guest data with no wipe/restore logic. */
+const USERDATA_CLOUD_CACHE_KEY = 'brewbook-userdata-cloud-v1';
+
+/* ---------- auth state (Phase 2) ----------
+   currentUser is the Supabase auth user (or null = signed out / guest).
+   syncState drives the little status dot in the account dropdown. */
+let currentUser = null;
+let accountOpen = false;
+let syncState = 'idle';   /* 'idle' | 'syncing' | 'synced' | 'error' */
 
 async function storeGet(key){ if(hasClaudeStorage){ const r = await window.storage.get(key); return r ? r.value : null; } return localStorage.getItem(key); }
 async function storeSet(key, value){ if(hasClaudeStorage){ const r = await window.storage.set(key, value); return !!r; } localStorage.setItem(key, value); return true; }
@@ -128,8 +140,25 @@ function rowToRecipe(row){
     bean: row.bean, notes: row.notes,
     ingredients: row.ingredients || [], steps: row.steps || [], methods: row.methods || [],
     roasterPicks: row.roaster_picks || null,
+    color: row.color || undefined, tagId: row.tag_id || undefined, code: row.code || undefined,
     createdAt: row.created_at ? new Date(row.created_at).getTime() : 0,
     tried: false, rating: 0
+  };
+}
+/* Inverse of rowToRecipe: a user-authored recipe → a Supabase `recipes` row.
+   owner_id stamps ownership (RLS requires it to equal the signed-in user). */
+function recipeToRow(r, ownerId, nowIso){
+  return {
+    id: r.id, serial: r.serial, name: r.name, origin: r.origin || null,
+    method: r.method || null, ratio: r.ratio || null, ratio_label: r.ratioLabel || null,
+    strength: r.strength || null, description: r.description || null, story: r.story || null,
+    bean: r.bean || null, notes: r.notes || null,
+    ingredients: r.ingredients || [], steps: r.steps || [], methods: r.methods || [],
+    roaster_picks: r.roasterPicks || null,
+    color: r.color || null, tag_id: r.tagId || null, code: r.code || null,
+    owner_id: ownerId,
+    created_at: r.createdAt ? new Date(r.createdAt).toISOString() : nowIso,
+    updated_at: nowIso
   };
 }
 /* Bundled seed → same shape (offline / not-yet-configured fallback). */
@@ -137,8 +166,25 @@ function seedCatalog(){ return SEED.map(s => ({...s, roasterPicks: ROASTER_PICKS
 
 /* This browser's own data: { custom:[…], state:{ id:{tried,rating} } }.
    Migrates the old v2 blob (which stored the whole recipe array) on first run
-   so existing tried/rating/custom recipes carry over. */
+   so existing tried/rating/custom recipes carry over.
+
+   When signed in, personal data comes from the cloud cache (kept in sync with
+   Supabase), NOT the guest USERDATA_KEY — so the two never bleed together. The
+   cache is tagged with the user id; a mismatch (or a not-yet-fetched cache)
+   yields empty, and the background cloud fetch fills it in moments later. */
 function loadUserData(){
+  if(currentUser){
+    try{
+      const raw = localStorage.getItem(USERDATA_CLOUD_CACHE_KEY);
+      if(raw){ const d = JSON.parse(raw); if(d.userId === currentUser.id) return { custom: d.custom || [], state: d.state || {} }; }
+    }catch(e){}
+    return { custom: [], state: {} };
+  }
+  return loadGuestUserData();
+}
+/* The original localStorage-only reader — the guest (signed-out) data path,
+   also used by the one-time cloud migration to read what to push up. */
+function loadGuestUserData(){
   try{
     const raw = localStorage.getItem(USERDATA_KEY);
     if(raw){ const d = JSON.parse(raw); return { custom: d.custom || [], state: d.state || {} }; }
@@ -174,6 +220,14 @@ function applyCatalog(catalog){
   renderWorldPasses();
 }
 
+/* Repaint from a catalog UNLESS the user is mid-flow in Detail / Brew Mode —
+   don't yank the page out from under them. Shared by the background catalog
+   refresh and the background cloud-data refresh. */
+function safeApplyCatalog(catalog){
+  if(currentScreen === 'screen-detail' || (typeof brewState !== 'undefined' && brewState)) return;
+  applyCatalog(catalog);
+}
+
 /* Instant load, then background refresh (stale-while-revalidate):
    1. Paint immediately from the local cache — or the bundled seed on a first
       visit — so the app appears at hardcoded speed, with no network wait.
@@ -199,20 +253,146 @@ async function refreshCatalog(){
   }catch(e){ /* keep whatever we already painted */ }
 }
 
-/* Persist only what this browser owns — custom recipes + tried/rating state.
-   The catalog is read-only here (edited in the Supabase dashboard), so it is
-   never written back. Existing callers can keep calling saveRecipes() as-is. */
+/* Split the in-memory recipes array back into the persisted personal shape:
+   { custom:[user-authored recipes], state:{ id:{tried,rating} } }. */
+function currentUserData(){
+  const custom = recipes.filter(r => String(r.id).startsWith('custom-'));
+  const state = {};
+  recipes.forEach(r => { if(r.tried || r.rating) state[r.id] = { tried: !!r.tried, rating: r.rating || 0 }; });
+  return { custom, state };
+}
+
+/* Persist what this browser owns — custom recipes + tried/rating state. The
+   catalog stays read-only (edited in the Supabase dashboard). Callers keep
+   calling saveRecipes() unchanged; the signed-in branch adds cloud sync. */
 async function saveRecipes(silent){
+  const { custom, state } = currentUserData();
+
+  if(currentUser){
+    /* Mirror to the cloud cache first so an edit is never lost locally even if
+       the network push fails, then push to Supabase (last-write-wins). */
+    try{ localStorage.setItem(USERDATA_CLOUD_CACHE_KEY, JSON.stringify({ userId: currentUser.id, custom, state })); }catch(e){}
+    syncState = 'syncing'; renderAccountUI();
+    const ok = await pushUserDataToCloud(currentUser.id, custom, state);
+    syncState = ok ? 'synced' : 'error';
+    renderAccountUI();
+    if(!ok && !silent) showToast('Saved locally — will sync when back online');
+    return;
+  }
+
   try{
-    const custom = recipes.filter(r => String(r.id).startsWith('custom-'));
-    const state = {};
-    recipes.forEach(r => { if(r.tried || r.rating) state[r.id] = { tried: !!r.tried, rating: r.rating || 0 }; });
     const ok = await storeSet(USERDATA_KEY, JSON.stringify({ custom, state }));
     if(!ok && !silent) showToast('Couldn’t save — try again');
   }
   catch(e){ if(!silent) showToast('Couldn’t save — try again'); }
 }
 function rememberSeedDeletion(id){ /* no-op in Phase 1 — only custom recipes are deletable */ }
+
+/* ---------- cloud sync (Phase 2) ----------
+   Full replace (delete-then-insert) of the signed-in user's rows in both
+   tables on every save. Upsert alone can't propagate a local deletion, so a
+   removed custom recipe would silently reappear; delete-then-insert keeps the
+   cloud an exact mirror of local. Dataset is dozens of rows — no diffing. */
+async function pushUserDataToCloud(userId, custom, state){
+  const sb = await window.bbSupabaseReady;
+  if(!sb) return false;
+  const nowIso = new Date().toISOString();
+  try{
+    /* --- custom (user-authored) recipes → recipes table, owner_id = user --- */
+    await sb.from('recipes').delete().eq('owner_id', userId);
+    if(custom.length){
+      const rows = custom.map(r => recipeToRow(r, userId, nowIso));
+      const { error } = await sb.from('recipes').insert(rows);
+      if(error) return false;
+    }
+    /* --- tried/rating → user_recipe_state, one row per interacted recipe --- */
+    await sb.from('user_recipe_state').delete().eq('user_id', userId);
+    const stateRows = Object.keys(state)
+      .filter(id => state[id] && (state[id].tried || state[id].rating))
+      .map(id => ({ user_id: userId, recipe_id: id, tried: !!state[id].tried, rating: state[id].rating || 0, updated_at: nowIso }));
+    if(stateRows.length){
+      const { error } = await sb.from('user_recipe_state').insert(stateRows);
+      if(error) return false;
+    }
+    return true;
+  }catch(e){ return false; }
+}
+
+/* Pull the signed-in user's personal data from Supabase, cache it (tagged with
+   the user id), and repaint — mirroring the catalog's stale-while-revalidate. */
+async function refreshUserDataFromCloud(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb || !currentUser) return;
+  const userId = currentUser.id;
+  const [recRes, stateRes] = await Promise.all([
+    sb.from('recipes').select('*').eq('owner_id', userId),
+    sb.from('user_recipe_state').select('*').eq('user_id', userId)
+  ]);
+  if(recRes.error || stateRes.error) throw recRes.error || stateRes.error;
+  const custom = (recRes.data || []).map(rowToRecipe);
+  const state = {};
+  (stateRes.data || []).forEach(row => { state[row.recipe_id] = { tried: !!row.tried, rating: row.rating || 0 }; });
+  try{ localStorage.setItem(USERDATA_CLOUD_CACHE_KEY, JSON.stringify({ userId, custom, state })); }catch(e){}
+  safeApplyCatalog(loadCachedCatalog() || seedCatalog());
+}
+
+/* First-ever sign-in for this account: if the cloud has NO rows for this user
+   yet, push whatever guest data is in this browser up once. Guarding on cloud
+   emptiness (rather than a local "migrated" flag) is idempotent and correct
+   even from a brand-new device — a second sign-in finds rows and skips. */
+async function maybeMigrateLocalToCloud(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb || !currentUser) return;
+  const userId = currentUser.id;
+  const [recCount, stateCount] = await Promise.all([
+    sb.from('recipes').select('id', { count:'exact', head:true }).eq('owner_id', userId),
+    sb.from('user_recipe_state').select('user_id', { count:'exact', head:true }).eq('user_id', userId)
+  ]);
+  if((recCount.count || 0) > 0 || (stateCount.count || 0) > 0) return;   // cloud already has data → authoritative
+  const guest = loadGuestUserData();
+  if(!(guest.custom && guest.custom.length) && !(guest.state && Object.keys(guest.state).length)) return;   // nothing to migrate
+  await pushUserDataToCloud(userId, guest.custom || [], guest.state || {});
+}
+
+/* Runs after a session is established (fresh sign-in or restored on load). */
+async function onSignedIn(){
+  syncState = 'syncing'; renderAccountUI();
+  try{
+    await maybeMigrateLocalToCloud();
+    await refreshUserDataFromCloud();
+    syncState = 'synced';
+  }catch(e){ syncState = 'error'; }
+  renderAccountUI();
+}
+
+/* Initialise auth: build the control (works even if Supabase isn't configured),
+   restore any existing session, and subscribe to sign-in / sign-out events. */
+async function initAuth(){
+  buildAccountUI();
+  const sb = await (window.bbSupabaseReady || Promise.resolve(null));
+  if(!sb) return;
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    currentUser = session ? session.user : null;
+    renderAccountUI();
+    if(currentUser) await onSignedIn();
+  }catch(e){}
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN'){
+      const was = currentUser && currentUser.id;
+      currentUser = session ? session.user : null;
+      accountOpen = false;
+      renderAccountUI();
+      if(currentUser && currentUser.id !== was) onSignedIn();
+    } else if(event === 'SIGNED_OUT'){
+      currentUser = null; syncState = 'idle'; accountOpen = false;
+      try{ localStorage.removeItem(USERDATA_CLOUD_CACHE_KEY); }catch(e){}
+      renderAccountUI();
+      loadRecipes();   // repaint from the untouched guest data
+    }
+  });
+}
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -393,6 +573,130 @@ function renderKitchen(){
   document.querySelectorAll('#kitchenChips .if-chip').forEach(c => c.classList.toggle('sel', kitchen.has(c.dataset.name)));
   const result = document.getElementById('kitchenResult');
   if(result) result.style.display = active ? 'flex' : 'none';
+}
+
+/* ---------- account control (Phase 2) ----------
+   Same header icon-button + dropdown pattern as the kitchen filter above.
+   buildAccountUI() wires the toggle + outside-click once; renderAccountUI()
+   reflects open/signed-in state; renderAccountDropdownBody() rebuilds the
+   dropdown's inner HTML (signed-out vs signed-in) and re-wires its buttons. */
+function buildAccountUI(){
+  const toggleWrap = document.getElementById('accountToggleWrap');
+  const toggleBtn  = document.getElementById('accountHeaderToggle');
+  if(!toggleWrap || !toggleBtn) return;
+  toggleBtn.onclick = e => { e.stopPropagation(); accountOpen = !accountOpen; renderAccountUI(); };
+  /* Click anywhere outside the dropdown closes it. */
+  document.addEventListener('click', e => {
+    if(!accountOpen) return;
+    if(!toggleWrap.contains(e.target)){ accountOpen = false; renderAccountUI(); }
+  });
+  renderAccountUI();
+}
+
+function renderAccountUI(){
+  const toggleWrap = document.getElementById('accountToggleWrap');
+  const dropdown   = document.getElementById('accountDropdown');
+  const toggleBtn  = document.getElementById('accountHeaderToggle');
+  const icon       = document.getElementById('accountIconSignedOut');
+  const avatar     = document.getElementById('accountAvatar');
+  if(!toggleWrap) return;
+
+  toggleWrap.classList.toggle('open', accountOpen);
+  toggleWrap.classList.toggle('signed-in', !!currentUser);
+  if(dropdown) dropdown.style.display = accountOpen ? 'block' : 'none';
+  if(toggleBtn) toggleBtn.setAttribute('aria-expanded', accountOpen ? 'true' : 'false');
+
+  /* Signed in → initial-letter avatar; signed out → the silhouette icon. */
+  if(currentUser){
+    const initial = (currentUser.email || '?').trim().charAt(0) || '?';
+    if(avatar){ avatar.textContent = initial; avatar.style.display = 'flex'; }
+    if(icon) icon.style.display = 'none';
+  } else {
+    if(avatar) avatar.style.display = 'none';
+    if(icon) icon.style.display = 'block';
+  }
+
+  renderAccountDropdownBody();
+}
+
+const SYNC_TEXT = { idle:'Not synced yet', syncing:'Syncing…', synced:'Synced to your account', error:'Sync error — will retry' };
+
+function renderAccountDropdownBody(){
+  const body = document.getElementById('accountDropdownBody');
+  if(!body) return;
+
+  if(currentUser){
+    body.innerHTML = `
+      <div class="account-dropdown-label">Your account</div>
+      <div class="account-email">${esc(currentUser.email || 'Signed in')}</div>
+      <div class="account-sync-row"><span class="account-sync-dot ${syncState}"></span>${esc(SYNC_TEXT[syncState] || '')}</div>
+      <button class="btn account-btn-full" id="acctSignOutBtn" type="button">Sign out</button>`;
+    const out = document.getElementById('acctSignOutBtn');
+    if(out) out.onclick = handleSignOut;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="account-dropdown-label">Save across devices</div>
+    <div class="field">
+      <label for="acctEmail">Email</label>
+      <input id="acctEmail" type="email" autocomplete="email" placeholder="you@example.com" inputmode="email">
+    </div>
+    <button class="btn primary account-btn-full" id="acctMagicLinkBtn" type="button">Send magic link</button>
+    <div class="account-divider">or</div>
+    <button class="btn account-btn-full account-google-btn" id="acctGoogleBtn" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
+      Continue with Google
+    </button>
+    <p class="account-hint" id="acctHint">A one-time sign-in link keeps your made, rated, and own recipes safe across devices. You can keep using Brew Book without signing in.</p>`;
+
+  const mlBtn = document.getElementById('acctMagicLinkBtn');
+  if(mlBtn) mlBtn.onclick = handleMagicLinkSubmit;
+  const gBtn = document.getElementById('acctGoogleBtn');
+  if(gBtn) gBtn.onclick = handleGoogleSignIn;
+  const email = document.getElementById('acctEmail');
+  if(email) email.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); handleMagicLinkSubmit(); } });
+}
+
+function setAccountHint(msg, isError){
+  const hint = document.getElementById('acctHint');
+  if(hint){ hint.textContent = msg; hint.classList.toggle('error', !!isError); }
+}
+
+/* The redirect target for both auth flows: back to this exact page. This is a
+   static site with no server callback route, so supabase-js's default
+   detectSessionInUrl parses the returned tokens when we land back here. */
+function authRedirectTo(){ return location.origin + location.pathname; }
+
+async function handleMagicLinkSubmit(){
+  const input = document.getElementById('acctEmail');
+  const email = (input && input.value || '').trim();
+  if(!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ setAccountHint('Enter a valid email address.', true); return; }
+  const sb = await window.bbSupabaseReady;
+  if(!sb){ setAccountHint('Sign-in isn’t configured yet.', true); return; }
+  setAccountHint('Sending…', false);
+  try{
+    const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: authRedirectTo() } });
+    if(error){ setAccountHint(error.message || 'Couldn’t send the link — try again.', true); return; }
+    setAccountHint('Check your email for a sign-in link ☕', false);
+  }catch(e){ setAccountHint('Couldn’t send the link — try again.', true); }
+}
+
+async function handleGoogleSignIn(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb){ setAccountHint('Sign-in isn’t configured yet.', true); return; }
+  try{
+    const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: authRedirectTo() } });
+    if(error) setAccountHint(error.message || 'Couldn’t start Google sign-in.', true);
+    /* On success the browser redirects to Google; nothing more to do here. */
+  }catch(e){ setAccountHint('Couldn’t start Google sign-in.', true); }
+}
+
+async function handleSignOut(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb) return;
+  try{ await sb.auth.signOut(); }catch(e){}
+  /* State reset + repaint happen in the onAuthStateChange SIGNED_OUT handler. */
 }
 
 /* Simple colored-shape bean strength indicator — matches Recipe Website
@@ -741,10 +1045,15 @@ function renderCollection(){
   const el = document.getElementById('collection-content');
 
   if(collView === 'landed'){
+    /* Collection shows only the brews you've actually made (the stamped ones).
+       r.tried is per-user data, so each user collects their own set. */
+    const brewed = catalog.filter(r => r.tried);
     if(catalog.length === 0){
       el.innerHTML = emptyStateHTML({title:'No recipes yet', body:'The catalog is still loading.'});
+    } else if(brewed.length === 0){
+      el.innerHTML = emptyStateHTML({title:'No brews collected yet', body:'Mark a recipe as “made” and it’ll be stamped into your collection here.'});
     } else {
-      el.innerHTML = catalog.map(r => collectionCard(r, {showRatio: true, showTried: true})).join('');
+      el.innerHTML = brewed.map(r => collectionCard(r, {showRatio: true, showTried: true})).join('');
     }
   } else {
     el.innerHTML = mine.map(r => collectionCard(r, {custom: true, showRatio: true})).join('') + addRecipeCard();
@@ -1786,3 +2095,4 @@ document.addEventListener('keydown', e => {
 });
 
 loadRecipes();
+initAuth();
