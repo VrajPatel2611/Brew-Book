@@ -120,6 +120,9 @@ const CATALOG_CACHE_KEY = 'brewbook-catalog-cache-v1';
    guest USERDATA_KEY above is left untouched while signed in, so signing out
    restores the exact pre-sign-in guest data with no wipe/restore logic. */
 const USERDATA_CLOUD_CACHE_KEY = 'brewbook-userdata-cloud-v1';
+/* Set once a visitor enters the app (via the landing page or by signing in),
+   so the marketing landing page shows on first visit only — never nags. */
+const WELCOME_SEEN_KEY = 'brewbook-entered-v1';
 
 /* ---------- auth state (Phase 2) ----------
    currentUser is the Supabase auth user (or null = signed out / guest).
@@ -375,7 +378,7 @@ async function initAuth(){
     const { data:{ session } } = await sb.auth.getSession();
     currentUser = session ? session.user : null;
     renderAccountUI();
-    if(currentUser) await onSignedIn();
+    if(currentUser){ dismissWelcome(); await onSignedIn(); }
   }catch(e){}
 
   sb.auth.onAuthStateChange((event, session) => {
@@ -383,6 +386,7 @@ async function initAuth(){
       const was = currentUser && currentUser.id;
       currentUser = session ? session.user : null;
       accountOpen = false;
+      dismissWelcome();   // a signed-in user never sees the landing
       renderAccountUI();
       if(currentUser && currentUser.id !== was) onSignedIn();
     } else if(event === 'SIGNED_OUT'){
@@ -392,6 +396,124 @@ async function initAuth(){
       loadRecipes();   // repaint from the untouched guest data
     }
   });
+}
+
+/* ---------- welcome / landing (marketing first impression) ----------
+   Shown to first-time, signed-out visitors. Recipes stay fully open — this is
+   a front door, not a gate. "Explore recipes" reveals the app; the choice is
+   remembered so returning visitors go straight in. */
+function initWelcome(){
+  const el = document.getElementById('welcome');
+  if(!el) return;
+  let seen = false;
+  try{ seen = !!localStorage.getItem(WELCOME_SEEN_KEY); }catch(e){}
+  /* If already entered before, never show it again. (Signed-in users are
+     dismissed separately by initAuth once their session resolves.) */
+  if(seen){ el.style.display = 'none'; return; }
+
+  /* Explore → open the app. Sign-in buttons → open the app AND the account
+     dropdown, so a first-timer lands ready to sign in. The dropdown open is
+     deferred until after the landing fades: opening it synchronously lets the
+     same click bubble to the document outside-click handler, which would
+     immediately close it again. */
+  const explore = () => enterApp();
+  const signIn  = () => { enterApp(); setTimeout(() => { accountOpen = true; renderAccountUI(); }, 460); };
+  const exploreBtn = document.getElementById('welcomeExplore');
+  if(exploreBtn) exploreBtn.onclick = explore;
+  ['welcomeSignIn','welcomeUnlock'].forEach(id => { const b = document.getElementById(id); if(b) b.onclick = signIn; });
+
+  /* Fluid scroll motion (colour morph + parallax + reveal), unless the user
+     prefers reduced motion. Set .motion BEFORE showing so reveal elements
+     start hidden with no flash. */
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduced){ document.documentElement.classList.add('motion'); initWelcomeMotion(el); }
+
+  el.style.display = 'block';
+}
+
+/* Scroll-driven motion for the landing, scoped to the #welcome scroll
+   container (its own scrollTop, not the window). */
+function initWelcomeMotion(el){
+  const bg       = document.getElementById('welcomeBg');
+  const progress = document.getElementById('welcomeProgress');
+  const art      = document.getElementById('welcomeArt');
+  const copy     = document.getElementById('welcomeHeroCopy');
+  const branch   = document.getElementById('welcomeBranch');
+  const hero     = el.querySelector('.wl-hero');
+  const sections = [el.querySelector('.wl-hero'), el.querySelector('.wl-features'), el.querySelector('.wl-quiet')];
+  if(sections.some(s => !s)) return;
+
+  const PALETTES = {
+    dark:  [[30,21,15],[14,20,32],[26,17,11]],
+    light: [[247,241,230],[14,20,32],[243,235,221]]
+  };
+  const lerp = (a,b,t) => a + (b-a)*t;
+  const mix  = (c1,c2,t) => [Math.round(lerp(c1[0],c2[0],t)),Math.round(lerp(c1[1],c2[1],t)),Math.round(lerp(c1[2],c2[2],t))];
+  const scale = (c,f) => c.map(v => Math.max(0,Math.min(255,Math.round(v*f))));
+  const rgb = c => 'rgb('+c[0]+','+c[1]+','+c[2]+')';
+
+  function baseColorAt(centre){
+    const pal = PALETTES[document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'];
+    const centres = sections.map(s => s.offsetTop + s.offsetHeight/2);
+    if(centre <= centres[0]) return pal[0];
+    if(centre >= centres[centres.length-1]) return pal[pal.length-1];
+    for(let i=0;i<centres.length-1;i++){
+      if(centre >= centres[i] && centre <= centres[i+1]){
+        return mix(pal[i], pal[i+1], (centre-centres[i])/(centres[i+1]-centres[i]));
+      }
+    }
+    return pal[0];
+  }
+
+  function paint(){
+    const y = el.scrollTop, vh = el.clientHeight;
+    const max = el.scrollHeight - vh;
+    const base = baseColorAt(y + vh/2);
+    if(bg) bg.style.background = 'radial-gradient(130% 90% at 50% 8%,'+rgb(scale(base,1.42))+' 0%,'+rgb(base)+' 55%,'+rgb(scale(base,0.6))+' 100%)';
+    if(progress) progress.style.width = (max > 0 ? (y/max)*100 : 0) + '%';
+    const hp = Math.min(y / (hero.offsetHeight || vh), 1);
+    if(art){ art.style.transform = 'translateY('+(y*-0.10)+'px) scale('+(1-hp*0.05)+')'; art.style.opacity = String(1-hp*0.25); }
+    if(copy){ copy.style.transform = 'translateY('+(y*-0.16)+'px)'; copy.style.opacity = String(1-hp*0.55); }
+    if(branch){ const r = branch.getBoundingClientRect(); branch.style.transform = 'translateY('+(((r.top + r.height/2 - vh/2)/vh)*-26)+'px)'; }
+  }
+
+  let ticking = false;
+  el.addEventListener('scroll', () => {
+    if(!ticking){ ticking = true; requestAnimationFrame(() => { paint(); ticking = false; }); }
+  }, { passive: true });
+  window.addEventListener('resize', paint);
+  window.__wlPaint = paint;   // repaint after a theme change (initAuth/theme toggle)
+
+  /* Reveal on scroll — elements enter the real viewport as the container
+     scrolls, so a viewport-rooted observer fires correctly. */
+  const reveals = [].slice.call(el.querySelectorAll('.wl-reveal'));
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    reveals.forEach(r => io.observe(r));
+  } else {
+    reveals.forEach(r => r.classList.add('in'));
+  }
+
+  paint();
+}
+
+/* Reveal the app from the landing page and remember the choice. */
+function enterApp(){
+  try{ localStorage.setItem(WELCOME_SEEN_KEY, '1'); }catch(e){}
+  const el = document.getElementById('welcome');
+  if(!el) return;
+  el.style.transition = 'opacity .4s ease';
+  el.style.opacity = '0';
+  setTimeout(() => { el.style.display = 'none'; }, 420);
+}
+
+/* Hide the landing with no fade — used when a signed-in session is detected. */
+function dismissWelcome(){
+  try{ localStorage.setItem(WELCOME_SEEN_KEY, '1'); }catch(e){}
+  const el = document.getElementById('welcome');
+  if(el) el.style.display = 'none';
 }
 
 /* ---------- helpers ---------- */
@@ -2095,4 +2217,5 @@ document.addEventListener('keydown', e => {
 });
 
 loadRecipes();
+initWelcome();
 initAuth();
