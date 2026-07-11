@@ -388,11 +388,13 @@ async function initAuth(){
       accountOpen = false;
       dismissWelcome();   // a signed-in user never sees the landing
       renderAccountUI();
+      refreshCurrentGate();   // unlock World/Collection if the user is on it
       if(currentUser && currentUser.id !== was) onSignedIn();
     } else if(event === 'SIGNED_OUT'){
       currentUser = null; syncState = 'idle'; accountOpen = false;
       try{ localStorage.removeItem(USERDATA_CLOUD_CACHE_KEY); }catch(e){}
       renderAccountUI();
+      refreshCurrentGate();   // re-lock World/Collection if the user is on it
       loadRecipes();   // repaint from the untouched guest data
     }
   });
@@ -711,6 +713,12 @@ function buildAccountUI(){
   document.addEventListener('click', e => {
     if(!accountOpen) return;
     if(!toggleWrap.contains(e.target)){ accountOpen = false; renderAccountUI(); }
+  });
+  /* The "Sign in" buttons inside the locked-screen gates open the same
+     dropdown. stopPropagation so this very click doesn't bubble to the
+     outside-click handler above and immediately re-close it. */
+  document.querySelectorAll('.gate-signin-btn').forEach(b => {
+    b.onclick = e => { e.stopPropagation(); accountOpen = true; renderAccountUI(); };
   });
   renderAccountUI();
 }
@@ -1238,6 +1246,18 @@ function renderWorldPasses(){
 /* ---------- navigation ---------- */
 let currentScreen = 'screen-home';
 
+/* World map + Collection are member features: a signed-out visitor still
+   lands on the tab, but its content is swapped for a sign-in gate (the .screen
+   markup carries a .screen-gate; app.js just toggles .is-locked). Recipes and
+   Recipe Detail are never gated — the catalog stays fully open. */
+function isGatedScreen(s){ return s === 'screen-world' || s === 'screen-collection'; }
+function applyScreenGate(target){
+  const locked = isGatedScreen(target) && !currentUser;
+  const el = document.getElementById(target);
+  if(el) el.classList.toggle('is-locked', locked);
+  return locked;
+}
+
 function switchScreen(target){
   if(target === currentScreen) return;
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === target));
@@ -1247,8 +1267,9 @@ function switchScreen(target){
     if(on) t.setAttribute('aria-current','page'); else t.removeAttribute('aria-current');
   });
   currentScreen = target;
-  if(target === 'screen-collection'){ renderCollection(); if(window._resetCollHeaderScroll) window._resetCollHeaderScroll(); }
-  if(target === 'screen-world'){
+  const locked = applyScreenGate(target);
+  if(target === 'screen-collection' && !locked){ renderCollection(); if(window._resetCollHeaderScroll) window._resetCollHeaderScroll(); }
+  if(target === 'screen-world' && !locked){
     syncWorldToggle();
     renderWorldPasses();
     if(worldView === 'map') initWorldMap();
@@ -1256,6 +1277,16 @@ function switchScreen(target){
   updateNavCountPill();
   if(window._collapseSearch) window._collapseSearch();
   if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }
+}
+
+/* Re-evaluate the current screen's gate after an auth change: unlock + render
+   it when signing in, re-lock it when signing out. */
+function refreshCurrentGate(){
+  if(!isGatedScreen(currentScreen)) return;
+  const locked = applyScreenGate(currentScreen);
+  if(locked) return;
+  if(currentScreen === 'screen-collection'){ renderCollection(); if(window._resetCollHeaderScroll) window._resetCollHeaderScroll(); }
+  if(currentScreen === 'screen-world'){ syncWorldToggle(); renderWorldPasses(); if(worldView === 'map') initWorldMap(); }
 }
 
 /* ---------- detail (its own screen — breadcrumb, hero, story/ingredients/steps) ---------- */

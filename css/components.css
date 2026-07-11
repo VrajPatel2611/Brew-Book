@@ -344,6 +344,26 @@
 .account-hint{font-size:11px;line-height:1.5;color:var(--crema-dim);margin-top:9px;min-height:14px}
 .account-hint.error{color:var(--danger)}
 
+/* ─── SCREEN GATE (sign-in wall for World map + Collection) ───
+   Signed-out visitors still land on the tab (so they see where they are),
+   but its real content is swapped for this prompt so they know the feature
+   needs a free account. Toggled by .is-locked on the screen (app.js). */
+.screen-gate{display:none;position:absolute;inset:0;z-index:5;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 24px}
+.screen.is-locked > *:not(.screen-gate){display:none}
+.screen.is-locked .screen-gate{display:flex}
+.screen-gate-inner{max-width:440px;display:flex;flex-direction:column;align-items:center;gap:15px}
+.screen-gate-ico{width:66px;height:66px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(207,127,69,.12);color:var(--copper)}
+.screen-gate-ico svg{width:34px;height:34px}
+.screen-gate-title{font-family:var(--font-display);font-weight:600;font-size:clamp(24px,4vw,30px);color:var(--foam);margin:4px 0 0;line-height:1.15}
+.screen-gate-body{font-family:var(--font-body);font-size:15px;line-height:1.6;color:var(--crema-dim);margin:0;max-width:400px}
+.screen-gate-btn{
+  cursor:pointer;font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:14px 30px;border-radius:999px;border:none;background:var(--copper-grad);color:var(--bg-dark-2);
+  box-shadow:0 12px 28px -10px rgba(207,127,69,.6);transition:transform .12s,box-shadow .2s;margin-top:6px;
+}
+.screen-gate-btn:hover{transform:translateY(-1px);box-shadow:0 16px 34px -10px rgba(207,127,69,.75)}
+.screen-gate-sub{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;color:var(--crema-dim);opacity:.7;margin:4px 0 0}
+
 /* ─── SEARCH ───
    Always icon-only by default on Home; click to expand the input inline,
    collapses again on blur (or when a screen switch resets it). */
