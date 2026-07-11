@@ -413,13 +413,12 @@ function initWelcome(){
      dismissed separately by initAuth once their session resolves.) */
   if(seen){ el.style.display = 'none'; return; }
 
-  /* Explore → open the app. Sign-in buttons → open the app AND the account
-     dropdown, so a first-timer lands ready to sign in. The dropdown open is
-     deferred until after the landing fades: opening it synchronously lets the
-     same click bubble to the document outside-click handler, which would
-     immediately close it again. */
-  const explore = () => enterApp();
-  const signIn  = () => { enterApp(); setTimeout(() => { accountOpen = true; renderAccountUI(); }, 460); };
+  /* Explore → play the intro splash as a loading transition, then the app.
+     Sign-in buttons → go straight into the app (no 4s intro before you can
+     sign in) AND open the account dropdown. The dropdown open is deferred so
+     the click doesn't bubble to the outside-click handler and re-close it. */
+  const explore = () => enterApp(true);
+  const signIn  = () => { enterApp(false); setTimeout(() => { accountOpen = true; renderAccountUI(); }, 460); };
   const exploreBtn = document.getElementById('welcomeExplore');
   if(exploreBtn) exploreBtn.onclick = explore;
   ['welcomeSignIn','welcomeUnlock'].forEach(id => { const b = document.getElementById(id); if(b) b.onclick = signIn; });
@@ -501,10 +500,18 @@ function initWelcomeMotion(el){
   paint();
 }
 
-/* Reveal the app from the landing page and remember the choice. */
-function enterApp(){
+/* Reveal the app from the landing page and remember the choice.
+   playIntro=true (Explore recipes) plays the splash intro as the loading
+   transition, then the app is revealed beneath it; playIntro=false (Sign in)
+   just fades the landing so the user reaches the app immediately. */
+function enterApp(playIntro){
   try{ localStorage.setItem(WELCOME_SEEN_KEY, '1'); }catch(e){}
   const el = document.getElementById('welcome');
+  if(playIntro){
+    if(el) el.style.display = 'none';
+    if(typeof playSplash === 'function') playSplash();
+    return;
+  }
   if(!el) return;
   el.style.transition = 'opacity .4s ease';
   el.style.opacity = '0';
@@ -2065,30 +2072,44 @@ if(typeof BREW_ANIM !== 'undefined') document.documentElement.classList.add('bre
 
 buildChips();
 buildKitchen();
-if(typeof runSplash === 'function'){
-  runSplash();
-} else {
-  /* Fallback when animations.js isn't loaded: hide splash after the
-     portrait/title/tagline/skip entrance sequence has fully played
-     (~2.6s) plus a short beat to actually look at it. */
+/* The splash is the intro / loading animation (image + title). It plays as a
+   transition INTO the app — not before the landing. Play it on load only for
+   returning visitors who skip the landing; first-time / signed-out visitors
+   see the marketing landing first and the splash plays when they click
+   "Explore recipes" (see enterApp). */
+function playSplash(){
   const sp = document.getElementById('splash');
-  if(sp){
-    const starsEl = document.getElementById('splashStars');
-    if(starsEl){
-      let html = '';
-      for(let i = 0; i < 34; i++){
-        const size  = (Math.random() * 2 + 1).toFixed(1);
-        const left  = (Math.random() * 100).toFixed(1);
-        const top   = (Math.random() * 100).toFixed(1);
-        const dur   = (Math.random() * 3 + 2.5).toFixed(1);
-        const delay = (Math.random() * 3).toFixed(1);
-        html += `<span class="star-dot" style="width:${size}px;height:${size}px;left:${left}%;top:${top}%;--dur:${dur}s;--delay:${delay}s"></span>`;
-      }
-      starsEl.innerHTML = html;
+  if(sp) sp.style.display = '';
+  if(typeof runSplash === 'function'){ runSplash(); return; }
+  /* Fallback when animations.js isn't loaded: seed stars, then auto-dismiss. */
+  if(!sp) return;
+  const starsEl = document.getElementById('splashStars');
+  if(starsEl){
+    let html = '';
+    for(let i = 0; i < 34; i++){
+      const size  = (Math.random() * 2 + 1).toFixed(1);
+      const left  = (Math.random() * 100).toFixed(1);
+      const top   = (Math.random() * 100).toFixed(1);
+      const dur   = (Math.random() * 3 + 2.5).toFixed(1);
+      const delay = (Math.random() * 3).toFixed(1);
+      html += `<span class="star-dot" style="width:${size}px;height:${size}px;left:${left}%;top:${top}%;--dur:${dur}s;--delay:${delay}s"></span>`;
     }
-    setTimeout(() => { sp.style.transition = 'opacity .5s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 520); }, 2900);
-    document.getElementById('splashSkip').onclick = () => { sp.style.transition = 'opacity .25s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 280); };
+    starsEl.innerHTML = html;
   }
+  setTimeout(() => { sp.style.transition = 'opacity .5s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 520); }, 2900);
+  const skip = document.getElementById('splashSkip');
+  if(skip) skip.onclick = () => { sp.style.transition = 'opacity .25s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 280); };
+}
+
+/* Returning visitors (already entered this browser) get the intro immediately;
+   everyone else lands on the marketing home first with the splash hidden. */
+let _wlEntered = false;
+try{ _wlEntered = !!localStorage.getItem(WELCOME_SEEN_KEY); }catch(e){}
+if(_wlEntered){
+  playSplash();
+} else {
+  const sp0 = document.getElementById('splash');
+  if(sp0) sp0.style.display = 'none';
 }
 
 document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchScreen(t.dataset.target)));
