@@ -120,9 +120,6 @@ const CATALOG_CACHE_KEY = 'brewbook-catalog-cache-v1';
    guest USERDATA_KEY above is left untouched while signed in, so signing out
    restores the exact pre-sign-in guest data with no wipe/restore logic. */
 const USERDATA_CLOUD_CACHE_KEY = 'brewbook-userdata-cloud-v1';
-/* Set once a visitor enters the app (via the landing page or by signing in),
-   so the marketing landing page shows on first visit only — never nags. */
-const WELCOME_SEEN_KEY = 'brewbook-entered-v1';
 
 /* ---------- auth state (Phase 2) ----------
    currentUser is the Supabase auth user (or null = signed out / guest).
@@ -130,6 +127,26 @@ const WELCOME_SEEN_KEY = 'brewbook-entered-v1';
 let currentUser = null;
 let accountOpen = false;
 let syncState = 'idle';   /* 'idle' | 'syncing' | 'synced' | 'error' */
+
+/* Synchronous "is someone probably signed in?" check for the very first paint,
+   before the async Supabase getSession() resolves. supabase-js v2 persists the
+   session under a localStorage key like `sb-<ref>-auth-token`; if that's
+   present we treat the visitor as returning (skip the landing, show the app).
+   The landing is the signed-out home page, so it opens on every load/refresh
+   until the user actually signs in. initAuth() is still the source of truth
+   and corrects this if the token turns out to be stale. */
+function hasSupabaseSession(){
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.indexOf('sb-') === 0 && k.indexOf('-auth-token') === k.length - 11){
+        const v = localStorage.getItem(k);
+        if(v && v !== 'null' && v.length > 20) return true;
+      }
+    }
+  }catch(e){}
+  return false;
+}
 
 async function storeGet(key){ if(hasClaudeStorage){ const r = await window.storage.get(key); return r ? r.value : null; } return localStorage.getItem(key); }
 async function storeSet(key, value){ if(hasClaudeStorage){ const r = await window.storage.set(key, value); return !!r; } localStorage.setItem(key, value); return true; }
@@ -407,11 +424,10 @@ async function initAuth(){
 function initWelcome(){
   const el = document.getElementById('welcome');
   if(!el) return;
-  let seen = false;
-  try{ seen = !!localStorage.getItem(WELCOME_SEEN_KEY); }catch(e){}
-  /* If already entered before, never show it again. (Signed-in users are
-     dismissed separately by initAuth once their session resolves.) */
-  if(seen){ el.style.display = 'none'; return; }
+  /* The landing is the signed-out home page: show it on every load/refresh
+     while there's no session. Signed-in visitors skip straight to the app
+     (initAuth also dismisses it if the session resolves a moment later). */
+  if(hasSupabaseSession()){ el.style.display = 'none'; return; }
 
   /* Explore → play the intro splash as a loading transition, then the app.
      Sign-in buttons → go straight into the app (no 4s intro before you can
@@ -505,7 +521,6 @@ function initWelcomeMotion(el){
    transition, then the app is revealed beneath it; playIntro=false (Sign in)
    just fades the landing so the user reaches the app immediately. */
 function enterApp(playIntro){
-  try{ localStorage.setItem(WELCOME_SEEN_KEY, '1'); }catch(e){}
   const el = document.getElementById('welcome');
   if(playIntro){
     if(el) el.style.display = 'none';
@@ -520,7 +535,6 @@ function enterApp(playIntro){
 
 /* Hide the landing with no fade — used when a signed-in session is detected. */
 function dismissWelcome(){
-  try{ localStorage.setItem(WELCOME_SEEN_KEY, '1'); }catch(e){}
   const el = document.getElementById('welcome');
   if(el) el.style.display = 'none';
 }
@@ -2101,11 +2115,10 @@ function playSplash(){
   if(skip) skip.onclick = () => { sp.style.transition = 'opacity .25s'; sp.style.opacity = '0'; setTimeout(() => { sp.style.display = 'none'; }, 280); };
 }
 
-/* Returning visitors (already entered this browser) get the intro immediately;
-   everyone else lands on the marketing home first with the splash hidden. */
-let _wlEntered = false;
-try{ _wlEntered = !!localStorage.getItem(WELCOME_SEEN_KEY); }catch(e){}
-if(_wlEntered){
+/* Signed-in visitors get the intro immediately as a loading screen; signed-out
+   visitors land on the marketing home first (splash hidden), and the intro
+   plays when they click "Explore recipes" (see enterApp). */
+if(hasSupabaseSession()){
   playSplash();
 } else {
   const sp0 = document.getElementById('splash');
