@@ -445,7 +445,46 @@ function initWelcome(){
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(!reduced){ document.documentElement.classList.add('motion'); initWelcomeMotion(el); }
 
+  initWelcomeShowcase();
+
   el.style.display = 'block';
+}
+
+/* Cycle the hero's brew-method illustrations (moka pot, pour over, French
+   press, cezve) with a cross-fade, syncing the label + indicator dots. Dots
+   are clickable; auto-advance pauses for reduced-motion. */
+let welcomeShowcaseTimer = null;
+function initWelcomeShowcase(){
+  const showcase = document.getElementById('welcomeArt');
+  const label    = document.getElementById('welcomeMethodLabel');
+  const dotsWrap = document.getElementById('welcomeMethodDots');
+  if(!showcase) return;
+  const methods = [].slice.call(showcase.querySelectorAll('.wl-method'));
+  if(methods.length < 2) return;
+  let idx = 0;
+  if(dotsWrap){
+    dotsWrap.innerHTML = methods.map((m, i) =>
+      `<button class="wl-dot${i === 0 ? ' on' : ''}" type="button" aria-label="${esc(m.dataset.label || '')}"></button>`
+    ).join('');
+  }
+  function show(n){
+    methods[idx].classList.remove('is-active');
+    idx = (n + methods.length) % methods.length;
+    methods[idx].classList.add('is-active');
+    if(label) label.textContent = methods[idx].dataset.label || '';
+    if(dotsWrap) [].forEach.call(dotsWrap.children, (d, i) => d.classList.toggle('on', i === idx));
+  }
+  if(label) label.textContent = methods[0].dataset.label || '';
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function start(){ if(!reduced){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = setInterval(() => show(idx + 1), 3400); } }
+  if(dotsWrap){
+    dotsWrap.onclick = e => {
+      const d = e.target.closest('.wl-dot'); if(!d) return;
+      const i = [].indexOf.call(dotsWrap.children, d);
+      if(i >= 0){ show(i); start(); }
+    };
+  }
+  start();
 }
 
 /* Scroll-driven motion for the landing, scoped to the #welcome scroll
@@ -521,6 +560,7 @@ function initWelcomeMotion(el){
    transition, then the app is revealed beneath it; playIntro=false (Sign in)
    just fades the landing so the user reaches the app immediately. */
 function enterApp(playIntro){
+  if(welcomeShowcaseTimer){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = null; }
   const el = document.getElementById('welcome');
   if(playIntro){
     if(el) el.style.display = 'none';
@@ -535,6 +575,7 @@ function enterApp(playIntro){
 
 /* Hide the landing with no fade — used when a signed-in session is detected. */
 function dismissWelcome(){
+  if(welcomeShowcaseTimer){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = null; }
   const el = document.getElementById('welcome');
   if(el) el.style.display = 'none';
 }
