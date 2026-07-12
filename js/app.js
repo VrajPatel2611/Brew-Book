@@ -525,8 +525,10 @@ function initWelcomeAtmosphere(el){
 }
 
 /* Cycle the hero's brew-method illustrations (moka pot, pour over, French
-   press, cezve) with a cross-fade, syncing the label + indicator dots. Dots
-   are clickable; auto-advance pauses for reduced-motion. */
+   press, cezve, Chemex, AeroPress, espresso machine) like they're mounted on
+   a slowly rotating display — the outgoing method turns away, the incoming
+   one turns in — syncing the label + indicator dots. Dots are clickable;
+   auto-advance pauses for reduced-motion. */
 let welcomeShowcaseTimer = null;
 function initWelcomeShowcase(){
   const showcase = document.getElementById('welcomeArt');
@@ -542,10 +544,24 @@ function initWelcomeShowcase(){
     ).join('');
   }
   function show(n){
-    methods[idx].classList.remove('is-active');
+    const outgoing = methods[idx];
     idx = (n + methods.length) % methods.length;
-    methods[idx].classList.add('is-active');
-    if(label) label.textContent = methods[idx].dataset.label || '';
+    const incoming = methods[idx];
+
+    outgoing.classList.remove('is-active');
+    outgoing.classList.add('is-leaving');
+    /* Reset the outgoing element back to its default "ready to enter" state
+       once its exit transition finishes, so it turns in correctly next time. */
+    setTimeout(() => outgoing.classList.remove('is-leaving'), 820);
+
+    /* Added synchronously, not via requestAnimationFrame: these elements are
+       always present in the DOM (never display:none), so their "before" style
+       is already stable and the transition fires correctly without waiting a
+       frame — and not depending on rAF means this can't get stuck if the tab
+       is backgrounded/throttled right when a method change fires. */
+    incoming.classList.add('is-active');
+
+    if(label) label.textContent = incoming.dataset.label || '';
     if(dotsWrap) [].forEach.call(dotsWrap.children, (d, i) => d.classList.toggle('on', i === idx));
   }
   if(label) label.textContent = methods[0].dataset.label || '';

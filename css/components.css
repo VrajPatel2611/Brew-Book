@@ -149,11 +149,25 @@
 /* Rotating brew-method showcase: a shared beans base plus four line-art
    vessels (moka pot, pour over, French press, cezve) stacked and cross-faded
    by the JS rotator, each with animated steam. */
-.wl-showcase{position:relative;width:min(460px,86%);aspect-ratio:320/300}
+.wl-showcase{position:relative;width:min(460px,86%);aspect-ratio:320/300;perspective:1000px}
 .wl-showcase svg{position:absolute;inset:0;width:100%;height:100%}
 .wl-base{opacity:.95}
-.wl-method{opacity:0;transition:opacity .9s ease}
-.wl-method.is-active{opacity:1}
+/* Each brew method turns like it's mounted on a rotating display rather than
+   cross-fading: the outgoing illustration swings away to +90deg, the incoming
+   one swings in from -90deg. .is-leaving is a transient class app.js adds for
+   the outgoing method only during the transition. */
+.wl-method{
+  opacity:0;
+  transform:rotateY(-90deg);
+  transform-origin:50% 50%;
+  backface-visibility:hidden;
+  transition:opacity .8s cubic-bezier(.22,.7,.2,1),transform .8s cubic-bezier(.22,.7,.2,1);
+}
+.wl-method.is-active{opacity:1;transform:rotateY(0deg)}
+.wl-method.is-leaving{opacity:0;transform:rotateY(90deg)}
+@media(prefers-reduced-motion:reduce){
+  .wl-method,.wl-method.is-active,.wl-method.is-leaving{transform:none;transition:opacity .4s ease}
+}
 .wl-steam{stroke:var(--crema-dim);opacity:.55;fill:none;transform-box:fill-box;transform-origin:center bottom}
 .wl-steam.hot{stroke:var(--copper);opacity:.85}
 .motion .wl-method.is-active .wl-steam{animation:wlSteam 3s ease-in-out infinite}
