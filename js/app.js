@@ -443,11 +443,85 @@ function initWelcome(){
      prefers reduced motion. Set .motion BEFORE showing so reveal elements
      start hidden with no flash. */
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(!reduced){ document.documentElement.classList.add('motion'); initWelcomeMotion(el); }
+  if(!reduced){ document.documentElement.classList.add('motion'); initWelcomeMotion(el); initWelcomeAtmosphere(el); }
 
   initWelcomeShowcase();
 
   el.style.display = 'block';
+}
+
+/* Ambient background: a canvas of drifting aroma motes, soft bokeh, and a few
+   slow line-art coffee beans, tinted warm->cool->warm from the scroll position
+   so it blends with the colour morph behind every section. Subtle by design —
+   it fills the space without competing with the content. */
+let welcomeAtmosRAF = null;
+function stopWelcomeAtmos(){ if(welcomeAtmosRAF){ cancelAnimationFrame(welcomeAtmosRAF); welcomeAtmosRAF = null; } }
+function initWelcomeAtmosphere(el){
+  const canvas = document.getElementById('welcomeAtmos');
+  if(!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const TAU = Math.PI * 2;
+  const moteN = Math.round(Math.min(74, Math.max(34, W / 20)));
+  const motes = [], bokeh = [], beans = [];
+  for(let i = 0; i < moteN; i++) motes.push({ x: rand(0, W), y: rand(0, H), r: rand(0.7, 2.8), sp: rand(0.12, 0.42), ph: rand(0, TAU), sw: rand(0.2, 0.7), amp: rand(6, 22), a: rand(0.1, 0.3) });
+  for(let i = 0; i < 8; i++) bokeh.push({ x: rand(0, W), y: rand(0, H), r: rand(52, 140), sp: rand(0.04, 0.14), a: rand(0.025, 0.07) });
+  for(let i = 0; i < 6; i++) beans.push({ x: rand(0, W), y: rand(0, H), r: rand(5, 9), sp: rand(0.08, 0.2), rot: rand(0, Math.PI), vr: rand(-0.003, 0.003), a: rand(0.05, 0.1) });
+
+  const WARM = [232, 182, 136], COOL = [150, 185, 224];
+  const WARM_L = [150, 100, 60], COOL_L = [90, 115, 160];
+  const mix = (c1, c2, t) => [c1[0] + (c2[0]-c1[0])*t, c1[1] + (c2[1]-c1[1])*t, c1[2] + (c2[2]-c1[2])*t];
+  function tintAt(p, light){
+    const w = light ? WARM_L : WARM, c = light ? COOL_L : COOL;
+    return p < 0.5 ? mix(w, c, p / 0.5) : mix(c, w, (p - 0.5) / 0.5);
+  }
+
+  function frame(){
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    const max = (el.scrollHeight - el.clientHeight) || 1;
+    const prog = Math.min(1, Math.max(0, el.scrollTop / max));
+    const tint = tintAt(prog, light);
+    const col = a => 'rgba(' + Math.round(tint[0]) + ',' + Math.round(tint[1]) + ',' + Math.round(tint[2]) + ',' + a + ')';
+    const aScale = light ? 1.1 : 1;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = light ? 'source-over' : 'lighter';
+
+    for(const b of bokeh){
+      b.y -= b.sp; if(b.y < -b.r){ b.y = H + b.r; b.x = rand(0, W); }
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      g.addColorStop(0, col(b.a * aScale)); g.addColorStop(1, col(0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    }
+    for(const bn of beans){
+      bn.y -= bn.sp; bn.rot += bn.vr; if(bn.y < -bn.r){ bn.y = H + bn.r; bn.x = rand(0, W); }
+      ctx.save(); ctx.translate(bn.x, bn.y); ctx.rotate(bn.rot);
+      ctx.strokeStyle = col(bn.a * aScale); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(0, 0, bn.r, bn.r * 0.62, 0, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-bn.r * 0.55, -bn.r * 0.3); ctx.quadraticCurveTo(0, 0, bn.r * 0.55, bn.r * 0.3); ctx.stroke();
+      ctx.restore();
+    }
+    for(const m of motes){
+      m.y -= m.sp; m.ph += 0.01;
+      if(m.y < -m.r){ m.y = H + m.r; m.x = rand(0, W); }
+      ctx.fillStyle = col(m.a * aScale);
+      ctx.beginPath(); ctx.arc(m.x + Math.sin(m.ph * m.sw) * m.amp, m.y, m.r, 0, TAU); ctx.fill();
+    }
+
+    welcomeAtmosRAF = requestAnimationFrame(frame);
+  }
+  stopWelcomeAtmos();
+  welcomeAtmosRAF = requestAnimationFrame(frame);
 }
 
 /* Cycle the hero's brew-method illustrations (moka pot, pour over, French
@@ -561,6 +635,7 @@ function initWelcomeMotion(el){
    just fades the landing so the user reaches the app immediately. */
 function enterApp(playIntro){
   if(welcomeShowcaseTimer){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = null; }
+  stopWelcomeAtmos();
   const el = document.getElementById('welcome');
   if(playIntro){
     if(el) el.style.display = 'none';
@@ -576,6 +651,7 @@ function enterApp(playIntro){
 /* Hide the landing with no fade — used when a signed-in session is detected. */
 function dismissWelcome(){
   if(welcomeShowcaseTimer){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = null; }
+  stopWelcomeAtmos();
   const el = document.getElementById('welcome');
   if(el) el.style.display = 'none';
 }

@@ -117,7 +117,11 @@
   background:var(--page-2);-webkit-overflow-scrolling:touch;
 }
 .wl-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(130% 90% at 50% 8%,var(--page-1) 0%,var(--page-2) 55%,var(--page-3) 100%)}
-.wl-progress{position:fixed;top:0;left:0;height:2px;width:0%;background:var(--copper);z-index:2}
+/* Ambient atmosphere canvas: drifting motes + soft bokeh + slow beans, tinted
+   warm->cool->warm to blend with the scroll colour morph. Sits above the
+   gradient, below the content. Only animated under .motion (app.js). */
+.wl-atmos{position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%}
+.wl-progress{position:fixed;top:0;left:0;height:2px;width:0%;background:var(--copper);z-index:3}
 .welcome > section{position:relative;z-index:1}
 
 .wl-eyebrow{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--copper)}
