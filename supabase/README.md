@@ -39,10 +39,16 @@ safe to ship. Never put the `service_role` secret key in `config.js`.
 
 # Phase 2 — accounts & cloud sync
 
-Phase 2 adds optional user accounts (email magic-link **and** Google sign-in) so
-each user's **made / rating** state and **their own recipes** are stored in the
-cloud and follow them across devices. The app stays fully usable signed-out —
-accounts are additive, never a gate.
+Phase 2 adds optional user accounts (email + password, plus email magic-link
+**and** Google sign-in) so each user's **made / rating** state and **their own
+recipes** are stored in the cloud and follow them across devices. The app stays
+fully usable signed-out — accounts are additive, never a gate.
+
+The account dropdown's main path is **email + password** (sign in / create
+account), with **Continue with Google** and a secondary **"email me a sign-in
+link"** (magic-link) option. All three are standard Supabase Auth — passwords
+are hashed and handled server-side by Supabase; no credential logic lives in
+the frontend.
 
 ## One-time database setup
 
@@ -62,7 +68,15 @@ Run [`phase2.sql`](./phase2.sql) once in the **SQL Editor** (after `schema.sql`
    - **Additional Redirect URLs** = the same URL, plus `http://localhost:8000/*`
      for local testing.
 2. **Supabase → Authentication → Providers → Email** — ensure it's enabled and
-   "Allow new users to sign up" is ON (magic-link auto-creates users).
+   "Allow new users to sign up" is ON. This one provider covers **both** the
+   magic-link and the email + password flows.
+   - **Confirm email** (Authentication → Providers → Email, or Settings):
+     - **On** (default, recommended for a real launch) → a new password signup
+       must click a confirmation email before it can sign in. The UI already
+       tells them to check their inbox.
+     - **Off** → password signups are signed in immediately (handy while
+       testing, but anyone can register with any email). No code change either
+       way — the app handles both.
 3. **Google Cloud Console → APIs & Services → Credentials → Create OAuth client
    ID** (type: *Web application*):
    - **Authorized JavaScript origins** = your Pages origin + `http://localhost:8000`.

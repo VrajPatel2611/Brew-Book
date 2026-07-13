@@ -127,6 +127,7 @@ const USERDATA_CLOUD_CACHE_KEY = 'brewbook-userdata-cloud-v1';
 let currentUser = null;
 let accountOpen = false;
 let syncState = 'idle';   /* 'idle' | 'syncing' | 'synced' | 'error' */
+let authMode = 'signin';  /* signed-out dropdown mode: 'signin' | 'signup' */
 
 /* Synchronous "is someone probably signed in?" check for the very first paint,
    before the async Supabase getSession() resolves. supabase-js v2 persists the
@@ -920,26 +921,35 @@ function renderAccountDropdownBody(){
     return;
   }
 
+  const signup = authMode === 'signup';
+  const gsvg = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>`;
   body.innerHTML = `
-    <div class="account-dropdown-label">Save across devices</div>
+    <div class="account-dropdown-label">${signup ? 'Create your account' : 'Welcome back'}</div>
     <div class="field">
       <label for="acctEmail">Email</label>
       <input id="acctEmail" type="email" autocomplete="email" placeholder="you@example.com" inputmode="email">
     </div>
-    <button class="btn primary account-btn-full" id="acctMagicLinkBtn" type="button">Send magic link</button>
+    <div class="field">
+      <label for="acctPassword">Password</label>
+      <input id="acctPassword" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'At least 6 characters' : 'Your password'}">
+    </div>
+    <button class="btn primary account-btn-full" id="acctPwBtn" type="button">${signup ? 'Create account' : 'Sign in'}</button>
+    <p class="account-switch">${signup ? 'Already have an account?' : 'New to Brew Book?'} <button class="account-switch-link" id="acctSwitch" type="button">${signup ? 'Sign in' : 'Create one'}</button></p>
     <div class="account-divider">or</div>
-    <button class="btn account-btn-full account-google-btn" id="acctGoogleBtn" type="button">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
-      Continue with Google
-    </button>
-    <p class="account-hint" id="acctHint">A one-time sign-in link keeps your made, rated, and own recipes safe across devices. You can keep using Brew Book without signing in.</p>`;
+    <button class="btn account-btn-full account-google-btn" id="acctGoogleBtn" type="button">${gsvg} Continue with Google</button>
+    <button class="account-link-sub" id="acctMagicLinkBtn" type="button">Email me a sign-in link instead</button>
+    <p class="account-hint" id="acctHint">Your made, rated, and own recipes sync across devices. You can keep using Brew Book without signing in.</p>`;
 
+  const pwBtn = document.getElementById('acctPwBtn');
+  if(pwBtn) pwBtn.onclick = handlePasswordAuth;
+  const sw = document.getElementById('acctSwitch');
+  if(sw) sw.onclick = () => { authMode = signup ? 'signin' : 'signup'; renderAccountDropdownBody(); const f = document.getElementById('acctEmail'); if(f) f.focus(); };
   const mlBtn = document.getElementById('acctMagicLinkBtn');
   if(mlBtn) mlBtn.onclick = handleMagicLinkSubmit;
   const gBtn = document.getElementById('acctGoogleBtn');
   if(gBtn) gBtn.onclick = handleGoogleSignIn;
-  const email = document.getElementById('acctEmail');
-  if(email) email.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); handleMagicLinkSubmit(); } });
+  const pw = document.getElementById('acctPassword');
+  if(pw) pw.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); handlePasswordAuth(); } });
 }
 
 function setAccountHint(msg, isError){
@@ -964,6 +974,42 @@ async function handleMagicLinkSubmit(){
     if(error){ setAccountHint(error.message || 'Couldn’t send the link — try again.', true); return; }
     setAccountHint('Check your email for a sign-in link ☕', false);
   }catch(e){ setAccountHint('Couldn’t send the link — try again.', true); }
+}
+
+/* Email + password — the main sign in / create account path. Supabase handles
+   the credentials and password hashing server-side; nothing sensitive lives in
+   this code. On success, onAuthStateChange(SIGNED_IN) does the rest. If the
+   project has "Confirm email" on, a new signup must click the emailed link
+   before it can sign in (we surface that clearly). */
+async function handlePasswordAuth(){
+  const email = ((document.getElementById('acctEmail') || {}).value || '').trim();
+  const password = (document.getElementById('acctPassword') || {}).value || '';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ setAccountHint('Enter a valid email address.', true); return; }
+  if(password.length < 6){ setAccountHint('Password must be at least 6 characters.', true); return; }
+  const sb = await window.bbSupabaseReady;
+  if(!sb){ setAccountHint('Sign-in isn’t configured yet.', true); return; }
+  const signup = authMode === 'signup';
+  setAccountHint(signup ? 'Creating your account…' : 'Signing in…', false);
+  try{
+    if(signup){
+      const { data, error } = await sb.auth.signUp({ email, password, options:{ emailRedirectTo: authRedirectTo() } });
+      if(error){
+        const msg = /registered|already/i.test(error.message) ? 'That email already has an account — try signing in.' : (error.message || 'Couldn’t create the account.');
+        setAccountHint(msg, true); return;
+      }
+      /* Session present → confirmation is off, we're signed in (handled by the
+         auth listener). No session → a confirmation email was sent. */
+      if(!(data && data.session)) setAccountHint('Check your email to confirm your account, then sign in.', false);
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error){
+        const msg = /confirm/i.test(error.message) ? 'Confirm your email first — check your inbox.'
+                  : /invalid/i.test(error.message)  ? 'Wrong email or password.'
+                  : (error.message || 'Couldn’t sign in.');
+        setAccountHint(msg, true); return;
+      }
+    }
+  }catch(e){ setAccountHint('Something went wrong — try again.', true); }
 }
 
 async function handleGoogleSignIn(){
