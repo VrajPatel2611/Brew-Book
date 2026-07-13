@@ -1064,17 +1064,30 @@ function syncCategoryChips() {
 }
 
 /* ---------- shared nav count pill ----------
-   A single persistent pill lives in the top nav. Its label depends on
-   whichever screen is active: total recipes everywhere except Collection,
-   where it shows how many have actually been brewed. */
+   One persistent pill in the top nav, always a BREWED count derived from the
+   per-user tried state (never hardcoded) and scoped to the active tab:
+     • Recipes / Detail  → brews from the shared catalog you've made
+     • World             → brews you've made among genuine-origin recipes
+     • Collection        → every brew you've made, including your own recipes
+   A recipe only counts once it's actually marked made — a custom recipe that's
+   just been added (tried=false) does not count anywhere. */
+function brewedCount(scope){
+  const isCustom = r => String(r.id).startsWith('custom-');
+  if(scope === 'collection') return recipes.filter(r => r.tried).length;
+  if(scope === 'world'){
+    return (typeof genuineOriginRecipes === 'function' ? genuineOriginRecipes() : [])
+      .filter(r => r.tried).length;
+  }
+  /* catalog (Recipes / Detail): shared catalog recipes only, not your own */
+  return recipes.filter(r => r.tried && !isCustom(r)).length;
+}
 function updateNavCountPill(){
   const el = document.getElementById('navCountPill');
   if(!el) return;
-  if(currentScreen === 'screen-collection'){
-    el.textContent = recipes.filter(r => r.tried).length + ' BREWED';
-  } else {
-    el.textContent = recipes.length + ' BREWS';
-  }
+  const scope = currentScreen === 'screen-collection' ? 'collection'
+              : currentScreen === 'screen-world'      ? 'world'
+              : 'catalog';
+  el.textContent = brewedCount(scope) + ' BREWED';
 }
 
 /* ---------- shared empty-state illustration ----------
