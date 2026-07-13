@@ -864,6 +864,16 @@
 .repeat-add{margin-top:8px;width:100%;padding:10px;border-radius:9px;background:transparent;border:1px dashed var(--line);color:var(--copper);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:border-color .15s,background .15s}
 .repeat-add:hover{border-color:var(--copper);background:rgba(207,127,69,.08)}
 
+/* ─── EQUIPMENT PICKER (Phase 3 foundation) ───
+   Reuses the .panel/.sheet modal chrome and the .if-chip pill styling from
+   the kitchen filter, just wrapped/grouped instead of a single scroll row. */
+.eq-intro{font-size:13.5px;line-height:1.55;color:var(--crema-dim);margin:0 0 18px}
+.eq-groups{display:flex;flex-direction:column;gap:16px;max-height:52vh;overflow-y:auto;margin-bottom:6px;padding-right:2px}
+.eq-cat-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
+.eq-chip-grid{display:flex;flex-wrap:wrap;gap:7px}
+.eq-chip{padding:7px 14px}
+.eq-settings-note{font-size:11px;color:var(--crema-dim);opacity:.7;text-align:center;margin:12px 0 0}
+
 .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
 .btn{
   cursor:pointer;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;

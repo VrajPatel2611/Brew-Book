@@ -121,6 +121,16 @@ const CATALOG_CACHE_KEY = 'brewbook-catalog-cache-v1';
    restores the exact pre-sign-in guest data with no wipe/restore logic. */
 const USERDATA_CLOUD_CACHE_KEY = 'brewbook-userdata-cloud-v1';
 
+/* ---------- equipment (Phase 3 foundation) ----------
+   What brewing gear a user owns, from the one-time "what do you brew with?"
+   onboarding. Guests keep it in localStorage; signed-in users get it from
+   `user_equipment` (mirrored to a local cache for instant reads), following
+   the exact same guest/cloud split as the tried/rating data above. An empty
+   set always means "unfiltered — show everything", never "show nothing". */
+const EQUIPMENT_KEY = 'brewbook-equipment-v1';
+const EQUIPMENT_CLOUD_CACHE_KEY = 'brewbook-equipment-cloud-v1';
+let ownedEquipment = [];   /* current effective list of canonical equipment ids */
+
 /* ---------- auth state (Phase 2) ----------
    currentUser is the Supabase auth user (or null = signed out / guest).
    syncState drives the little status dot in the account dropdown. */
@@ -375,15 +385,172 @@ async function maybeMigrateLocalToCloud(){
   await pushUserDataToCloud(userId, guest.custom || [], guest.state || {});
 }
 
+/* ---------- equipment storage + sync (Phase 3 foundation) ---------- */
+
+/* Guest (signed-out) reader/writer — same localStorage-JSON-blob pattern used
+   for USERDATA_KEY elsewhere in this file. */
+function loadGuestEquipment(){
+  try{
+    const raw = localStorage.getItem(EQUIPMENT_KEY);
+    if(raw){ const d = JSON.parse(raw); return { equipment: d.equipment || [], onboarded: !!d.onboarded }; }
+  }catch(e){}
+  return { equipment: [], onboarded: false };
+}
+function saveGuestEquipment(equipment, onboarded){
+  try{ localStorage.setItem(EQUIPMENT_KEY, JSON.stringify({ equipment, onboarded })); }catch(e){}
+}
+
+/* Signed-in reader/writer — one row per user in `user_equipment` (upsert,
+   since it's always exactly zero-or-one row), mirrored to a local cache
+   tagged with the user id for instant reads next load. */
+async function pushEquipmentToCloud(userId, equipment){
+  const sb = await window.bbSupabaseReady;
+  if(!sb) return false;
+  try{
+    const { error } = await sb.from('user_equipment')
+      .upsert({ user_id: userId, equipment, onboarded: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    return !error;
+  }catch(e){ return false; }
+}
+async function refreshEquipmentFromCloud(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb || !currentUser) return;
+  const userId = currentUser.id;
+  const { data, error } = await sb.from('user_equipment').select('*').eq('user_id', userId).maybeSingle();
+  if(error) throw error;
+  ownedEquipment = (data && data.equipment) || [];
+  try{ localStorage.setItem(EQUIPMENT_CLOUD_CACHE_KEY, JSON.stringify({ userId, equipment: ownedEquipment, onboarded: !!(data && data.onboarded) })); }catch(e){}
+}
+
+/* First-ever sign-in: if this account has no equipment row yet, carry over
+   whatever the guest already picked in this browser (idempotent on cloud
+   emptiness, same reasoning as maybeMigrateLocalToCloud). */
+async function maybeMigrateEquipmentToCloud(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb || !currentUser) return;
+  const userId = currentUser.id;
+  const { count } = await sb.from('user_equipment').select('user_id', { count:'exact', head:true }).eq('user_id', userId);
+  if((count || 0) > 0) return;   // cloud already has a row → authoritative
+  const guest = loadGuestEquipment();
+  if(!guest.equipment.length) return;   // nothing to carry over
+  await pushEquipmentToCloud(userId, guest.equipment);
+}
+
+/* Empty Set means "unfiltered — show everything"; a later Phase 3 track
+   (the equipment filter) consumes this. Foundation just needs it to exist. */
+function getOwnedEquipmentSet(){ return new Set(ownedEquipment); }
+
+/* Whether the "what do you brew with?" picker should be offered right now:
+   signed-in → cloud onboarded flag (already loaded into ownedEquipment by
+   refreshEquipmentFromCloud, checked via its own cached onboarded flag);
+   guest → local onboarded flag. Never shows twice, always skippable. */
+function needsEquipmentOnboarding(){
+  if(currentUser){
+    try{
+      const raw = localStorage.getItem(EQUIPMENT_CLOUD_CACHE_KEY);
+      if(raw){ const d = JSON.parse(raw); if(d.userId === currentUser.id) return !d.onboarded; }
+    }catch(e){}
+    return true;   // no cache yet — cautious default, refreshEquipmentFromCloud will correct it
+  }
+  return !loadGuestEquipment().onboarded;
+}
+
+/* Auto-shown, once, after a first-time visitor actually reaches the app
+   (never on top of the landing/splash — see enterApp() and onSignedIn()). */
+function maybeOpenEquipmentOnboarding(){
+  if(needsEquipmentOnboarding()) openEquipmentPicker('onboarding');
+}
+
+/* The one equipment picker, in two modes:
+   'onboarding' — first-run "what do you brew with?", skippable, marks
+                  onboarded regardless of whether anything was picked.
+   'edit'       — reopened anytime from the account dropdown ("Edit your
+                  equipment"), pre-checked with the current selection. */
+function openEquipmentPicker(mode){
+  const panel = document.getElementById('equipmentPanel');
+  const sheet = document.getElementById('equipmentSheet');
+  if(!panel || !sheet) return;
+
+  const current = new Set(ownedEquipment.length ? ownedEquipment : loadGuestEquipment().equipment);
+  const picked = new Set(current);   // working selection, committed on Save/Skip
+
+  const categories = [];
+  EQUIPMENT_TAXONOMY.forEach(m => { if(!categories.includes(m.category)) categories.push(m.category); });
+
+  const chipsHtml = categories.map(cat => `
+    <div class="eq-cat">
+      <div class="eq-cat-label">${esc(cat)}</div>
+      <div class="eq-chip-grid">
+        ${EQUIPMENT_TAXONOMY.filter(m => m.category === cat).map(m => `
+          <button class="if-chip eq-chip${picked.has(m.id) ? ' sel' : ''}" type="button" data-eq="${esc(m.id)}" title="${esc(m.hint || '')}">
+            <span class="nm">${esc(m.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  sheet.innerHTML = `
+    <div class="sheet-head">
+      <h2>${mode === 'edit' ? 'Your brewing equipment' : 'What do you brew with?'}</h2>
+      <button class="close-btn" data-close aria-label="Close">✕</button>
+    </div>
+    <p class="eq-intro">${mode === 'edit'
+      ? 'Update what you brew with — this only shapes recommendations, it never hides recipes.'
+      : 'Pick everything you have. This never limits what you can explore — it just helps us point out what you can make tonight.'}</p>
+    <div class="eq-groups">${chipsHtml}</div>
+    <div class="form-actions">
+      ${mode === 'onboarding' ? '<button class="btn" id="eqSkipBtn" type="button">Skip — I\'ll decide later</button>' : '<button class="btn" data-close type="button">Cancel</button>'}
+      <button class="btn primary" id="eqSaveBtn" type="button">${mode === 'onboarding' ? 'Get started' : 'Save'}</button>
+    </div>
+    <p class="eq-settings-note">You can change this anytime from your account menu.</p>`;
+
+  sheet.querySelectorAll('[data-eq]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.eq;
+      if(picked.has(id)){ picked.delete(id); btn.classList.remove('sel'); }
+      else { picked.add(id); btn.classList.add('sel'); }
+    };
+  });
+
+  const commit = async (skipped) => {
+    const list = skipped ? Array.from(current) : Array.from(picked);
+    ownedEquipment = list;
+    if(currentUser){
+      await pushEquipmentToCloud(currentUser.id, list);
+      try{ localStorage.setItem(EQUIPMENT_CLOUD_CACHE_KEY, JSON.stringify({ userId: currentUser.id, equipment: list, onboarded: true })); }catch(e){}
+    } else {
+      saveGuestEquipment(list, true);
+    }
+    closeEquipmentPicker();
+    if(!skipped) showToast(list.length ? 'Saved your equipment ☕' : 'Saved — showing everything');
+  };
+
+  const saveBtn = document.getElementById('eqSaveBtn');
+  if(saveBtn) saveBtn.onclick = () => commit(false);
+  const skipBtn = document.getElementById('eqSkipBtn');
+  if(skipBtn) skipBtn.onclick = () => commit(true);
+  sheet.querySelectorAll('[data-close]').forEach(b => b.onclick = closeEquipmentPicker);
+
+  panel.classList.add('open');
+}
+function closeEquipmentPicker(){
+  const panel = document.getElementById('equipmentPanel');
+  if(panel) panel.classList.remove('open');
+}
+
 /* Runs after a session is established (fresh sign-in or restored on load). */
 async function onSignedIn(){
   syncState = 'syncing'; renderAccountUI();
   try{
     await maybeMigrateLocalToCloud();
     await refreshUserDataFromCloud();
+    await maybeMigrateEquipmentToCloud();
+    await refreshEquipmentFromCloud();
     syncState = 'synced';
   }catch(e){ syncState = 'error'; }
   renderAccountUI();
+  maybeOpenEquipmentOnboarding();
 }
 
 /* Initialise auth: build the control (works even if Supabase isn't configured),
@@ -410,7 +577,8 @@ async function initAuth(){
       if(currentUser && currentUser.id !== was) onSignedIn();
     } else if(event === 'SIGNED_OUT'){
       currentUser = null; syncState = 'idle'; accountOpen = false;
-      try{ localStorage.removeItem(USERDATA_CLOUD_CACHE_KEY); }catch(e){}
+      try{ localStorage.removeItem(USERDATA_CLOUD_CACHE_KEY); localStorage.removeItem(EQUIPMENT_CLOUD_CACHE_KEY); }catch(e){}
+      ownedEquipment = [];
       renderAccountUI();
       refreshCurrentGate();   // re-lock World/Collection if the user is on it
       loadRecipes();   // repaint from the untouched guest data
@@ -657,12 +825,16 @@ function enterApp(playIntro){
   if(playIntro){
     if(el) el.style.display = 'none';
     if(typeof playSplash === 'function') playSplash();
+    /* Wait out the splash before offering the equipment picker — showing it
+       underneath/over the intro would look broken. Guest-only path: a signed-in
+       user's check already runs from onSignedIn() once sync settles. */
+    setTimeout(() => { if(!currentUser) maybeOpenEquipmentOnboarding(); }, 3200);
     return;
   }
   if(!el) return;
   el.style.transition = 'opacity .4s ease';
   el.style.opacity = '0';
-  setTimeout(() => { el.style.display = 'none'; }, 420);
+  setTimeout(() => { el.style.display = 'none'; if(!currentUser) maybeOpenEquipmentOnboarding(); }, 460);
 }
 
 /* Hide the landing with no fade — used when a signed-in session is detected. */
@@ -675,6 +847,32 @@ function dismissWelcome(){
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Canonical equipment id -> its pretty display label (from EQUIPMENT_TAXONOMY).
+   Recipes store the machine-friendly id (e.g. "moka", "cezve"); every place
+   that shows a recipe's method as text should go through this instead of
+   printing the raw id. Falls back to a title-cased version of the id itself
+   for anything not in the taxonomy (e.g. a legacy or unusual custom value),
+   so nothing ever renders as an ugly raw slug. */
+function methodLabel(id){
+  if(!id) return '';
+  const m = typeof EQUIPMENT_TAXONOMY !== 'undefined' && EQUIPMENT_TAXONOMY.find(x => x.id === id);
+  if(m) return m.label;
+  return String(id).replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+/* <optgroup> options for the add/edit recipe form's method <select>, grouped
+   by EQUIPMENT_TAXONOMY category in taxonomy order. Each <option value="id">
+   so the form reads back a canonical id, not a display string. */
+function equipmentSelectOptionsHTML(selectedId){
+  const categories = [];
+  EQUIPMENT_TAXONOMY.forEach(m => { if(!categories.includes(m.category)) categories.push(m.category); });
+  return categories.map(cat => `
+    <optgroup label="${esc(cat)}">
+      ${EQUIPMENT_TAXONOMY.filter(m => m.category === cat).map(m =>
+        `<option value="${esc(m.id)}" ${selectedId === m.id ? 'selected' : ''}>${esc(m.label)}</option>`
+      ).join('')}
+    </optgroup>
+  `).join('');
+}
 const pad = n => String(n).padStart(3,'0');
 function fmtDate(ts){ if(!ts) return ''; return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
 function fmtDateShort(ts){ if(!ts) return ''; const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}).toUpperCase(); }
@@ -704,7 +902,7 @@ function buyPicksHTML(id){
 function buildChips(){
   const chipsEl = document.getElementById('methodChips');
   if(chipsEl){
-    const order = ['all','moka pot','instant','blended','cezve','other'];
+    const order = ['all','moka','instant','blender','cezve','other'];
     const present = new Set(['all']);
     recipes.forEach(r => present.add(order.includes(r.method) ? r.method : 'other'));
     const methods = order.filter(m => present.has(m));
@@ -742,7 +940,7 @@ function boardingPassCard(r, matchState){
       <div class="bp-journey">
         <div class="bp-journey-col"><span class="bp-info-label">FROM</span><span class="bp-origin-name" style="color:${al.color}">${esc(r.origin||'Fusion')}</span></div>
         <span class="bp-arrow">✈</span>
-        <div class="bp-journey-col"><span class="bp-info-label">METHOD</span><span class="bp-method-val">${esc(r.method||'')}</span></div>
+        <div class="bp-journey-col"><span class="bp-info-label">METHOD</span><span class="bp-method-val">${esc(methodLabel(r.method))}</span></div>
       </div>
     </div>
     <div class="bp-gate">
@@ -915,9 +1113,12 @@ function renderAccountDropdownBody(){
       <div class="account-dropdown-label">Your account</div>
       <div class="account-email">${esc(currentUser.email || 'Signed in')}</div>
       <div class="account-sync-row"><span class="account-sync-dot ${syncState}"></span>${esc(SYNC_TEXT[syncState] || '')}</div>
+      <button class="account-link-sub" id="acctEditEquipmentBtn" type="button">☕ Edit your brewing equipment</button>
       <button class="btn account-btn-full" id="acctSignOutBtn" type="button">Sign out</button>`;
     const out = document.getElementById('acctSignOutBtn');
     if(out) out.onclick = handleSignOut;
+    const eq = document.getElementById('acctEditEquipmentBtn');
+    if(eq) eq.onclick = () => { accountOpen = false; renderAccountUI(); openEquipmentPicker('edit'); };
     return;
   }
 
@@ -938,7 +1139,8 @@ function renderAccountDropdownBody(){
     <div class="account-divider">or</div>
     <button class="btn account-btn-full account-google-btn" id="acctGoogleBtn" type="button">${gsvg} Continue with Google</button>
     <button class="account-link-sub" id="acctMagicLinkBtn" type="button">Email me a sign-in link instead</button>
-    <p class="account-hint" id="acctHint">Your made, rated, and own recipes sync across devices. You can keep using Brew Book without signing in.</p>`;
+    <p class="account-hint" id="acctHint">Your made, rated, and own recipes sync across devices. You can keep using Brew Book without signing in.</p>
+    <button class="account-link-sub" id="acctEditEquipmentBtn" type="button">☕ Edit your brewing equipment</button>`;
 
   const pwBtn = document.getElementById('acctPwBtn');
   if(pwBtn) pwBtn.onclick = handlePasswordAuth;
@@ -946,6 +1148,8 @@ function renderAccountDropdownBody(){
   if(sw) sw.onclick = () => { authMode = signup ? 'signin' : 'signup'; renderAccountDropdownBody(); const f = document.getElementById('acctEmail'); if(f) f.focus(); };
   const mlBtn = document.getElementById('acctMagicLinkBtn');
   if(mlBtn) mlBtn.onclick = handleMagicLinkSubmit;
+  const eq = document.getElementById('acctEditEquipmentBtn');
+  if(eq) eq.onclick = () => { accountOpen = false; renderAccountUI(); openEquipmentPicker('edit'); };
   const gBtn = document.getElementById('acctGoogleBtn');
   if(gBtn) gBtn.onclick = handleGoogleSignIn;
   const pw = document.getElementById('acctPassword');
@@ -1065,7 +1269,7 @@ function heroHTML(r) {
             <span class="hero-stat-label">Ratio</span>
           </div>
           <div class="hero-stat">
-            <span class="hero-stat-val">${esc(r.method || '')}</span>
+            <span class="hero-stat-val">${esc(methodLabel(r.method))}</span>
             <span class="hero-stat-label">Method</span>
           </div>
           <div class="hero-stat">
@@ -1166,7 +1370,7 @@ function render(){
 
   /* Build the base filtered list (method + tried + search + kitchen) */
   let list = recipes.slice();
-  if(activeMethod !== 'all') list = list.filter(r => (['moka pot','instant','blended','cezve'].includes(r.method) ? r.method : 'other') === activeMethod);
+  if(activeMethod !== 'all') list = list.filter(r => (['moka','instant','blender','cezve'].includes(r.method) ? r.method : 'other') === activeMethod);
   if(triedFilter === 'tried') list = list.filter(r => r.tried);
   if(triedFilter === 'totry')  list = list.filter(r => !r.tried);
   if(searchTerm){
@@ -1336,7 +1540,7 @@ function collectionCard(r, opts){
         <div class="coll-card-footer">
           <div>
             <div class="coll-card-method-label">Method</div>
-            <div class="coll-card-method-val" style="color:${color}">${esc(r.method || '')}</div>
+            <div class="coll-card-method-val" style="color:${color}">${esc(methodLabel(r.method))}</div>
           </div>
           ${showRatio ? `<div>
             <div class="coll-card-ratio">${esc(r.ratio || '—')}</div>
@@ -1629,7 +1833,7 @@ function openDetail(id, cardEl){
             ${r.description ? `<p class="detail-hero-sub">${esc(r.description)}</p>` : ''}
             <div class="detail-hero-stats">
               <div class="detail-stat"><div class="detail-stat-value">${esc(r.ratio || '—')}</div><div class="detail-stat-label">Ratio</div></div>
-              <div class="detail-stat"><div class="detail-stat-value detail-stat-method">${esc(r.method || '')}</div><div class="detail-stat-label">Method</div></div>
+              <div class="detail-stat"><div class="detail-stat-value detail-stat-method">${esc(methodLabel(r.method))}</div><div class="detail-stat-label">Method</div></div>
               <div class="detail-stat"><div class="detail-beans">${coloredBeans(r.strength || 3, al.color)}</div><div class="detail-stat-label">Strength</div></div>
             </div>
           </div>
@@ -1772,7 +1976,7 @@ function openForm(id){
       <div class="field"><label for="fOrigin">Origin</label><input id="fOrigin" type="text" placeholder="e.g. Italy" value="${r?esc(r.origin||''):''}"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label for="fMethod">Brew method</label><select id="fMethod">${METHODS.filter(m=>m!=='all').map(m=>`<option ${r&&r.method===m?'selected':''}>${m}</option>`).join('')}</select></div>
+      <div class="field"><label for="fMethod">Brew method</label><select id="fMethod">${equipmentSelectOptionsHTML(r && r.method)}</select></div>
       <div class="field"><label for="fRatio">Ratio</label><input id="fRatio" type="text" placeholder="e.g. 1:4" value="${r?esc(r.ratio||''):''}"></div>
     </div>
     <div class="field-row">
@@ -1942,20 +2146,24 @@ const STEP_ICONS = {
 function startBrew(id, methodId){
   const r = recipes.find(x => x.id === id);
   if(!r) return;
-  let steps       = r.steps || [];
-  let ingredients = r.ingredients || [];
-  let methodLabel = r.method || '';
+  let steps        = r.steps || [];
+  let ingredients  = r.ingredients || [];
+  /* Recipes with a methods[] array already carry a human label per variant
+     (m.label); only a custom recipe with no methods[] falls back to the raw
+     top-level id, so run that fallback through methodLabel() for a pretty
+     display instead of e.g. "moka". */
+  let curMethodLabel = methodLabel(r.method) || '';
   if(r.methods && r.methods.length){
     const mId = methodId || (r.methods.find(m => m.recommended) || r.methods[0]).id;
     const m = r.methods.find(m => m.id === mId) || r.methods[0];
-    if(m && m.steps && m.steps.length){ steps = m.steps; ingredients = m.ingredients || ingredients; methodLabel = m.label; }
+    if(m && m.steps && m.steps.length){ steps = m.steps; ingredients = m.ingredients || ingredients; curMethodLabel = m.label; }
   }
   if(!steps.length) return;
 
   const al = getAirline(r.serial || 0);
   brewState = {
     id, i: 0, steps, ingredients,
-    name: r.name, method: methodLabel, origin: r.origin || 'Fusion',
+    name: r.name, method: curMethodLabel, origin: r.origin || 'Fusion',
     color: al.color, dir: 1, finishedSaved: false
   };
   brewFillCurrent = 0;
@@ -2474,5 +2682,6 @@ document.addEventListener('keydown', e => {
 });
 
 loadRecipes();
+ownedEquipment = loadGuestEquipment().equipment;   // instant guest read; initAuth() overrides for signed-in
 initWelcome();
 initAuth();
