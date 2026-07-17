@@ -3260,7 +3260,10 @@ buildEquipment();
    "Explore recipes" (see enterApp). */
 function playSplash(){
   const sp = document.getElementById('splash');
-  if(sp) sp.style.display = '';
+  /* Explicit inline 'flex' (not '') so it overrides the html:not(.bb-returning)
+     .splash{display:none} gate — that's what lets the splash play for a
+     signed-out visitor after they tap "Explore recipes". */
+  if(sp) sp.style.display = 'flex';
   if(typeof runSplash === 'function'){ runSplash(); return; }
   /* Fallback when animations.js isn't loaded: seed stars, then auto-dismiss. */
   if(!sp) return;

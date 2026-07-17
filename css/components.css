@@ -25,6 +25,12 @@
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   overflow:hidden;
 }
+/* Only returning (signed-in) visitors get the splash on load — the head script
+   stamps .bb-returning pre-paint. Everyone else goes straight to the landing
+   with no split-second splash flash. (The splash still plays for a signed-out
+   visitor after they click "Explore recipes" — playSplash() sets an inline
+   display that overrides this.) */
+html:not(.bb-returning) .splash{display:none}
 .splash-stars{position:absolute;inset:0;pointer-events:none}
 
 .star-dot{
