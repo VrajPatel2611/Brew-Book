@@ -659,7 +659,12 @@
   if (configured) {
     try {
       const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-      client = createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY);
+      // Brand the session storage key ('sb-brewbook-auth-token') instead of the
+      // default 'sb-<project-ref>-auth-token'. Kept in the sb-*-auth-token shape
+      // so hasSupabaseSession()'s first-paint check still detects it.
+      client = createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY, {
+        auth: { storageKey: 'sb-brewbook-auth-token' }
+      });
     } catch (e) { client = null; }
   }
   window.bbSupabase = client;
