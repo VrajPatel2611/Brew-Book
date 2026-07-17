@@ -122,6 +122,13 @@ html:not(.bb-returning) .splash{display:none}
   position:fixed;inset:0;z-index:450;overflow-y:auto;overflow-x:hidden;
   background:var(--page-2);-webkit-overflow-scrolling:touch;
 }
+/* The landing shows from the very first paint for signed-out visitors, so its
+   opaque z-450 overlay covers the app header/shell immediately — no split-second
+   flash of the app before it. Returning (signed-in) visitors get .bb-returning
+   stamped pre-paint (head script) and skip straight to the splash → app, so the
+   landing is hidden for them from frame 1. enterApp() sets an inline display to
+   hide it once you enter the app. */
+.bb-returning .welcome{display:none}
 .wl-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(130% 90% at 50% 8%,var(--page-1) 0%,var(--page-2) 55%,var(--page-3) 100%)}
 /* Ambient atmosphere canvas: drifting motes + soft bokeh + slow beans, tinted
    warm->cool->warm to blend with the scroll colour morph. Sits above the
