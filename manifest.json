@@ -1,0 +1,16 @@
+{
+  "name": "Brew Book — The Coffee Passport",
+  "short_name": "Brew Book",
+  "description": "A cinematic journal of world coffee recipes — 38 drinks from 22 countries, each told as a short story with honest ratios and titled steps.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#241a14",
+  "theme_color": "#241a14",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

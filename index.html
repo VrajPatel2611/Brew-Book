@@ -11,7 +11,15 @@
   <meta name="copyright" content="© 2026 Vraj Patel. All rights reserved.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brew Book — The Coffee Passport</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+  <link rel="icon" href="./favicon.png">
+
+  <!-- PWA: installable to a phone home screen, see sw.js for the update
+       strategy (stale-while-revalidate + auto-reload on new version). -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Brew Book">
 
   <!-- Open Graph -->
   <meta property="og:title" content="Brew Book — The Coffee Passport">
@@ -645,5 +653,37 @@
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
 <script src="./js/app.js?v=44"></script>
+
+<!-- PWA install + self-updating service worker. Registration failures are
+     silent (older browsers, or serving over plain http on a non-localhost
+     origin) — the app works identically either way, this is additive.
+     See sw.js for the stale-while-revalidate caching strategy. On
+     controllerchange (a newer worker just took over), reload once to pick
+     up the fresh files — deferred if the visitor is mid-Detail/Brew Mode,
+     using the same "don't yank the page out from under them" rule
+     safeApplyCatalog() already applies in js/app.js, so an update never
+     interrupts an in-progress brew. -->
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+
+    let bbReloadPending = false;
+    let bbReloaded = false;
+    function bbSafeToReload(){
+      return !(typeof currentScreen !== 'undefined' && currentScreen === 'screen-detail')
+          && !(typeof brewState !== 'undefined' && brewState);
+    }
+    function bbReloadIfSafe(){
+      if (bbReloaded || !bbReloadPending || !bbSafeToReload()) return;
+      bbReloaded = true;
+      location.reload();
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      bbReloadPending = true;
+      if (bbSafeToReload()) bbReloadIfSafe();
+      else setInterval(bbReloadIfSafe, 1500);
+    });
+  }
+</script>
 </body>
 </html>
