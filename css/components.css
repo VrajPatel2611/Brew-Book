@@ -857,6 +857,7 @@
 .detail-picks-toggle.open .chev{transform:rotate(180deg)}
 .detail-picks-body{display:none;margin-top:7px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .detail-picks-body.open{display:block}
+.detail-picks-note{padding:11px 14px;font-family:var(--font-body);font-size:12px;font-style:italic;line-height:1.5;color:var(--crema-dim);border-bottom:1px solid var(--line);background:rgba(207,127,69,.05)}
 .detail-roaster{padding:11px 14px;border-bottom:1px solid var(--line)}
 .detail-roaster:last-child{border-bottom:none}
 .detail-roaster h4{font-family:var(--font-display);font-size:15px;color:var(--crema);margin-bottom:6px;display:flex;align-items:center;gap:6px}

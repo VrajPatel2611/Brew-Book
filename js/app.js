@@ -1077,8 +1077,9 @@ function buyPicksHTML(id){
   const picks = (rec && rec.roasterPicks) || ROASTER_PICKS[id];
   if(!picks || (!picks.bluetokai && !picks.thirdwave)) return '';
   const bt = picks.bluetokai || [], tw = picks.thirdwave || [];
-  return `<button class="detail-picks-toggle" data-picks-toggle><span>🛒 Which beans to buy (Blue Tokai · Third Wave)</span><span class="chev">▾</span></button>
+  return `<button class="detail-picks-toggle" data-picks-toggle><span>🛒 Where to buy it — in India (Blue Tokai · Third Wave)</span><span class="chev">▾</span></button>
     <div class="detail-picks-body" data-picks-body>
+      <p class="detail-picks-note">Anywhere else? Match the roast profile above — any local roaster's equivalent works just as well.</p>
       ${bt.length?`<div class="detail-roaster bt"><h4><span class="pin"></span>Blue Tokai</h4><div class="pick-label">Best pick for this drink</div><ul>${bt.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
       ${tw.length?`<div class="detail-roaster tw"><h4><span class="pin"></span>Third Wave</h4><div class="pick-label">Best pick for this drink</div><ul>${tw.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
     </div>`;
@@ -2300,7 +2301,7 @@ function openDetail(id, cardEl){
         </div>` : ''}
 
         ${r.bean ? `<div class="detail-bean-note">
-          <div class="detail-bean-note-label">☕ Bean note</div>
+          <div class="detail-bean-note-label">☕ Roast profile — what to look for</div>
           <p>${esc(r.bean)}</p>
         </div>` : ''}
 
