@@ -480,6 +480,103 @@ async function maybeMigrateEquipmentToCloud(){
    (the equipment filter) consumes this. Foundation just needs it to exist. */
 function getOwnedEquipmentSet(){ return new Set(ownedEquipment); }
 
+/* ---------- tasting journal (Phase 3) ----------
+   A one-to-many log of brews per recipe (many brews of the same recipe over
+   time), each a dated note + optional rating + which method was used. Guests
+   keep an array per recipe in localStorage under `brewbook-tasting-<recipeId>`;
+   signed-in users read/write Supabase `tasting_notes`. Works fully offline/
+   guest; the cloud side is additive and degrades gracefully if
+   phase3-tasting-notes.sql hasn't been run yet (inserts just fail silently and
+   the local mirror keeps the data). Same guest→cloud story as tried/rating. */
+const TASTING_KEY_PREFIX = 'brewbook-tasting-';
+function _localTastingKey(recipeId){ return TASTING_KEY_PREFIX + recipeId; }
+function loadGuestTastingNotes(recipeId){
+  try{ const raw = localStorage.getItem(_localTastingKey(recipeId)); if(raw){ const a = JSON.parse(raw); if(Array.isArray(a)) return a; } }catch(e){}
+  return [];
+}
+function saveGuestTastingNotes(recipeId, notes){
+  try{ localStorage.setItem(_localTastingKey(recipeId), JSON.stringify(notes)); }catch(e){}
+}
+
+/* Newest-first list of a recipe's notes. Signed-in reads the cloud (falling
+   back to the local mirror if that fails); guests read localStorage. */
+async function loadTastingNotes(recipeId){
+  if(currentUser){
+    const sb = await window.bbSupabaseReady;
+    if(sb){
+      try{
+        const { data, error } = await sb.from('tasting_notes')
+          .select('*').eq('user_id', currentUser.id).eq('recipe_id', recipeId)
+          .order('brewed_at', { ascending:false });
+        if(!error && data) return data.map(row => ({
+          id: row.id, methodId: row.method_id || '', rating: row.rating || 0,
+          note: row.note || '', brewedAt: row.brewed_at ? new Date(row.brewed_at).getTime() : Date.now()
+        }));
+      }catch(e){}
+    }
+  }
+  return loadGuestTastingNotes(recipeId).slice().sort((a, b) => (b.brewedAt || 0) - (a.brewedAt || 0));
+}
+
+/* Insert a note. Always mirrors locally (offline copy for signed-in users,
+   the only copy for guests); also inserts to the cloud when signed in. */
+async function saveTastingNote(recipeId, entry){
+  const note = {
+    id: 'tn-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+    methodId: entry.methodId || '', rating: entry.rating || 0,
+    note: (entry.note || '').trim(), brewedAt: Date.now()
+  };
+  if(!note.note) return null;
+  if(currentUser){
+    const sb = await window.bbSupabaseReady;
+    if(sb){
+      try{
+        const { data, error } = await sb.from('tasting_notes').insert({
+          user_id: currentUser.id, recipe_id: recipeId, method_id: note.methodId || null,
+          rating: note.rating || null, note: note.note, brewed_at: new Date(note.brewedAt).toISOString()
+        }).select().single();
+        if(!error && data) note.id = data.id;
+      }catch(e){}
+    }
+  }
+  const local = loadGuestTastingNotes(recipeId);
+  local.push(note);
+  saveGuestTastingNotes(recipeId, local);
+  return note;
+}
+
+async function deleteTastingNote(recipeId, noteId){
+  if(currentUser){
+    const sb = await window.bbSupabaseReady;
+    if(sb){ try{ await sb.from('tasting_notes').delete().eq('user_id', currentUser.id).eq('id', noteId); }catch(e){} }
+  }
+  saveGuestTastingNotes(recipeId, loadGuestTastingNotes(recipeId).filter(n => n.id !== noteId));
+}
+
+/* First-ever sign-in: if the account has no cloud notes yet, push every local
+   note up once (guarded on cloud emptiness, same idempotency as the other
+   migrations). Custom-recipe notes whose recipe isn't in the cloud catalog
+   would violate the FK — the insert is wrapped so that never crashes sign-in. */
+async function maybeMigrateTastingNotesToCloud(){
+  const sb = await window.bbSupabaseReady;
+  if(!sb || !currentUser) return;
+  const userId = currentUser.id;
+  const { count } = await sb.from('tasting_notes').select('id', { count:'exact', head:true }).eq('user_id', userId);
+  if((count || 0) > 0) return;
+  const rows = [];
+  for(let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k && k.indexOf(TASTING_KEY_PREFIX) === 0){
+      const recipeId = k.slice(TASTING_KEY_PREFIX.length);
+      loadGuestTastingNotes(recipeId).forEach(n => rows.push({
+        user_id: userId, recipe_id: recipeId, method_id: n.methodId || null,
+        rating: n.rating || null, note: n.note, brewed_at: new Date(n.brewedAt || Date.now()).toISOString()
+      }));
+    }
+  }
+  if(rows.length){ try{ await sb.from('tasting_notes').insert(rows); }catch(e){} }
+}
+
 /* Whether the "what do you brew with?" picker should be offered right now:
    signed-in → cloud onboarded flag (already loaded into ownedEquipment by
    refreshEquipmentFromCloud, checked via its own cached onboarded flag);
@@ -591,6 +688,7 @@ async function onSignedIn(){
     await refreshUserDataFromCloud();
     await maybeMigrateEquipmentToCloud();
     await refreshEquipmentFromCloud();
+    await maybeMigrateTastingNotesToCloud();
     syncState = 'synced';
   }catch(e){ syncState = 'error'; }
   renderAccountUI();
@@ -1945,6 +2043,108 @@ function renderWorldPasses(){
   el.innerHTML = genuine.map(r => collectionCard(r, {showRatio: true})).join('');
 }
 
+/* ---------- tasting journal UI (Phase 3) ----------
+   Shared between the Detail screen (full section: list + add form) and the
+   Brew Mode finish screen (just the add form). Star markup mirrors the
+   existing .detail-rate-stars; the method dropdown reuses
+   equipmentSelectOptionsHTML(). */
+function _journalStarsHTML(sel){
+  return `<div class="journal-stars" data-journal-stars>${[1,2,3,4,5].map(i =>
+    `<button type="button" data-jstar="${i}" class="${i <= (sel||0) ? 'on' : ''}" aria-label="${i} star">★</button>`).join('')}</div>`;
+}
+function journalFormHTML(defaultMethodId){
+  return `<div class="journal-form" data-journal-form>
+    <textarea class="journal-note-input" data-journal-note rows="2" placeholder="How did this brew turn out? What would you tweak?"></textarea>
+    <div class="journal-form-row">
+      <div class="journal-form-field"><span class="journal-form-label">Rating</span>${_journalStarsHTML(0)}</div>
+      <div class="journal-form-field"><span class="journal-form-label">Method</span><select class="journal-method" data-journal-method>${equipmentSelectOptionsHTML(defaultMethodId)}</select></div>
+    </div>
+    <div class="journal-form-actions">
+      <button class="btn journal-cancel" type="button" data-journal-cancel>Cancel</button>
+      <button class="btn primary" type="button" data-journal-save>Save note</button>
+    </div>
+  </div>`;
+}
+function journalSectionHTML(){
+  return `<div class="detail-journal" data-journal>
+    <div class="detail-block-label">Tasting journal</div>
+    <div class="journal-list" data-journal-list><p class="journal-empty">Loading…</p></div>
+    <button class="journal-add-btn" type="button" data-journal-add>+ Add entry</button>
+  </div>`;
+}
+function _journalEntryHTML(n){
+  const d = n.brewedAt ? new Date(n.brewedAt) : null;
+  const date = d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const stars = n.rating ? `<span class="journal-entry-stars">${'★'.repeat(n.rating)}${'☆'.repeat(5-n.rating)}</span>` : '';
+  const method = n.methodId ? `<span class="journal-entry-method">${esc(methodLabel(n.methodId))}</span>` : '';
+  return `<div class="journal-entry" data-note-id="${esc(n.id)}">
+    <div class="journal-entry-head">
+      <span class="journal-entry-date">${esc(date)}</span>
+      ${method}${stars}
+      <button class="journal-del" type="button" data-note-del aria-label="Delete entry">✕</button>
+    </div>
+    <p class="journal-entry-note">${esc(n.note)}</p>
+  </div>`;
+}
+async function renderJournalEntries(recipeId, listEl){
+  if(!listEl) return;
+  const notes = await loadTastingNotes(recipeId);
+  listEl.innerHTML = notes.length
+    ? notes.map(_journalEntryHTML).join('')
+    : `<p class="journal-empty">No entries yet — log how your next brew turns out.</p>`;
+}
+/* Wire a journal add-form (stars + method + save/cancel). onSaved(note) fires
+   after a successful save. Returns nothing; operates on the passed form el. */
+function wireJournalForm(formEl, recipeId, onSaved){
+  if(!formEl) return;
+  let sel = 0;
+  const starsWrap = formEl.querySelector('[data-journal-stars]');
+  starsWrap?.querySelectorAll('[data-jstar]').forEach(b => b.onclick = () => {
+    const v = +b.dataset.jstar;
+    sel = (sel === v ? v - 1 : v);
+    starsWrap.querySelectorAll('[data-jstar]').forEach(x => x.classList.toggle('on', +x.dataset.jstar <= sel));
+  });
+  const save = async () => {
+    const note = (formEl.querySelector('[data-journal-note]').value || '').trim();
+    if(!note){ showToast('Write a note first'); formEl.querySelector('[data-journal-note]').focus(); return; }
+    const methodId = formEl.querySelector('[data-journal-method]').value || '';
+    const saved = await saveTastingNote(recipeId, { methodId, rating: sel, note });
+    if(saved){ showToast('Saved to your journal ☕'); if(typeof onSaved === 'function') onSaved(saved); }
+  };
+  formEl.querySelector('[data-journal-save]').onclick = save;
+  const cancel = formEl.querySelector('[data-journal-cancel]');
+  if(cancel) cancel.onclick = () => { if(typeof formEl._onCancel === 'function') formEl._onCancel(); };
+}
+/* Detail-screen journal: load the list, wire the "+ Add entry" reveal, the
+   inline form, and per-entry delete. */
+function wireDetailJournal(scope, recipeId, defaultMethodId){
+  const section = scope.querySelector('[data-journal]');
+  if(!section) return;
+  const listEl = section.querySelector('[data-journal-list]');
+  const addBtn = section.querySelector('[data-journal-add]');
+  renderJournalEntries(recipeId, listEl);
+
+  addBtn.onclick = () => {
+    if(section.querySelector('[data-journal-form]')) return;   // already open
+    addBtn.insertAdjacentHTML('beforebegin', journalFormHTML(defaultMethodId));
+    const formEl = section.querySelector('[data-journal-form]');
+    addBtn.style.display = 'none';
+    formEl._onCancel = () => { formEl.remove(); addBtn.style.display = ''; };
+    wireJournalForm(formEl, recipeId, () => { formEl.remove(); addBtn.style.display = ''; renderJournalEntries(recipeId, listEl); });
+    formEl.querySelector('[data-journal-note]').focus();
+  };
+
+  listEl.onclick = async e => {
+    const del = e.target.closest('[data-note-del]');
+    if(!del) return;
+    const entry = del.closest('[data-note-id]');
+    if(!entry) return;
+    if(!confirm('Delete this journal entry?')) return;
+    await deleteTastingNote(recipeId, entry.dataset.noteId);
+    renderJournalEntries(recipeId, listEl);
+  };
+}
+
 /* ---------- navigation ---------- */
 let currentScreen = 'screen-home';
 
@@ -2183,6 +2383,8 @@ function openDetail(id, cardEl){
         <button class="detail-pin-btn ${r.pinned?'on':''}" data-pin type="button" aria-label="${r.pinned?'Unpin':'Pin'} recipe">${PIN_SVG}</button>
       </div>
 
+      ${journalSectionHTML()}
+
       <div class="detail-cta-footer">
         <div class="detail-cta-text">
           <div class="detail-cta-label">Ready when you are</div>
@@ -2271,6 +2473,7 @@ function openDetail(id, cardEl){
   });
   const pinBtn = content.querySelector('.detail-made-row [data-pin]');
   if(pinBtn) pinBtn.onclick = async () => { await togglePinned(id); openDetail(id, cardEl); };
+  wireDetailJournal(content, id, curMethodId || r.method);
   const editBtn = content.querySelector('[data-edit]');
   if(editBtn) editBtn.onclick = () => openForm(r.id);
   const deleteBtn = content.querySelector('[data-delete]');
@@ -2501,17 +2704,18 @@ function startBrew(id, methodId){
      top-level id, so run that fallback through methodLabel() for a pretty
      display instead of e.g. "moka". */
   let curMethodLabel = methodLabel(r.method) || '';
+  let curMethodId = r.method || '';
   if(r.methods && r.methods.length){
     const mId = methodId || (r.methods.find(m => m.recommended) || r.methods[0]).id;
     const m = r.methods.find(m => m.id === mId) || r.methods[0];
-    if(m && m.steps && m.steps.length){ steps = m.steps; ingredients = m.ingredients || ingredients; curMethodLabel = m.label; }
+    if(m && m.steps && m.steps.length){ steps = m.steps; ingredients = m.ingredients || ingredients; curMethodLabel = m.label; curMethodId = m.id; }
   }
   if(!steps.length) return;
 
   const al = getAirline(r.serial || 0);
   brewState = {
     id, i: 0, steps, ingredients,
-    name: r.name, method: curMethodLabel, origin: r.origin || 'Fusion',
+    name: r.name, method: curMethodLabel, methodId: curMethodId, origin: r.origin || 'Fusion',
     color: al.color, dir: 1, finishedSaved: false
   };
   brewFillCurrent = 0;
@@ -2588,7 +2792,11 @@ function _buildBrewShell(){
         <div class="brew-stamp" data-stamp>✓ Boarded<br>Brew complete</div>
         <h2 class="brew-finish-title" data-finish-title></h2>
         <p class="brew-finish-sub" data-finish-sub></p>
-        <button class="brew-btn" data-restart type="button">↺ Brew again</button>
+        <div class="brew-finish-actions">
+          <button class="brew-btn" data-restart type="button">↺ Brew again</button>
+          <button class="brew-btn" data-finish-note type="button">✎ Add a tasting note</button>
+        </div>
+        <div class="brew-finish-journal" data-finish-journal hidden></div>
       </div>
     </div>
 
@@ -2633,7 +2841,9 @@ function _buildBrewShell(){
     stamp:       shell.querySelector('[data-stamp]'),
     finishTitle: shell.querySelector('[data-finish-title]'),
     finishSub:   shell.querySelector('[data-finish-sub]'),
-    restartBtn:  shell.querySelector('[data-restart]')
+    restartBtn:  shell.querySelector('[data-restart]'),
+    finishNote:  shell.querySelector('[data-finish-note]'),
+    finishJournal: shell.querySelector('[data-finish-journal]')
   };
 
   const color = brewState.color;
@@ -2675,6 +2885,27 @@ function _buildBrewShell(){
   brewEls.prevBtn.onclick = () => _brewGoto(brewState.i - 1);
   brewEls.nextBtn.onclick = () => _brewGoto(brewState.i + 1);
   brewEls.restartBtn.onclick = () => { brewState.finishedSaved = false; _brewGoto(0); };
+
+  /* Finish screen: "Add a tasting note" reveals the shared journal form,
+     pre-filled with the method just brewed, saving against this recipe. */
+  if(brewEls.finishNote) brewEls.finishNote.onclick = () => {
+    if(!brewEls.finishJournal) return;
+    if(brewEls.finishJournal.querySelector('[data-journal-form]')){   // toggle closed
+      brewEls.finishJournal.innerHTML = ''; brewEls.finishJournal.hidden = true;
+      brewEls.finishNote.classList.remove('open');
+      return;
+    }
+    brewEls.finishJournal.innerHTML = journalFormHTML(brewState.methodId || '');
+    brewEls.finishJournal.hidden = false;
+    brewEls.finishNote.classList.add('open');
+    const formEl = brewEls.finishJournal.querySelector('[data-journal-form]');
+    formEl._onCancel = () => { brewEls.finishJournal.innerHTML = ''; brewEls.finishJournal.hidden = true; brewEls.finishNote.classList.remove('open'); };
+    wireJournalForm(formEl, brewState.id, () => {
+      brewEls.finishJournal.innerHTML = '<p class="journal-saved-msg">Saved to your journal ☕</p>';
+      brewEls.finishNote.classList.remove('open');
+    });
+    formEl.querySelector('[data-journal-note]').focus();
+  };
 }
 
 function _buildBrewRail(){
@@ -2739,6 +2970,9 @@ function _renderBrewStep(){
   } else {
     brewEls.finishTitle.textContent = `Enjoy your ${brewState.name}`;
     brewEls.finishSub.textContent = `${brewState.method ? brewState.method + ' · ' : ''}${total} step${total === 1 ? '' : 's'} · from ${brewState.origin}`;
+    /* Reset any open/saved journal form from a previous finish. */
+    if(brewEls.finishJournal){ brewEls.finishJournal.innerHTML = ''; brewEls.finishJournal.hidden = true; }
+    if(brewEls.finishNote) brewEls.finishNote.classList.remove('open');
     if(!brewState.finishedSaved){
       brewState.finishedSaved = true;
       _markBrewTried(brewState.id);

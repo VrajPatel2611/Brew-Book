@@ -153,3 +153,21 @@ Same gotcha shape as Track 3.0: the app degrades gracefully if you skip this
 like any other sync error (shows "Sync error — will retry" in the account
 dropdown) — but pins won't actually persist to the cloud for signed-in users
 until the column exists, so don't skip it for long.
+
+---
+
+# Phase 3 — Tasting journal
+
+The tasting journal (a dated log of every brew of a recipe) is one-to-many,
+so it gets its own table rather than a column on `user_recipe_state`:
+
+1. **Run [`phase3-tasting-notes.sql`](./phase3-tasting-notes.sql)** once in
+   the SQL Editor — creates `tasting_notes` (id, user_id, recipe_id,
+   method_id, rating, note, brewed_at) with owner-scoped RLS like
+   `user_recipe_state`, plus an index on `(user_id, recipe_id, brewed_at)`.
+
+Degrades gracefully like the others: guests keep their journal in
+`localStorage` (`brewbook-tasting-<recipeId>`), and a signed-in user's notes
+are always mirrored locally too — so if you skip this migration, journaling
+still works, the cloud insert just no-ops until the table exists. First
+sign-in migrates any local notes up once (guarded on cloud emptiness).
