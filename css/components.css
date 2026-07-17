@@ -1025,6 +1025,24 @@
 .brew-step-title{font-family:var(--font-display);font-weight:700;font-size:clamp(19px,4.4vw,24px);color:var(--foam);line-height:1.25}
 .brew-step-text{font-family:var(--font-body);font-size:14.5px;line-height:1.55;color:var(--crema-dim)}
 
+/* Optional per-step countdown (rAF-driven). The ring drains as time elapses;
+   on completion it pulses. Never blocks "Next step". */
+.brew-timer{display:flex;align-items:center;gap:14px;margin-top:6px;--timer-color:var(--copper)}
+.brew-timer-ring{width:56px;height:56px;flex-shrink:0;transform:rotate(-90deg)}
+.brew-timer-track{fill:none;stroke:rgba(255,255,255,.1);stroke-width:5}
+.brew-timer-prog{fill:none;stroke:var(--timer-color);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .1s linear}
+.brew-timer-num{font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--foam);min-width:58px;font-variant-numeric:tabular-nums}
+.brew-timer-btn{
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--timer-color);background:transparent;border:1px solid var(--timer-color);
+  border-radius:999px;padding:8px 15px;cursor:pointer;transition:background .15s,color .15s;
+}
+.brew-timer-btn:hover{background:color-mix(in srgb, var(--timer-color) 18%, transparent)}
+.brew-timer.done .brew-timer-num{color:var(--green)}
+.brew-timer.done{animation:timerDonePulse .5s ease-out 2}
+@keyframes timerDonePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@media(prefers-reduced-motion:reduce){.brew-timer.done{animation:none}}
+
 /* Progress rail: one clickable segment per step */
 .brew-rail{display:flex;gap:5px;padding:0 18px 14px;flex-shrink:0;position:relative;z-index:1}
 .brew-seg{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.09);border:none;cursor:pointer;padding:0;transition:background .18s,transform .15s}

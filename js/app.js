@@ -2669,6 +2669,8 @@ let brewStarsSeeded  = false;
 let brewEls          = null;   // persistent DOM refs for the active brew session
 let brewFillCurrent  = 0;      // current animated vessel fill percentage (0-100)
 let brewFillRaf      = null;   // active requestAnimationFrame id
+let brewTimerId      = null;   // active step-timer setInterval id
+let brewTimerAudio   = null;   // lazily-created AudioContext for the done-chime
 
 /* Step → icon type, guessed from the step's title + instruction text. */
 const STEP_TYPE_KEYWORDS = [
@@ -2684,6 +2686,29 @@ function _stepType(step){
     if(words.some(w => text.includes(w))) return type;
   }
   return 'cup';
+}
+
+/* Countdown length for a step (Phase 3 Brew Mode timer). An explicit
+   step.seconds wins; otherwise parse the FIRST duration the instruction text
+   already states ("steep 4 minutes", "wait 30 seconds", "30–45 sec") — most
+   wait-steps say their time, so this needs no per-step data. Ranges use the
+   lower bound. Long unattended steeps ("12–18 hours") return null: a 12-hour
+   countdown ring is absurd, and the prose already says to walk away. */
+function stepSeconds(step){
+  if(!step) return null;
+  if(typeof step.seconds === 'number') return step.seconds;
+  const text = (typeof step === 'string' ? step : step.c) || '';
+  const m = text.match(/(\d+(?:\.\d+)?)(?:\s*[–-]\s*\d+(?:\.\d+)?)?\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b/i);
+  if(!m) return null;
+  const n = parseFloat(m[1]);
+  const unit = m[2].toLowerCase();
+  const secs = /^h/.test(unit) ? n * 3600 : /^m/.test(unit) ? n * 60 : n;
+  return secs > 0 && secs <= 900 ? Math.round(secs) : null;   // no live countdown past 15 min
+}
+function _fmtClock(s){
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s / 60);
+  return m + ':' + String(s % 60).padStart(2, '0');
 }
 const STEP_ICONS = {
   whisk: `<svg viewBox="0 0 22 22" fill="none"><path d="M11 3 L8 12 M11 3 L11 13 M11 3 L14 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 12 Q11 16 14 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 15 V19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
@@ -2785,6 +2810,14 @@ function _buildBrewShell(){
           <div class="brew-stepnum" data-stepnum></div>
           <div class="brew-step-title" data-step-title></div>
           <div class="brew-step-text" data-step-text></div>
+          <div class="brew-timer" data-timer hidden>
+            <svg class="brew-timer-ring" viewBox="0 0 64 64" aria-hidden="true">
+              <circle class="brew-timer-track" cx="32" cy="32" r="28"/>
+              <circle class="brew-timer-prog" data-timer-ring cx="32" cy="32" r="28"/>
+            </svg>
+            <div class="brew-timer-num" data-timer-num>0:00</div>
+            <button class="brew-timer-btn" data-timer-btn type="button">Start timer</button>
+          </div>
         </div>
       </div>
 
@@ -2832,6 +2865,10 @@ function _buildBrewShell(){
     stepnum:   shell.querySelector('[data-stepnum]'),
     stepTitle: shell.querySelector('[data-step-title]'),
     stepText:  shell.querySelector('[data-step-text]'),
+    timer:     shell.querySelector('[data-timer]'),
+    timerRing: shell.querySelector('[data-timer-ring]'),
+    timerNum:  shell.querySelector('[data-timer-num]'),
+    timerBtn:  shell.querySelector('[data-timer-btn]'),
     rail:      shell.querySelector('[data-rail]'),
     footer:    shell.querySelector('[data-footer]'),
     prevBtn:   shell.querySelector('[data-prev]'),
@@ -2930,6 +2967,7 @@ function _updateBrewRail(){
 
 function _brewGoto(newIndex){
   if(!brewState) return;
+  _clearStepTimer();
   const total = brewState.steps.length;
   newIndex = Math.max(0, Math.min(total, newIndex));
   brewState.dir = newIndex > brewState.i ? 1 : -1;
@@ -2960,6 +2998,7 @@ function _renderBrewStep(){
     brewEls.stepTitle.textContent = stepObj.t || '';
     brewEls.stepTitle.style.display = stepObj.t ? '' : 'none';
     brewEls.stepText.textContent = stepObj.c || '';
+    _setupStepTimer(stepSeconds(stepObj));
 
     brewEls.prevBtn.disabled = i === 0;
     brewEls.footerPct.textContent = pct + '%';
@@ -3009,6 +3048,88 @@ function _paintVessel(pct){
   if(brewEls.vesselSteam2) brewEls.vesselSteam2.style.opacity = steamOpacity;
 }
 
+/* ---------- step timer (Phase 3) ----------
+   Optional per-step countdown. Deliberately driven by a wall-clock +
+   setInterval, NOT requestAnimationFrame: rAF (right for the vessel fill)
+   PAUSES whenever the tab is backgrounded — which for a brew timer is exactly
+   when the user has walked away and most needs the chime. setInterval keeps
+   firing (throttled to ~1s) while hidden, and reading remaining time from
+   Date.now() means the count stays accurate regardless of throttling. It
+   never gates progress — "Next step" stays live throughout. */
+const _TIMER_RING_C = 2 * Math.PI * 28;   // circumference of the r=28 ring
+function _paintTimerRing(frac){
+  if(!brewEls || !brewEls.timerRing) return;
+  brewEls.timerRing.style.strokeDasharray = _TIMER_RING_C.toFixed(2);
+  brewEls.timerRing.style.strokeDashoffset = (_TIMER_RING_C * Math.min(1, Math.max(0, frac))).toFixed(2);
+}
+function _clearStepTimer(){
+  if(brewTimerId){ clearInterval(brewTimerId); brewTimerId = null; }
+}
+/* Prime the timer UI for a step (not running yet — the user starts it when
+   they're ready). secs falsy → hide the timer entirely for this step. */
+function _setupStepTimer(secs){
+  _clearStepTimer();
+  const el = brewEls && brewEls.timer;
+  if(!el) return;
+  if(!secs){ el.hidden = true; return; }
+  el.hidden = false;
+  el.classList.remove('done', 'running');
+  el.style.setProperty('--timer-color', brewState.color);
+  brewEls.timerNum.textContent = _fmtClock(secs);
+  brewEls.timerBtn.textContent = 'Start ' + _fmtClock(secs);
+  _paintTimerRing(0);
+  brewEls.timerBtn.onclick = () => _startStepTimer(secs);
+}
+function _startStepTimer(secs){
+  _clearStepTimer();
+  const el = brewEls.timer;
+  el.classList.remove('done'); el.classList.add('running');
+  brewEls.timerBtn.textContent = 'Reset';
+  brewEls.timerBtn.onclick = () => _setupStepTimer(secs);
+  const endAt = Date.now() + secs * 1000, durMs = secs * 1000;
+  const tick = () => {
+    const remaining = Math.max(0, endAt - Date.now());
+    brewEls.timerNum.textContent = _fmtClock(Math.ceil(remaining / 1000));
+    _paintTimerRing((durMs - remaining) / durMs);
+    if(remaining <= 0){ _clearStepTimer(); _onStepTimerDone(secs); }
+  };
+  tick();
+  brewTimerId = setInterval(tick, 200);
+}
+function _onStepTimerDone(secs){
+  const el = brewEls.timer;
+  el.classList.remove('running'); el.classList.add('done');
+  _paintTimerRing(1);
+  brewEls.timerNum.textContent = 'Done';
+  brewEls.timerBtn.textContent = 'Restart ' + _fmtClock(secs);
+  brewEls.timerBtn.onclick = () => _startStepTimer(secs);
+  _timerDoneCue();
+}
+/* A short two-note chime (WebAudio) + a mobile vibration pulse, so a user who
+   walked away from the screen mid-brew still gets the cue. Both are best-effort
+   and wrapped — no-ops where unsupported. The AudioContext is created lazily
+   inside a click handler so autoplay policies are satisfied. */
+function _timerDoneCue(){
+  try{ if(navigator.vibrate) navigator.vibrate([120, 60, 120]); }catch(e){}
+  try{
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    brewTimerAudio = brewTimerAudio || new Ctx();
+    const ctx = brewTimerAudio;
+    if(ctx.state === 'suspended') ctx.resume();
+    [[660, 0], [880, 0.18]].forEach(([freq, delay]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime + delay;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.start(t); o.stop(t + 0.18);
+    });
+  }catch(e){}
+}
+
 async function _markBrewTried(id){
   const r = recipes.find(x => x.id === id);
   if(!r) return;
@@ -3023,6 +3144,7 @@ async function _markBrewTried(id){
 
 function exitBrew(){
   cancelAnimationFrame(brewFillRaf);
+  _clearStepTimer();
   const bm = document.getElementById('brew-mode');
   bm.style.display = 'none';
   const shell = bm.querySelector('.brew-shell');
