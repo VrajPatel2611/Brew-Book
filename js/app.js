@@ -1063,6 +1063,62 @@ function metaBadgeHTML(r, methodId){
   return `<span class="meta-badge meta-${d}"><span class="meta-dot" aria-hidden="true"></span>${DIFF_LABEL[d] || d} · ${fmtDuration(recipeTimeMinutes(r, methodId))}</span>`;
 }
 
+/* ---------- units (Phase 3: metric / imperial) ----------
+   Persisted like the theme. Deliberately converts VOLUMES (ml/L → fl oz/cups)
+   and TEMPERATURES (°C → °F) only — weights are left in grams and tsp/tbsp/cup
+   are already US customary. Coffee is measured by weight in grams everywhere,
+   including US specialty coffee, so converting "17 g" to "0.6 oz" would be
+   worse, not better. fmtAmounts() is a no-op in metric, and rewrites amounts
+   in a free-text ingredient/step string in imperial. */
+let unitPref = 'metric';
+try{ const u = localStorage.getItem('bb-units'); if(u === 'imperial' || u === 'metric') unitPref = u; }catch(e){}
+function _trimNum(n){ return (Math.round(n * 100) / 100).toString(); }
+function _convVol(nStr, unit){
+  let ml = parseFloat(nStr);
+  if(/^l/i.test(unit)) ml *= 1000;
+  if(ml >= 240){ const cups = Math.round(ml / 240 * 4) / 4; return { val: cups, label: cups === 1 ? 'cup' : 'cups' }; }
+  return { val: Math.round(ml / 29.5735 * 2) / 2, label: 'fl oz' };
+}
+function fmtAmounts(text){
+  if(unitPref !== 'imperial' || !text) return text;
+  /* volumes: single "60 ml" or range "200–250 ml" / "1–2 l" */
+  text = text.replace(/(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?\s*(ml|l)\b/gi, (m, a, b, unit) => {
+    const A = _convVol(a, unit);
+    if(b != null){
+      const B = _convVol(b, unit);
+      return A.label === B.label
+        ? `${_trimNum(A.val)}–${_trimNum(B.val)} ${B.label}`
+        : `${_trimNum(A.val)} ${A.label}–${_trimNum(B.val)} ${B.label}`;
+    }
+    return `${_trimNum(A.val)} ${A.label}`;
+  });
+  /* temperatures: "93°C" / "93 °C" */
+  text = text.replace(/(\d+(?:\.\d+)?)\s*°\s*C\b/gi, (m, c) => Math.round(parseFloat(c) * 9 / 5 + 32) + '°F');
+  return text;
+}
+function unitsControlHTML(){
+  return `<div class="account-units-row">
+    <span class="account-units-label">Units</span>
+    <div class="qf-seg" data-units-seg>
+      <button class="qf-pill${unitPref==='metric'?' active':''}" data-unit="metric" type="button">Metric</button>
+      <button class="qf-pill${unitPref==='imperial'?' active':''}" data-unit="imperial" type="button">Imperial</button>
+    </div>
+  </div>`;
+}
+function wireUnitsControl(scope){
+  const seg = scope.querySelector('[data-units-seg]');
+  if(!seg) return;
+  seg.onclick = e => {
+    const b = e.target.closest('[data-unit]'); if(!b) return;
+    unitPref = b.dataset.unit;
+    try{ localStorage.setItem('bb-units', unitPref); }catch(err){}
+    seg.querySelectorAll('[data-unit]').forEach(x => x.classList.toggle('active', x.dataset.unit === unitPref));
+    /* Repaint anything showing amounts right now. */
+    if(currentScreen === 'screen-detail' && detailRecipeId) openDetail(detailRecipeId);
+    if(typeof brewState !== 'undefined' && brewState && brewEls) _renderBrewStep();
+  };
+}
+
 const pad = n => String(n).padStart(3,'0');
 function fmtDate(ts){ if(!ts) return ''; return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
 function fmtDateShort(ts){ if(!ts) return ''; const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}).toUpperCase(); }
@@ -1396,11 +1452,13 @@ function renderAccountDropdownBody(){
       <div class="account-email">${esc(currentUser.email || 'Signed in')}</div>
       <div class="account-sync-row"><span class="account-sync-dot ${syncState}"></span>${esc(SYNC_TEXT[syncState] || '')}</div>
       <button class="account-link-sub" id="acctEditEquipmentBtn" type="button">☕ Edit your brewing equipment</button>
+      ${unitsControlHTML()}
       <button class="btn account-btn-full" id="acctSignOutBtn" type="button">Sign out</button>`;
     const out = document.getElementById('acctSignOutBtn');
     if(out) out.onclick = handleSignOut;
     const eq = document.getElementById('acctEditEquipmentBtn');
     if(eq) eq.onclick = () => { accountOpen = false; renderAccountUI(); openEquipmentPicker('edit'); };
+    wireUnitsControl(body);
     return;
   }
 
@@ -1422,7 +1480,8 @@ function renderAccountDropdownBody(){
     <button class="btn account-btn-full account-google-btn" id="acctGoogleBtn" type="button">${gsvg} Continue with Google</button>
     <button class="account-link-sub" id="acctMagicLinkBtn" type="button">Email me a sign-in link instead</button>
     <p class="account-hint" id="acctHint">Your made, rated, and own recipes sync across devices. You can keep using Brew Book without signing in.</p>
-    <button class="account-link-sub" id="acctEditEquipmentBtn" type="button">☕ Edit your brewing equipment</button>`;
+    <button class="account-link-sub" id="acctEditEquipmentBtn" type="button">☕ Edit your brewing equipment</button>
+    ${unitsControlHTML()}`;
 
   const pwBtn = document.getElementById('acctPwBtn');
   if(pwBtn) pwBtn.onclick = handlePasswordAuth;
@@ -1436,6 +1495,7 @@ function renderAccountDropdownBody(){
   if(gBtn) gBtn.onclick = handleGoogleSignIn;
   const pw = document.getElementById('acctPassword');
   if(pw) pw.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); handlePasswordAuth(); } });
+  wireUnitsControl(body);
 }
 
 function setAccountHint(msg, isError){
@@ -2277,7 +2337,7 @@ function openDetail(id, cardEl){
 
     const ingHTML = ingredients.map((i) => `<div class="check-row" data-check role="button" tabindex="0" aria-pressed="false">
         <span class="check-box" aria-hidden="true" style="--check-color:${al.color}"></span>
-        <span class="check-text">${esc(i)}</span>
+        <span class="check-text">${esc(fmtAmounts(i))}</span>
       </div>`).join('');
 
     const stepHTML = steps.map((s, idx) => {
@@ -2288,7 +2348,7 @@ function openDetail(id, cardEl){
         <span class="timeline-num" style="border:1.5px solid ${al.color}66;color:${al.color}">${idx + 1}</span>
         <div class="timeline-body">
           ${st.t ? `<div class="timeline-title">${esc(st.t)}</div>` : ''}
-          <div class="timeline-text">${esc(st.c)}</div>
+          <div class="timeline-text">${esc(fmtAmounts(st.c))}</div>
         </div>
       </div>`;
     }).join('');
@@ -2901,7 +2961,7 @@ function _buildBrewShell(){
 
   brewEls.ingCount.textContent = brewState.ingredients.length ? `(${brewState.ingredients.length})` : '';
   brewEls.ingList.innerHTML = brewState.ingredients.map(i =>
-    `<li>${ingredientIcon(i)}<span>${esc(i)}</span></li>`
+    `<li>${ingredientIcon(i)}<span>${esc(fmtAmounts(i))}</span></li>`
   ).join('');
 
   _buildBrewRail();
@@ -2998,7 +3058,7 @@ function _renderBrewStep(){
     brewEls.stepnum.textContent = `STEP ${i + 1} OF ${total}`;
     brewEls.stepTitle.textContent = stepObj.t || '';
     brewEls.stepTitle.style.display = stepObj.t ? '' : 'none';
-    brewEls.stepText.textContent = stepObj.c || '';
+    brewEls.stepText.textContent = fmtAmounts(stepObj.c || '');
     _setupStepTimer(stepSeconds(stepObj));
 
     brewEls.prevBtn.disabled = i === 0;
