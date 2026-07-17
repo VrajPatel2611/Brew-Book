@@ -93,6 +93,9 @@ const STYLE_CATEGORIES = [
 const RECIPE_PALETTE = ['#cf7f45','#c0392b','#2f8f4e','#3a6db0','#d9893f'];
 const FORM_ACCENT = RECIPE_PALETTE[0];
 
+/* Pinned-favourites glyph, shared by collectionCard() and openDetail(). */
+const PIN_SVG = `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 14.5 C8 14.5 12.5 9.8 12.5 6.5 A4.5 4.5 0 0 0 3.5 6.5 C3.5 9.8 8 14.5 8 14.5Z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="6.3" r="1.6" fill="currentColor"/></svg>`;
+
 /* Custom recipes carry an explicit user-picked tagId (from the form's Tag
    select) since they can't match any seed id list. */
 function getStyleCategory(r) {
@@ -244,7 +247,7 @@ function loadCachedCatalog(){
 function applyCatalog(catalog){
   const user = loadUserData();
   recipes = catalog
-    .map(c => ({ ...c, tried: !!(user.state[c.id] && user.state[c.id].tried), rating: (user.state[c.id] && user.state[c.id].rating) || 0 }))
+    .map(c => ({ ...c, tried: !!(user.state[c.id] && user.state[c.id].tried), rating: (user.state[c.id] && user.state[c.id].rating) || 0, pinned: !!(user.state[c.id] && user.state[c.id].pinned) }))
     .concat(user.custom || []);
   render();
   renderCollection();
@@ -289,7 +292,7 @@ async function refreshCatalog(){
 function currentUserData(){
   const custom = recipes.filter(r => String(r.id).startsWith('custom-'));
   const state = {};
-  recipes.forEach(r => { if(r.tried || r.rating) state[r.id] = { tried: !!r.tried, rating: r.rating || 0 }; });
+  recipes.forEach(r => { if(r.tried || r.rating || r.pinned) state[r.id] = { tried: !!r.tried, rating: r.rating || 0, pinned: !!r.pinned }; });
   return { custom, state };
 }
 
@@ -319,6 +322,17 @@ async function saveRecipes(silent){
 }
 function rememberSeedDeletion(id){ /* no-op in Phase 1 — only custom recipes are deletable */ }
 
+/* Pinned favourites: flips r.pinned and repaints every surface that shows
+   pin state (lanes, Collection sort, World passes) — mirrors the existing
+   tried/rating toggle handlers in openDetail(). */
+async function togglePinned(id){
+  const r = recipes.find(x => x.id === id);
+  if(!r) return;
+  r.pinned = !r.pinned;
+  await saveRecipes();
+  render(); renderCollection(); renderWorldPasses();
+}
+
 /* ---------- cloud sync (Phase 2) ----------
    Full replace (delete-then-insert) of the signed-in user's rows in both
    tables on every save. Upsert alone can't propagate a local deletion, so a
@@ -339,8 +353,8 @@ async function pushUserDataToCloud(userId, custom, state){
     /* --- tried/rating → user_recipe_state, one row per interacted recipe --- */
     await sb.from('user_recipe_state').delete().eq('user_id', userId);
     const stateRows = Object.keys(state)
-      .filter(id => state[id] && (state[id].tried || state[id].rating))
-      .map(id => ({ user_id: userId, recipe_id: id, tried: !!state[id].tried, rating: state[id].rating || 0, updated_at: nowIso }));
+      .filter(id => state[id] && (state[id].tried || state[id].rating || state[id].pinned))
+      .map(id => ({ user_id: userId, recipe_id: id, tried: !!state[id].tried, rating: state[id].rating || 0, pinned: !!state[id].pinned, updated_at: nowIso }));
     if(stateRows.length){
       const { error } = await sb.from('user_recipe_state').insert(stateRows);
       if(error) return false;
@@ -362,7 +376,7 @@ async function refreshUserDataFromCloud(){
   if(recRes.error || stateRes.error) throw recRes.error || stateRes.error;
   const custom = (recRes.data || []).map(rowToRecipe);
   const state = {};
-  (stateRes.data || []).forEach(row => { state[row.recipe_id] = { tried: !!row.tried, rating: row.rating || 0 }; });
+  (stateRes.data || []).forEach(row => { state[row.recipe_id] = { tried: !!row.tried, rating: row.rating || 0, pinned: !!row.pinned }; });
   try{ localStorage.setItem(USERDATA_CLOUD_CACHE_KEY, JSON.stringify({ userId, custom, state })); }catch(e){}
   safeApplyCatalog(loadCachedCatalog() || seedCatalog());
 }
@@ -1363,12 +1377,11 @@ function emptyStateHTML(opts){
   </div>`;
 }
 
-/* ---------- render (home — list view) ---------- */
-function render(){
-  updateNavCountPill();
-  syncChips();
-
-  /* Build the base filtered list (method + tried + search + kitchen) */
+/* Base filtered list shared by render() and surpriseMe(): method chip +
+   tried/to-try + search term. Deliberately excludes the kitchen filter,
+   which only dims non-matching cards via matchState rather than removing
+   them, so it shouldn't narrow what Surprise Me can pick either. */
+function visibleRecipeList(){
   let list = recipes.slice();
   if(activeMethod !== 'all') list = list.filter(r => (['moka','instant','blender','cezve'].includes(r.method) ? r.method : 'other') === activeMethod);
   if(triedFilter === 'tried') list = list.filter(r => r.tried);
@@ -1377,6 +1390,32 @@ function render(){
     const q = searchTerm.toLowerCase();
     list = list.filter(r => r.name.toLowerCase().includes(q) || (r.description||'').toLowerCase().includes(q) || (r.origin||'').toLowerCase().includes(q) || (r.ingredients||[]).some(i => i.toLowerCase().includes(q)));
   }
+  return list;
+}
+
+/* Picks a random recipe from whatever's currently visible (respecting the
+   active method/tried/search filters) and jumps straight to its Detail
+   screen, with a brief flash on the boarding-pass stripe so the jump feels
+   intentional rather than jarring. */
+function surpriseMe(){
+  const list = visibleRecipeList();
+  if(list.length === 0){ showToast('Nothing to surprise you with — try widening your brew methods'); return; }
+  const pick = list[Math.floor(Math.random() * list.length)];
+  openDetail(pick.id);
+  requestAnimationFrame(() => {
+    const stripe = document.querySelector('.detail-hero-stripe');
+    if(!stripe) return;
+    stripe.classList.add('flash');
+    setTimeout(() => stripe.classList.remove('flash'), 700);
+  });
+}
+
+/* ---------- render (home — list view) ---------- */
+function render(){
+  updateNavCountPill();
+  syncChips();
+
+  let list = visibleRecipeList();
   if(sortBy === 'serial') list.sort((a,b)=>(a.serial||0)-(b.serial||0));
   else if(sortBy === 'newest') list.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   else if(sortBy === 'rating') list.sort((a,b)=>(b.rating||0)-(a.rating||0) || (a.serial||0)-(b.serial||0));
@@ -1426,7 +1465,9 @@ function render(){
     ? list
     : list.filter(r => STYLE_CATEGORIES.find(c => c.id === activeCategory)?.ids.includes(r.id));
 
-  let html = heroHTML(heroRec);
+  const pinnedList = list.filter(r => r.pinned);
+  let html = pinnedList.length ? _laneHTML('📌 Pinned', pinnedList, kActive, kset) : '';
+  html += heroHTML(heroRec);
   html += categoryChipsHTML(list);
 
   const sectionTitle = activeCategory === 'all'
@@ -1531,6 +1572,7 @@ function collectionCard(r, opts){
             <div class="coll-card-no">Brew No. ${pad(r.serial || 0)}</div>
           </div>
           <div class="coll-card-right">
+            <button class="coll-icon-btn coll-pin-btn${r.pinned?' is-pinned':''}" data-pin aria-label="${r.pinned?'Unpin':'Pin'} recipe">${PIN_SVG}</button>
             ${custom ? `<button class="coll-icon-btn" data-edit aria-label="Edit recipe">✎</button><button class="coll-icon-btn" data-delete aria-label="Delete recipe">✕</button>` : ''}
             <span class="coll-badge" style="background:${color}">${esc(code)}</span>
           </div>
@@ -1572,8 +1614,9 @@ function syncCollToggle(){
 function renderCollection(){
   syncCollToggle();
 
-  const catalog = recipes.filter(r => !String(r.id).startsWith('custom-')).sort((a, b) => (a.serial || 0) - (b.serial || 0));
-  const mine    = recipes.filter(r => String(r.id).startsWith('custom-')).sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const pinnedFirst = (a, b) => (b.pinned?1:0) - (a.pinned?1:0) || (a.serial || 0) - (b.serial || 0);
+  const catalog = recipes.filter(r => !String(r.id).startsWith('custom-')).sort(pinnedFirst);
+  const mine    = recipes.filter(r => String(r.id).startsWith('custom-')).sort(pinnedFirst);
   const triedCount = catalog.filter(r => r.tried).length;
 
   const progRow   = document.getElementById('collProgressRow');
@@ -1704,6 +1747,51 @@ function refreshCurrentGate(){
   if(locked) return;
   if(currentScreen === 'screen-collection'){ renderCollection(); if(window._resetCollHeaderScroll) window._resetCollHeaderScroll(); }
   if(currentScreen === 'screen-world'){ syncWorldToggle(); renderWorldPasses(); if(worldView === 'map') initWorldMap(); }
+}
+
+/* ---------- similar recipes ("you might also like") ----------
+   Scores every other recipe against r and returns the top n. Reuses
+   getStyleCategory() (flavour lane) and getOwnedEquipmentSet() (Track 3.0
+   onboarding) rather than anything new. _canMakeWithOwned is a small local
+   check for scoring purposes only — not the full Track 3b equipment filter. */
+function _canMakeWithOwned(x, owned){
+  if(owned.has(x.method)) return true;
+  return (x.methods || []).some(m => owned.has(m.id));
+}
+function similarRecipes(r, n){
+  n = n || 4;
+  const cat = getStyleCategory(r);
+  const owned = getOwnedEquipmentSet();
+  const scored = recipes
+    .filter(x => x.id !== r.id)
+    .map(x => ({
+      x,
+      score: (getStyleCategory(x) === cat ? 2 : 0)
+           + (x.method === r.method ? 1 : 0)
+           + (r.origin && x.origin === r.origin ? 1 : 0)
+           + (owned.size && _canMakeWithOwned(x, owned) ? 1 : 0)
+    }))
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const picks = scored.slice(0, n).map(s => s.x);
+  if(picks.length < n){
+    const have = new Set(picks.map(p => p.id));
+    have.add(r.id);
+    for(const x of recipes.slice().sort((a,b) => (a.serial||0)-(b.serial||0))){
+      if(picks.length >= n) break;
+      if(have.has(x.id)) continue;
+      picks.push(x); have.add(x.id);
+    }
+  }
+  return picks;
+}
+function similarRecipesHTML(r){
+  const sims = similarRecipes(r);
+  if(!sims.length) return '';
+  return `<div class="detail-block similar-block">
+    <div class="detail-block-label">You might also like</div>
+    <div class="similar-row">${sims.map(x => collectionCard(x, {showRatio:true})).join('')}</div>
+  </div>`;
 }
 
 /* ---------- detail (its own screen — breadcrumb, hero, story/ingredients/steps) ---------- */
@@ -1843,9 +1931,12 @@ function openDetail(id, cardEl){
       ${methodTabsHTML()}
       <div data-method-content>${bodyContentHTML()}</div>
 
+      ${similarRecipesHTML(r)}
+
       <div class="detail-made-row">
         <button class="detail-made-toggle ${r.tried?'on':''}" data-made type="button"><span class="box">✓</span>${r.tried?'Made it':'Mark as made'}<span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span><span class="puff"></span></button>
         <div class="detail-rate-wrap"><span class="detail-rate-label">Your rating</span><div class="detail-rate-stars" data-rate>${[1,2,3,4,5].map(i=>`<button data-star="${i}" class="${i<=(r.rating||0)?'on':''}" aria-label="${i} star">★</button>`).join('')}</div></div>
+        <button class="detail-pin-btn ${r.pinned?'on':''}" data-pin type="button" aria-label="${r.pinned?'Unpin':'Pin'} recipe">${PIN_SVG}</button>
       </div>
 
       <div class="detail-cta-footer">
@@ -1880,6 +1971,14 @@ function openDetail(id, cardEl){
     });
   }
   wireChecks();
+
+  content.querySelectorAll('.similar-row .coll-card').forEach(card => {
+    card.onclick = async e => {
+      const pinBtn = e.target.closest('[data-pin]');
+      if(pinBtn){ e.stopPropagation(); await togglePinned(card.dataset.id); openDetail(id, cardEl); return; }
+      openDetail(card.dataset.id, card);
+    };
+  });
 
   const picksToggle = content.querySelector('[data-picks-toggle]');
   if(picksToggle) picksToggle.onclick = () => { picksToggle.classList.toggle('open'); content.querySelector('[data-picks-body]').classList.toggle('open'); };
@@ -1923,6 +2022,8 @@ function openDetail(id, cardEl){
     if(r.rating > 0) r.tried = true;
     await saveRecipes(); render(); renderCollection(); renderWorldPasses(); openDetail(id, cardEl);
   });
+  const pinBtn = content.querySelector('.detail-made-row [data-pin]');
+  if(pinBtn) pinBtn.onclick = async () => { await togglePinned(id); openDetail(id, cardEl); };
   const editBtn = content.querySelector('[data-edit]');
   if(editBtn) editBtn.onclick = () => openForm(r.id);
   const deleteBtn = content.querySelector('[data-delete]');
@@ -2536,12 +2637,18 @@ document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', (
   brand.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); goHome(); } });
 })();
 
-document.getElementById('content').addEventListener('click', e => {
+document.getElementById('content').addEventListener('click', async e => {
+  const pinBtn = e.target.closest('[data-pin]');
+  if(pinBtn){ e.stopPropagation(); await togglePinned(pinBtn.closest('.coll-card').dataset.id); return; }
+
   const card = e.target.closest('.coll-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
 });
 document.getElementById('collection-content').addEventListener('click', async e => {
   if(e.target.closest('#collAddCard')){ openForm(null); return; }
+
+  const pinBtn = e.target.closest('[data-pin]');
+  if(pinBtn){ e.stopPropagation(); await togglePinned(pinBtn.closest('.coll-card').dataset.id); return; }
 
   const editBtn = e.target.closest('[data-edit]');
   if(editBtn){ e.stopPropagation(); openForm(editBtn.closest('.coll-card').dataset.id); return; }
@@ -2574,7 +2681,10 @@ document.querySelectorAll('.world-seg').forEach(b => b.addEventListener('click',
 }));
 
 const worldPassesEl = document.getElementById('worldPasses');
-if(worldPassesEl) worldPassesEl.addEventListener('click', e => {
+if(worldPassesEl) worldPassesEl.addEventListener('click', async e => {
+  const pinBtn = e.target.closest('[data-pin]');
+  if(pinBtn){ e.stopPropagation(); await togglePinned(pinBtn.closest('.coll-card').dataset.id); return; }
+
   const card = e.target.closest('.coll-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
 });
@@ -2604,6 +2714,8 @@ document.addEventListener('pointerdown', e => {
 
 let searchTimer = null;
 document.getElementById('addBtn').onclick = () => openForm(null);
+const surpriseBtn = document.getElementById('surpriseBtn');
+if(surpriseBtn) surpriseBtn.onclick = surpriseMe;
 document.getElementById('searchInput').oninput = e => {
   searchTerm = e.target.value;
   document.querySelector('.search-wrap').classList.toggle('has-term', !!e.target.value.trim());

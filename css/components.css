@@ -314,6 +314,7 @@
 }
 .icon-toggle:hover{border-color:var(--copper-soft);color:var(--crema)}
 .icon-toggle .kitchen-icon{width:18px;height:18px}
+.icon-toggle .surprise-icon{width:18px;height:18px}
 /* Theme toggle: show the sun in dark mode (tap → light) and the moon in
    light mode (tap → dark). */
 .theme-toggle .theme-ico{width:18px;height:18px}
@@ -678,6 +679,8 @@
   box-shadow:0 30px 70px -30px rgba(0,0,0,.7);
 }
 .detail-hero-stripe{position:absolute;left:0;top:0;bottom:0;width:6px}
+@keyframes stripeFlash{0%{filter:brightness(1)}30%{filter:brightness(1.9)}100%{filter:brightness(1)}}
+.detail-hero-stripe.flash{animation:stripeFlash .7s ease-out}
 .detail-hero::before{content:'';position:absolute;top:0;left:30px;right:30px;height:1.5px;background:linear-gradient(90deg,transparent,rgba(255,247,236,.35),transparent)}
 .detail-hero-glow{position:absolute;inset:0;pointer-events:none}
 .detail-hero-inner{position:relative;display:flex;align-items:center;gap:30px;padding:38px 42px;flex-wrap:wrap}
@@ -710,6 +713,15 @@
 .detail-rate-stars button{background:none;border:none;cursor:pointer;font-size:22px;color:rgba(255,255,255,.15);padding:0;line-height:1;transition:transform .1s,color .12s}
 .detail-rate-stars button:hover{transform:scale(1.15)}
 .detail-rate-stars button.on{color:var(--gold)}
+.detail-pin-btn{
+  flex:0 0 auto;width:44px;height:44px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.02);border:1px solid var(--line);color:var(--crema-dim);
+  cursor:pointer;transition:all .18s;
+}
+.detail-pin-btn svg{width:17px;height:17px}
+.detail-pin-btn:hover{border-color:var(--copper-soft);color:var(--crema)}
+.detail-pin-btn.on{background:var(--copper);border-color:var(--copper);color:var(--bg-dark-2)}
 
 /* Two-column body: story/bean/ingredients (300px) on the left,
    steps/notes (flex) on the right — matches the reference's 300px/1fr grid. */
@@ -766,6 +778,15 @@
 .timeline-body{padding-top:4px}
 .timeline-title{font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--foam);margin-bottom:0}
 .timeline-text{font-family:var(--font-body);font-size:14px;line-height:1.6;color:var(--crema-dim);margin-top:5px;max-width:480px}
+
+/* "You might also like" — horizontal scroll row of collectionCard()s below
+   ingredients/steps. Fixed-width cards since .coll-card is normally sized
+   by its parent CSS grid, not by content. */
+.similar-block{margin-top:36px}
+.similar-row{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.similar-row .coll-card{width:250px;flex-shrink:0;scroll-snap-align:start}
+.similar-row::-webkit-scrollbar{height:6px}
+.similar-row::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 
 /* Dashed CTA footer with the Start-the-recipe pill */
 .detail-cta-footer{display:flex;align-items:center;gap:16px;margin-top:36px;padding:24px 0 10px;border-top:1px dashed var(--hair-14)}
@@ -1094,6 +1115,8 @@
 }
 .coll-icon-btn:hover{border-color:var(--copper);color:var(--crema)}
 .coll-icon-btn[data-delete]:hover{border-color:var(--danger);color:var(--danger)}
+.coll-pin-btn svg{width:12px;height:12px}
+.coll-pin-btn.is-pinned{border-color:var(--copper);color:var(--copper);background:rgba(207,127,69,.14)}
 
 /* Name + description each reserve a fixed 2-line height and clamp with an
    ellipsis past that. This keeps every card's content the exact same height

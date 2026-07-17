@@ -135,3 +135,21 @@ recipes. That's real editorial judgment — e.g. deciding whether Ethiopian
 coffee should offer a `jebena` variant — and is scoped as its own follow-up
 content pass rather than guessed at here. This pass only did the mechanical,
 safe rename plus the taxonomy/onboarding infrastructure.
+
+---
+
+# Phase 3 — Track 3a (light discovery: Surprise Me, Similar recipes, Pinned)
+
+Surprise Me and Similar recipes are pure client-side features — no schema
+changes, nothing to run. Pinned favourites adds one boolean column:
+
+1. **Run [`phase3-pinned.sql`](./phase3-pinned.sql)** once in the SQL Editor
+   — adds `pinned boolean not null default false` to the existing
+   `user_recipe_state` table (same RLS as tried/rating already covers it,
+   no policy changes needed).
+
+Same gotcha shape as Track 3.0: the app degrades gracefully if you skip this
+— pinning still works locally and `saveRecipes()`'s cloud push just fails
+like any other sync error (shows "Sync error — will retry" in the account
+dropdown) — but pins won't actually persist to the cloud for signed-in users
+until the column exists, so don't skip it for long.
