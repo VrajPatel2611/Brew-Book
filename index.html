@@ -36,7 +36,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=4">
   <link rel="stylesheet" href="./css/base.css?v=2">
-  <link rel="stylesheet" href="./css/components.css?v=52">
+  <link rel="stylesheet" href="./css/components.css?v=53">
 
   <!-- Set the theme before first paint so there's no flash of the wrong mode -->
   <script>
@@ -420,6 +420,24 @@
           </div>
         </div>
       </div>
+      <div class="kitchen-toggle-wrap" id="equipFilterWrap">
+        <button class="icon-toggle" id="equipFilterToggle" aria-label="Filter by brewing equipment you own" aria-haspopup="true" aria-expanded="false">
+          <svg class="equip-icon" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <path d="M8 5 H18 L16.5 17 a2.5 2.5 0 0 1-2.5 2.2 H10.5 A2.5 2.5 0 0 1 8 17 Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M18 8 h3.2 a2.4 2.4 0 0 1 0 5 H17" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M6 22 H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="icon-badge" id="equipFilterBadge" style="display:none"></span>
+        </button>
+        <div class="kitchen-dropdown" id="equipFilterDropdown" style="display:none">
+          <div class="kitchen-dropdown-label">What do you brew with?</div>
+          <div class="eq-groups" id="equipFilterChips" role="group" aria-label="Brewing equipment you own"></div>
+          <div class="if-result" id="equipFilterResult" style="display:none">
+            <span class="if-result-txt">Showing <b id="equipFilterCount">0</b> recipes you can make</span>
+            <button class="if-clear" id="equipFilterClear">Clear all</button>
+          </div>
+        </div>
+      </div>
       <button class="icon-toggle" id="surpriseBtn" aria-label="Surprise me — jump to a random recipe" type="button">
         <svg class="surprise-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" stroke-width="1.6"/>
@@ -649,10 +667,10 @@
 </script>
 
 <!-- App -->
-<script src="./js/data.js?v=1"></script>
+<script src="./js/data.js?v=2"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
-<script src="./js/app.js?v=44"></script>
+<script src="./js/app.js?v=45"></script>
 
 <!-- PWA install + self-updating service worker. Registration failures are
      silent (older browsers, or serving over plain http on a non-localhost

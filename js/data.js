@@ -48,9 +48,76 @@ const EQUIPMENT_TAXONOMY = [
   { id:'blender',        label:'Blender',                          category:'Other',                 hint:'Frappé-style — blended with ice until frothy.' },
   { id:'other',          label:'Other / anything else',            category:'Other',                 hint:"Something not listed — or you're not sure yet." }
 ];
+
+/* ---------- method difficulty + time (Phase 3b) ----------
+   Difficulty and active/total time are intrinsic to the BREW METHOD, not the
+   individual recipe — a stranger has no way to know a moka pot is more
+   forgiving than a cezve, or that a cold brew takes overnight. So rather than
+   hand-tagging every recipe and every method variant, we derive the badge
+   from this one map keyed by canonical equipment id. `recipeDifficulty()` /
+   `recipeTimeMinutes()` in app.js look up by the recipe's (or the currently
+   selected variant's) method, so the Detail badge updates live when the
+   method switcher changes, and custom recipes get a sensible badge for free.
+
+   difficulty: how much a first-timer can get wrong — does it need a scale,
+   precise water temp, timing windows, or practiced pour technique (hard) vs.
+   being forgiving of imprecision (easy).
+   minutes: rough active/total time; long unattended steeps use a realistic
+   figure (cold brew ≈ 12h) that fmtDuration() renders as "12h". */
+const METHOD_META = {
+  instant:       { difficulty:'easy',     minutes:3 },
+  coffee_bags:   { difficulty:'easy',     minutes:5 },
+  french_press:  { difficulty:'easy',     minutes:8 },
+  cold_brew:     { difficulty:'easy',     minutes:720 },
+  siphon:        { difficulty:'advanced', minutes:12 },
+  cowboy:        { difficulty:'easy',     minutes:10 },
+  v60:           { difficulty:'medium',   minutes:5 },
+  chemex:        { difficulty:'medium',   minutes:6 },
+  kalita:        { difficulty:'medium',   minutes:5 },
+  pour_over:     { difficulty:'medium',   minutes:5 },
+  hybrid_dripper:{ difficulty:'medium',   minutes:5 },
+  drip_machine:  { difficulty:'easy',     minutes:8 },
+  pod_machine:   { difficulty:'easy',     minutes:2 },
+  espresso:      { difficulty:'advanced', minutes:4 },
+  moka:          { difficulty:'easy',     minutes:8 },
+  aeropress:     { difficulty:'easy',     minutes:4 },
+  percolator:    { difficulty:'medium',   minutes:12 },
+  cezve:         { difficulty:'medium',   minutes:8 },
+  phin:          { difficulty:'easy',     minutes:6 },
+  south_indian:  { difficulty:'medium',   minutes:20 },
+  dallah:        { difficulty:'medium',   minutes:15 },
+  jebena:        { difficulty:'advanced', minutes:35 },
+  kopi_tubruk:   { difficulty:'easy',     minutes:8 },
+  cold_drip:     { difficulty:'advanced', minutes:240 },
+  nitro:         { difficulty:'medium',   minutes:5 },
+  blender:       { difficulty:'easy',     minutes:5 },
+  other:         { difficulty:'easy',     minutes:5 },
+  _DEFAULT:      { difficulty:'easy',     minutes:5 }
+};
+
+/* ---------- serve style (Phase 3b: Hot / Iced filter) ----------
+   Whether a drink is served hot, iced, or works either way. Kept as a compact
+   id-keyed side-table (same pattern as ROASTER_PICKS below) rather than a
+   field on every recipe: only the non-hot drinks are listed, everything else
+   defaults to 'hot'. Because recipe ids are stable across the bundled seed and
+   the live Supabase catalog, this needs no DB column or seed regen — it can't
+   be knocked out of sync by a stale live catalog. `recipeServe()` in app.js
+   reads `r.serve` first (for custom recipes), then this map, then 'hot'. */
+const SERVE = {
+  'seed-mango':'iced', 'seed-suada':'iced', 'seed-mazagran':'iced',
+  'seed-shakerato':'iced', 'seed-orange':'iced', 'seed-pineapple':'iced',
+  'seed-coffeejelly':'iced', 'seed-dirty':'iced', 'seed-brownsugar':'iced',
+  'seed-cheesefoam':'iced', 'seed-flashbrew':'iced', 'seed-frappe':'iced',
+  'seed-dalgona':'iced', 'seed-banana':'iced', 'seed-coldcoffee':'iced',
+  'seed-chikoo':'iced', 'seed-coconut':'iced', 'seed-kopisusu':'iced',
+  'seed-thai':'iced', 'seed-dolcelatte':'iced', 'seed-saltcoffee':'iced',
+  'seed-affogato':'either', 'seed-yuenyeung':'either'
+};
 let recipes = [];
 let activeMethod = 'all';
 let triedFilter = 'all';   // all | tried | totry
+let serveFilter = 'all';   // all | hot | iced   (Phase 3b Hot/Iced filter)
+let activeDifficulty = 'all'; // all | easy | medium | advanced (Phase 3b)
 let sortBy = 'serial';
 let searchTerm = '';
 let editingId = null;

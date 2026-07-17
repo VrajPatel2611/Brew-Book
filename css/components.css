@@ -315,6 +315,7 @@
 .icon-toggle:hover{border-color:var(--copper-soft);color:var(--crema)}
 .icon-toggle .kitchen-icon{width:18px;height:18px}
 .icon-toggle .surprise-icon{width:18px;height:18px}
+.icon-toggle .equip-icon{width:19px;height:19px}
 /* Theme toggle: show the sun in dark mode (tap → light) and the moon in
    light mode (tap → dark). */
 .theme-toggle .theme-ico{width:18px;height:18px}
@@ -347,6 +348,10 @@
 .kitchen-dropdown-label{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--crema-dim);margin-bottom:10px}
 .kitchen-dropdown .if-chips{-webkit-mask-image:none;mask-image:none;flex-wrap:wrap;overflow:visible;padding:0}
 .kitchen-dropdown .if-result{padding:10px 0 0;margin-top:4px;border-top:1px dashed var(--line)}
+/* Equipment filter reuses the kitchen dropdown chrome; its taxonomy chip
+   groups scroll within a bounded height so the panel never runs off-screen. */
+#equipFilterDropdown .eq-groups{max-height:min(52vh,340px)}
+#equipFilterDropdown .eq-chip{padding:6px 12px}
 
 /* ─── ACCOUNT (sign-in / cloud sync) ───
    Same icon-button + dropdown pattern as the kitchen filter above, so it
@@ -1130,6 +1135,32 @@
   font-family:var(--font-display);font-style:italic;font-size:12px;line-height:1.45;color:var(--crema-dim);margin-top:6px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:35px;
 }
+
+/* Difficulty · time badge + "(via X)" equipment-match note, sat between the
+   description and the dashed footer. */
+.coll-card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+.meta-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--crema-dim);background:rgba(255,255,255,.04);border:1px solid var(--hair-14);
+  border-radius:999px;padding:3px 9px;white-space:nowrap;
+}
+.meta-dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted-2);flex-shrink:0}
+.meta-badge.meta-easy .meta-dot{background:var(--green)}
+.meta-badge.meta-medium .meta-dot{background:var(--copper)}
+.meta-badge.meta-advanced .meta-dot{background:var(--danger)}
+.coll-via{font-family:var(--font-mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--copper)}
+
+/* ─── QUICK FILTERS (Hot/Iced + difficulty segmented pills) ─── */
+.quick-filters{display:flex;flex-wrap:wrap;gap:12px;padding:4px 18px 2px;align-items:center}
+.qf-seg{display:inline-flex;align-items:center;gap:2px;background:var(--surf-2);border:1px solid var(--hair-12);border-radius:11px;padding:3px}
+.qf-pill{
+  font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--crema-dim);background:transparent;border:none;border-radius:8px;
+  padding:6px 13px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;
+}
+.qf-pill.active{background:var(--copper);color:var(--bg-dark-2)}
+.qf-pill:not(.active):hover{color:var(--crema)}
 
 .coll-card-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--hair-18)}
 .coll-card-method-label{font-family:var(--font-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted-2)}

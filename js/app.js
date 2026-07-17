@@ -165,14 +165,37 @@ function hasSupabaseSession(){
 async function storeGet(key){ if(hasClaudeStorage){ const r = await window.storage.get(key); return r ? r.value : null; } return localStorage.getItem(key); }
 async function storeSet(key, value){ if(hasClaudeStorage){ const r = await window.storage.set(key, value); return !!r; } localStorage.setItem(key, value); return true; }
 
+/* Legacy → canonical brew-method ids. Track 3.0 renamed the flat method
+   strings to the EQUIPMENT_TAXONOMY ids, and regenerated supabase/seed.sql —
+   but the LIVE Supabase catalog keeps the old strings ("moka pot", "blended",
+   …) until that seed is re-run in the dashboard. Rather than depend on that
+   manual step, we normalise legacy ids as rows enter the app so everything
+   downstream — method labels, the difficulty/time badge (METHOD_META), and
+   the equipment filter — only ever sees canonical ids and works regardless of
+   the live DB's state. The bundled seed already uses canonical ids, so this is
+   a no-op there. */
+const LEGACY_METHOD_ALIASES = {
+  'moka pot':'moka', 'blended':'blender', 'pour over':'pour_over',
+  'french press':'french_press', 'cold brew':'cold_brew'
+};
+function canonicalMethodId(id){
+  if(!id) return id;
+  const inTaxonomy = v => typeof EQUIPMENT_TAXONOMY !== 'undefined' && EQUIPMENT_TAXONOMY.some(m => m.id === v);
+  if(inTaxonomy(id)) return id;
+  if(LEGACY_METHOD_ALIASES[id]) return LEGACY_METHOD_ALIASES[id];
+  const us = String(id).toLowerCase().replace(/\s+/g,'_');
+  return inTaxonomy(us) ? us : id;
+}
+
 /* Map a Supabase row (snake_case) to the recipe shape the UI expects. */
 function rowToRecipe(row){
   return {
     id: row.id, serial: row.serial, name: row.name, origin: row.origin,
-    method: row.method, ratio: row.ratio, ratioLabel: row.ratio_label,
+    method: canonicalMethodId(row.method), ratio: row.ratio, ratioLabel: row.ratio_label,
     strength: row.strength, description: row.description, story: row.story,
     bean: row.bean, notes: row.notes,
-    ingredients: row.ingredients || [], steps: row.steps || [], methods: row.methods || [],
+    ingredients: row.ingredients || [], steps: row.steps || [],
+    methods: (row.methods || []).map(m => ({ ...m, id: canonicalMethodId(m.id) })),
     roasterPicks: row.roaster_picks || null,
     color: row.color || undefined, tagId: row.tag_id || undefined, code: row.code || undefined,
     createdAt: row.created_at ? new Date(row.created_at).getTime() : 0,
@@ -434,6 +457,9 @@ async function refreshEquipmentFromCloud(){
   if(error) throw error;
   ownedEquipment = (data && data.equipment) || [];
   try{ localStorage.setItem(EQUIPMENT_CLOUD_CACHE_KEY, JSON.stringify({ userId, equipment: ownedEquipment, onboarded: !!(data && data.onboarded) })); }catch(e){}
+  /* Reflect the freshly-pulled profile in the header equipment filter + catalog. */
+  if(typeof renderEquipment === 'function') renderEquipment();
+  if(typeof render === 'function') render();
 }
 
 /* First-ever sign-in: if this account has no equipment row yet, carry over
@@ -537,6 +563,10 @@ function openEquipmentPicker(mode){
       saveGuestEquipment(list, true);
     }
     closeEquipmentPicker();
+    /* Onboarding picker and the header equipment filter are the same profile —
+       reflect the new selection in the filter + catalog immediately. */
+    if(typeof renderEquipment === 'function') renderEquipment();
+    if(typeof render === 'function') render();
     if(!skipped) showToast(list.length ? 'Saved your equipment ☕' : 'Saved — showing everything');
   };
 
@@ -592,7 +622,8 @@ async function initAuth(){
     } else if(event === 'SIGNED_OUT'){
       currentUser = null; syncState = 'idle'; accountOpen = false;
       try{ localStorage.removeItem(USERDATA_CLOUD_CACHE_KEY); localStorage.removeItem(EQUIPMENT_CLOUD_CACHE_KEY); }catch(e){}
-      ownedEquipment = [];
+      ownedEquipment = loadGuestEquipment().equipment;   // restore the untouched guest equipment profile
+      if(typeof renderEquipment === 'function') renderEquipment();
       renderAccountUI();
       refreshCurrentGate();   // re-lock World/Collection if the user is on it
       loadRecipes();   // repaint from the untouched guest data
@@ -887,6 +918,53 @@ function equipmentSelectOptionsHTML(selectedId){
     </optgroup>
   `).join('');
 }
+/* ---------- difficulty + time (Phase 3b) ----------
+   Derived from the brew method (METHOD_META in data.js), so the badge is
+   accurate per method with no per-recipe data, and updates live on the Detail
+   screen when the method switcher changes. An explicit r.difficulty /
+   r.timeMinutes (or the same on a methods[] variant) still wins if ever set —
+   e.g. a future custom recipe — otherwise we look up by the method id. */
+function methodMeta(id){
+  return (typeof METHOD_META !== 'undefined' && (METHOD_META[id] || METHOD_META._DEFAULT)) || { difficulty:'easy', minutes:5 };
+}
+function _methodVariant(r, methodId){
+  if(!methodId || !r.methods) return null;
+  return r.methods.find(m => m.id === methodId) || null;
+}
+function recipeDifficulty(r, methodId){
+  const v = _methodVariant(r, methodId);
+  if(v && v.difficulty) return v.difficulty;
+  if(!methodId && r.difficulty) return r.difficulty;
+  return methodMeta(methodId || r.method).difficulty;
+}
+function recipeTimeMinutes(r, methodId){
+  const v = _methodVariant(r, methodId);
+  if(v && v.timeMinutes) return v.timeMinutes;
+  if(!methodId && r.timeMinutes) return r.timeMinutes;
+  return methodMeta(methodId || r.method).minutes;
+}
+/* Serve style for the Hot/Iced filter — r.serve (custom recipes), else the
+   SERVE side-table (catalog), else 'hot'. */
+function recipeServe(r){
+  if(r.serve) return r.serve;
+  if(typeof SERVE !== 'undefined' && SERVE[r.id]) return SERVE[r.id];
+  return 'hot';
+}
+const DIFF_LABEL = { easy:'Easy', medium:'Medium', advanced:'Advanced' };
+/* Render N minutes as a compact human string: "3 min", "45 min", "12h",
+   "2h 5m". Long unattended steeps (cold brew ≈ 720) read as hours. */
+function fmtDuration(min){
+  min = Math.round(min || 0);
+  if(min < 60) return min + ' min';
+  const h = Math.floor(min / 60), m = min % 60;
+  return m === 0 ? h + 'h' : h + 'h ' + m + 'm';
+}
+/* Small "◑ Medium · 8 min" pill shown on cards and the Detail hero. */
+function metaBadgeHTML(r, methodId){
+  const d = recipeDifficulty(r, methodId);
+  return `<span class="meta-badge meta-${d}"><span class="meta-dot" aria-hidden="true"></span>${DIFF_LABEL[d] || d} · ${fmtDuration(recipeTimeMinutes(r, methodId))}</span>`;
+}
+
 const pad = n => String(n).padStart(3,'0');
 function fmtDate(ts){ if(!ts) return ''; return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
 function fmtDateShort(ts){ if(!ts) return ''; const d = new Date(ts); return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}).toUpperCase(); }
@@ -1064,6 +1142,97 @@ function renderKitchen(){
   document.querySelectorAll('#kitchenChips .if-chip').forEach(c => c.classList.toggle('sel', kitchen.has(c.dataset.name)));
   const result = document.getElementById('kitchenResult');
   if(result) result.style.display = active ? 'flex' : 'none';
+}
+
+/* ---------- equipment filter (Phase 3b) ----------
+   Header icon + dropdown mirroring the kitchen ingredient filter, but sourced
+   from EQUIPMENT_TAXONOMY and coupled to the saved owned-equipment profile
+   (ownedEquipment): there's one "my equipment", edited from either the
+   account-menu onboarding picker or this dropdown, and they stay identical.
+   Toggling a chip persists immediately. Empty profile = show everything
+   (the default for guests / anyone who skipped onboarding); a non-empty
+   profile filters the catalog to recipes makeable with that gear (primary
+   method or any variant), which is the "what can I make tonight" payoff. */
+let equipFilterOpen = false;
+
+/* Persist ownedEquipment through the same guest/cloud split as the onboarding
+   picker's commit (js/app.js openEquipmentPicker). */
+async function persistOwnedEquipment(){
+  if(currentUser){
+    await pushEquipmentToCloud(currentUser.id, ownedEquipment);
+    try{ localStorage.setItem(EQUIPMENT_CLOUD_CACHE_KEY, JSON.stringify({ userId: currentUser.id, equipment: ownedEquipment, onboarded: true })); }catch(e){}
+  } else {
+    saveGuestEquipment(ownedEquipment, true);
+  }
+}
+function clearEquipmentFilter(){
+  if(!ownedEquipment.length) return;
+  ownedEquipment = [];
+  persistOwnedEquipment();
+  if(typeof renderEquipment === 'function') renderEquipment();
+}
+
+function buildEquipment(){
+  const wrap = document.getElementById('equipFilterChips');
+  if(wrap){
+    const categories = [];
+    EQUIPMENT_TAXONOMY.forEach(m => { if(!categories.includes(m.category)) categories.push(m.category); });
+    wrap.innerHTML = categories.map(cat => `
+      <div class="eq-cat">
+        <div class="eq-cat-label">${esc(cat)}</div>
+        <div class="eq-chip-grid">
+          ${EQUIPMENT_TAXONOMY.filter(m => m.category === cat).map(m =>
+            `<button class="if-chip eq-chip" type="button" data-eq="${esc(m.id)}" title="${esc(m.hint || '')}"><span class="nm">${esc(m.label)}</span></button>`
+          ).join('')}
+        </div>
+      </div>`).join('');
+    wrap.onclick = async e => {
+      const c = e.target.closest('[data-eq]'); if(!c) return;
+      const id = c.dataset.eq;
+      const i = ownedEquipment.indexOf(id);
+      if(i >= 0) ownedEquipment.splice(i, 1); else ownedEquipment.push(id);
+      renderEquipment(); render();
+      await persistOwnedEquipment();
+    };
+  }
+
+  const toggleWrap = document.getElementById('equipFilterWrap');
+  const toggleBtn  = document.getElementById('equipFilterToggle');
+  if(toggleWrap && toggleBtn){
+    toggleBtn.onclick = e => { e.stopPropagation(); equipFilterOpen = !equipFilterOpen; renderEquipment(); };
+    document.addEventListener('click', e => {
+      if(!equipFilterOpen) return;
+      if(!toggleWrap.contains(e.target)){ equipFilterOpen = false; renderEquipment(); }
+    });
+  }
+  const clearBtn = document.getElementById('equipFilterClear');
+  if(clearBtn) clearBtn.onclick = () => { clearEquipmentFilter(); render(); };
+
+  renderEquipment();
+}
+function renderEquipment(){
+  const toggleWrap = document.getElementById('equipFilterWrap');
+  const dropdown   = document.getElementById('equipFilterDropdown');
+  const badge      = document.getElementById('equipFilterBadge');
+  const toggleBtn  = document.getElementById('equipFilterToggle');
+  if(!toggleWrap) return;
+  const owned = new Set(ownedEquipment);
+  const active = owned.size > 0;
+
+  toggleWrap.classList.toggle('has-active', active);
+  toggleWrap.classList.toggle('open', equipFilterOpen);
+  if(dropdown) dropdown.style.display = equipFilterOpen ? 'block' : 'none';
+  if(toggleBtn) toggleBtn.setAttribute('aria-expanded', equipFilterOpen ? 'true' : 'false');
+  if(badge){
+    if(active){ badge.textContent = owned.size; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+  }
+
+  document.querySelectorAll('#equipFilterChips .eq-chip').forEach(c => c.classList.toggle('sel', owned.has(c.dataset.eq)));
+  const result = document.getElementById('equipFilterResult');
+  const countEl = document.getElementById('equipFilterCount');
+  if(result) result.style.display = active ? 'flex' : 'none';
+  if(active && countEl) countEl.textContent = recipes.filter(r => isMakeableByEquipment(r, owned)).length;
 }
 
 /* ---------- account control (Phase 2) ----------
@@ -1327,6 +1496,43 @@ function syncCategoryChips() {
   );
 }
 
+/* ---------- QUICK FILTERS (Hot/Iced + difficulty, Phase 3b) ----------
+   Two segmented pill groups rendered in-content above the category rail (the
+   old header method/tried chips were removed, so this is the home for
+   lightweight browse filters). Composes with search + the equipment filter
+   via visibleRecipeList(). */
+function quickFiltersHTML(){
+  const seg = (group, active, opts) => opts.length <= 1 ? '' : `<div class="qf-seg" role="group" data-qf="${group}">${
+    opts.map(([v,l]) => `<button class="qf-pill${active===v?' active':''}" data-qf-val="${v}" type="button">${l}</button>`).join('')
+  }</div>`;
+  /* Only offer pills for values actually present in the catalog, so there's
+     never a dead option (e.g. no recipe's primary method is "advanced", so an
+     Advanced pill would always return nothing) — mirrors how the category rail
+     only shows categories that have recipes. */
+  const serves = new Set(recipes.map(r => recipeServe(r)));   // 'either' counts as both
+  const serveOpts = [['all','All']];
+  if(serves.has('hot')  || serves.has('either')) serveOpts.push(['hot','Hot']);
+  if(serves.has('iced') || serves.has('either')) serveOpts.push(['iced','Iced']);
+  const diffs = new Set(recipes.map(r => recipeDifficulty(r)));
+  const diffOpts = [['all','Any']]
+    .concat([['easy','Easy'],['medium','Medium'],['advanced','Advanced']].filter(([v]) => diffs.has(v)));
+  return `<div class="quick-filters">
+    ${seg('serve', serveFilter, serveOpts)}
+    ${seg('difficulty', activeDifficulty, diffOpts)}
+  </div>`;
+}
+function wireQuickFilters(scope){
+  scope.querySelectorAll('.qf-seg').forEach(seg => {
+    seg.onclick = e => {
+      const b = e.target.closest('.qf-pill'); if(!b) return;
+      const group = seg.dataset.qf, val = b.dataset.qfVal;
+      if(group === 'serve') serveFilter = val;
+      else if(group === 'difficulty') activeDifficulty = val;
+      animateNext = true; render();
+    };
+  });
+}
+
 /* ---------- shared nav count pill ----------
    One persistent pill in the top nav, always a BREWED count derived from the
    per-user tried state (never hardcoded) and scoped to the active tab:
@@ -1378,19 +1584,41 @@ function emptyStateHTML(opts){
 }
 
 /* Base filtered list shared by render() and surpriseMe(): method chip +
-   tried/to-try + search term. Deliberately excludes the kitchen filter,
-   which only dims non-matching cards via matchState rather than removing
-   them, so it shouldn't narrow what Surprise Me can pick either. */
+   tried/to-try + search term + Hot/Iced + difficulty + equipment (Phase 3b).
+   Deliberately excludes the kitchen INGREDIENT filter, which only dims
+   non-matching cards via matchState rather than removing them, so it
+   shouldn't narrow what Surprise Me can pick either. The equipment filter,
+   by contrast, is a hard filter (the "what can I make tonight" payoff), so
+   it belongs here and Surprise Me respects it too. */
 function visibleRecipeList(){
   let list = recipes.slice();
   if(activeMethod !== 'all') list = list.filter(r => (['moka','instant','blender','cezve'].includes(r.method) ? r.method : 'other') === activeMethod);
   if(triedFilter === 'tried') list = list.filter(r => r.tried);
   if(triedFilter === 'totry')  list = list.filter(r => !r.tried);
+  if(serveFilter !== 'all') list = list.filter(r => { const s = recipeServe(r); return s === serveFilter || s === 'either'; });
+  if(activeDifficulty !== 'all') list = list.filter(r => recipeDifficulty(r) === activeDifficulty);
+  const eqSet = getOwnedEquipmentSet();
+  if(eqSet.size) list = list.filter(r => isMakeableByEquipment(r, eqSet));
   if(searchTerm){
     const q = searchTerm.toLowerCase();
     list = list.filter(r => r.name.toLowerCase().includes(q) || (r.description||'').toLowerCase().includes(q) || (r.origin||'').toLowerCase().includes(q) || (r.ingredients||[]).some(i => i.toLowerCase().includes(q)));
   }
   return list;
+}
+
+/* Equipment makeability: true if the user owns the recipe's primary method,
+   or any of its method variants. `equipmentViaMethod(r, eqSet)` returns the
+   variant method id when a recipe is makeable ONLY via a variant (not its
+   primary method), so the card can surface a "(via AeroPress)" note instead
+   of hiding the recipe. */
+function isMakeableByEquipment(r, eqSet){
+  if(eqSet.has(r.method)) return true;
+  return (r.methods || []).some(m => eqSet.has(m.id));
+}
+function equipmentViaMethod(r, eqSet){
+  if(!eqSet.size || eqSet.has(r.method)) return null;
+  const v = (r.methods || []).find(m => eqSet.has(m.id));
+  return v ? v.id : null;
 }
 
 /* Picks a random recipe from whatever's currently visible (respecting the
@@ -1399,7 +1627,7 @@ function visibleRecipeList(){
    intentional rather than jarring. */
 function surpriseMe(){
   const list = visibleRecipeList();
-  if(list.length === 0){ showToast('Nothing to surprise you with — try widening your brew methods'); return; }
+  if(list.length === 0){ showToast('Nothing to surprise you with — try clearing some filters'); return; }
   const pick = list[Math.floor(Math.random() * list.length)];
   openDetail(pick.id);
   requestAnimationFrame(() => {
@@ -1427,7 +1655,8 @@ function render(){
   const content = document.getElementById('content');
 
   if(list.length === 0){
-    const hasFilters = !!searchTerm || kitchen.size > 0 || activeMethod !== 'all' || triedFilter !== 'all';
+    const hasFilters = !!searchTerm || kitchen.size > 0 || activeMethod !== 'all' || triedFilter !== 'all'
+      || serveFilter !== 'all' || activeDifficulty !== 'all' || getOwnedEquipmentSet().size > 0;
     content.innerHTML = recipes.length === 0
       ? emptyStateHTML({title:'No brews yet', body:'Add your first recipe to get started.', ctaLabel:'+ Add a recipe', ctaId:'emptyAddBtn'})
       : emptyStateHTML({title:'Nothing matches', body:'Try a different search or clear your filters.', ctaLabel: hasFilters ? 'Clear filters' : null, ctaId:'emptyClearBtn'});
@@ -1439,7 +1668,8 @@ function render(){
       const si = document.getElementById('searchInput'); if(si) si.value = '';
       document.querySelector('.search-wrap')?.classList.remove('has-term');
       kitchen.clear(); if(typeof renderKitchen === 'function') renderKitchen();
-      activeMethod = 'all'; triedFilter = 'all'; syncChips();
+      activeMethod = 'all'; triedFilter = 'all'; serveFilter = 'all'; activeDifficulty = 'all'; syncChips();
+      clearEquipmentFilter();
       animateNext = true; render();
     };
     if(animateNext){ animateNext = false; }
@@ -1448,7 +1678,9 @@ function render(){
 
   /* If search is active, show a flat grid — search results feel better without lanes */
   if(searchTerm){
-    content.innerHTML = `<div class="collection-content">${list.map(r => collectionCard(r, {showRatio:true, matchState: kActive?(isMakeable(r,kset)?'match':'dim'):null})).join('')}</div>`;
+    content.innerHTML = quickFiltersHTML()
+      + `<div class="collection-content">${list.map(r => collectionCard(r, {showRatio:true, matchState: kActive?(isMakeable(r,kset)?'match':'dim'):null})).join('')}</div>`;
+    wireQuickFilters(content);
     if(kActive){ const cnt = document.getElementById('kitchenCount'); if(cnt) cnt.textContent = list.filter(r=>isMakeable(r,kset)).length; }
     if(animateNext){ if(typeof BREW_ANIM!=='undefined') BREW_ANIM.animateCardEntrance(content); animateNext=false; }
     return;
@@ -1468,6 +1700,7 @@ function render(){
   const pinnedList = list.filter(r => r.pinned);
   let html = pinnedList.length ? _laneHTML('📌 Pinned', pinnedList, kActive, kset) : '';
   html += heroHTML(heroRec);
+  html += quickFiltersHTML();
   html += categoryChipsHTML(list);
 
   const sectionTitle = activeCategory === 'all'
@@ -1498,6 +1731,8 @@ function render(){
   }
 
   content.innerHTML = html;
+
+  wireQuickFilters(content);
 
   /* Wire category chip clicks */
   const rail = document.getElementById('catRail');
@@ -1552,6 +1787,9 @@ function collectionCard(r, opts){
   const showRatio  = !!(opts && opts.showRatio);
   const showTried  = !!(opts && opts.showTried);
   const matchState = opts && opts.matchState;
+  /* When the equipment filter is active and a recipe is makeable only via a
+     method variant (not its primary method), name that variant. */
+  const viaMethod  = equipmentViaMethod(r, getOwnedEquipmentSet());
   const al = getAirline(r.serial || 0);
   const color = r.color || al.color;
   const code = r.code || al.code;
@@ -1579,6 +1817,10 @@ function collectionCard(r, opts){
         </div>
         <h3 class="coll-card-name">${esc(r.name)}</h3>
         <p class="coll-card-desc">${esc(r.description || '')}</p>
+        <div class="coll-card-meta">
+          ${metaBadgeHTML(r)}
+          ${viaMethod ? `<span class="coll-via">via ${esc(methodLabel(viaMethod))}</span>` : ''}
+        </div>
         <div class="coll-card-footer">
           <div>
             <div class="coll-card-method-label">Method</div>
@@ -1737,6 +1979,7 @@ function switchScreen(target){
   updateNavCountPill();
   if(window._collapseSearch) window._collapseSearch();
   if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }
+  if(equipFilterOpen){ equipFilterOpen = false; renderEquipment(); }
 }
 
 /* Re-evaluate the current screen's gate after an auth change: unlock + render
@@ -1923,6 +2166,7 @@ function openDetail(id, cardEl){
               <div class="detail-stat"><div class="detail-stat-value">${esc(r.ratio || '—')}</div><div class="detail-stat-label">Ratio</div></div>
               <div class="detail-stat"><div class="detail-stat-value detail-stat-method">${esc(methodLabel(r.method))}</div><div class="detail-stat-label">Method</div></div>
               <div class="detail-stat"><div class="detail-beans">${coloredBeans(r.strength || 3, al.color)}</div><div class="detail-stat-label">Strength</div></div>
+              <div class="detail-stat"><div class="detail-stat-value" data-meta-stat>${metaBadgeHTML(r, curMethodId)}</div><div class="detail-stat-label">Effort · Time</div></div>
             </div>
           </div>
         </div>
@@ -1995,6 +2239,9 @@ function openDetail(id, cardEl){
         const pt = content.querySelector('[data-picks-toggle]');
         if(pt) pt.onclick = () => { pt.classList.toggle('open'); content.querySelector('[data-picks-body]').classList.toggle('open'); };
       }
+      /* Effort · Time badge tracks the selected method variant. */
+      const ms = content.querySelector('[data-meta-stat]');
+      if(ms) ms.innerHTML = metaBadgeHTML(r, curMethodId);
     };
   });
 
@@ -2587,6 +2834,8 @@ if(typeof BREW_ANIM !== 'undefined') document.documentElement.classList.add('bre
 
 buildChips();
 buildKitchen();
+ownedEquipment = loadGuestEquipment().equipment;   // instant guest read (before first paint); initAuth() overrides for signed-in
+buildEquipment();
 /* The splash is the intro / loading animation (image + title). It plays as a
    transition INTO the app — not before the landing. Play it on load only for
    returning visitors who skip the landing; first-time / signed-out visitors
@@ -2794,6 +3043,5 @@ document.addEventListener('keydown', e => {
 });
 
 loadRecipes();
-ownedEquipment = loadGuestEquipment().equipment;   // instant guest read; initAuth() overrides for signed-in
 initWelcome();
 initAuth();
