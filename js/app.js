@@ -2237,6 +2237,7 @@ function switchScreen(target){
     renderWorldPasses();
     if(worldView === 'map') initWorldMap();
   }
+  if(target === 'screen-flavorwheel') renderFlavorWheel();
   updateNavCountPill();
   if(window._collapseSearch) window._collapseSearch();
   if(kitchenOpen){ kitchenOpen = false; renderKitchen(); }

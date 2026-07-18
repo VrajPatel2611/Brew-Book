@@ -1549,6 +1549,118 @@ html:not(.bb-returning) .splash{display:none}
   color:#e8b04b;
 }
 
+/* ─── FLAVOR WHEEL SCREEN ───
+   SCA v2 Coffee Taster's Flavor Wheel, ported from a Claude-generated
+   standalone prototype the user designed and approved (see js/flavorwheel.js
+   for the full note). A deliberately fixed-dark "cinematic reference" screen
+   like World Map / Brew Mode — it opts out of the light theme rather than
+   flipping to cream, so it uses the theme-invariant --bg-dark-N, --copper
+   and --gold tokens plus its own locally-scoped text tones (matching this
+   project's dark-mode defaults) instead of --foam/--crema, which flip
+   under :root[data-theme="light"] and would go dark-on-dark here. */
+.screen-flavorwheel{
+  --fw-ink:   #fff7ec;
+  --fw-body:  #f2e4cf;
+  --fw-dim:   #c9b59c;
+  --fw-mute:  #8d795f;
+  --fw-hair:  rgba(242,228,207,.1);
+  --fw-hair-2:rgba(242,228,207,.16);
+  background:radial-gradient(120% 75% at 50% -8%,var(--bg-dark-1) 0%,var(--bg-dark-2) 52%,var(--bg-dark-3) 100%);
+  color:var(--fw-body);
+  overflow-y:auto;
+  padding-bottom:60px;
+}
+
+.fw-hero{max-width:640px;margin:0 auto;padding:34px 24px 6px;text-align:center}
+.fw-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--copper);margin-bottom:14px}
+.fw-title{font-family:var(--font-display);font-weight:600;font-size:clamp(28px,4.4vw,44px);line-height:1.05;letter-spacing:-1px;color:var(--fw-ink)}
+.fw-title em{font-style:italic;font-weight:400;color:var(--copper)}
+.fw-sub{max-width:520px;margin:14px auto 0;font-size:14px;line-height:1.6;color:var(--fw-dim)}
+
+.fw-grid{
+  max-width:1240px;margin:0 auto;padding:18px 20px 0;
+  display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;align-items:start;
+}
+@media (max-width:880px){
+  .fw-grid{grid-template-columns:1fr;max-width:600px}
+}
+
+.fw-wheel-col{display:flex;flex-direction:column;align-items:center;gap:16px}
+.fw-wheel-wrap{width:100%;max-width:620px}
+.fw-svg{display:block;filter:drop-shadow(0 30px 60px rgba(0,0,0,.5));animation:fwWheelIn .9s cubic-bezier(.2,.7,.2,1) both}
+@keyframes fwWheelIn{0%{opacity:0;transform:rotate(-14deg) scale(.92)}100%{opacity:1;transform:rotate(0) scale(1)}}
+.fw-wedge{cursor:pointer;transition:opacity .28s ease,filter .2s ease}
+.fw-wedge:hover{filter:brightness(1.16)}
+
+.fw-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+.fw-reset{
+  cursor:pointer;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--fw-dim);background:rgba(46,34,26,.5);border:1px solid var(--fw-hair-2);border-radius:999px;padding:9px 18px;
+}
+.fw-hint{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fw-mute)}
+
+.fw-panel{
+  position:sticky;top:16px;max-height:calc(100vh - 36px);overflow-y:auto;
+  border-radius:22px;background:rgba(40,28,20,.5);backdrop-filter:blur(14px) saturate(1.35);-webkit-backdrop-filter:blur(14px) saturate(1.35);
+  border:1px solid var(--fw-hair);box-shadow:0 26px 60px -30px rgba(0,0,0,.7);
+}
+@media (max-width:880px){ .fw-panel{position:static;max-height:none} }
+.fw-scroll::-webkit-scrollbar{width:8px}
+.fw-scroll::-webkit-scrollbar-thumb{background:rgba(207,127,69,.32);border-radius:8px}
+.fw-scroll::-webkit-scrollbar-track{background:transparent}
+
+.fw-panel-inner{padding:26px 24px 28px;overflow-wrap:break-word}
+.fw-panel-inner--selected{position:relative;padding-left:29px}
+.fw-rail{position:absolute;top:0;left:0;bottom:0;width:5px}
+
+.fw-kicker{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
+.fw-kicker--copper{color:var(--copper);margin-top:22px;padding-top:16px;border-top:1px dashed var(--fw-hair-2);margin-bottom:10px}
+.fw-panel-h{font-family:var(--font-display);font-weight:600;color:var(--fw-ink);line-height:1.1;letter-spacing:-.3px;font-size:23px}
+.fw-panel-h--md{font-size:28px;line-height:1.05;letter-spacing:-.4px}
+.fw-panel-h--lg{font-size:30px;line-height:1.05;letter-spacing:-.4px}
+.fw-panel-p{font-size:13.5px;line-height:1.6;color:var(--fw-dim);margin-top:10px}
+.fw-panel-p em{font-style:italic;color:#e0cbaf}
+.fw-panel-p strong{color:#e0cbaf;font-weight:700}
+.fw-body{margin-top:16px}
+.fw-subhead{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fw-mute);margin:20px 0 9px}
+.fw-empty{font-family:var(--font-mono);font-size:11px;color:var(--fw-mute)}
+.fw-footnote{margin-top:22px;padding-top:16px;border-top:1px dashed var(--fw-hair-2);font-family:var(--font-mono);font-size:9.5px;line-height:1.7;letter-spacing:.03em;color:var(--fw-mute)}
+
+.fw-crumb{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.fw-crumb-sep{color:#6b5a45}
+.fw-crumb-leaf{color:var(--fw-ink)}
+.fw-crumb-part{cursor:pointer}
+
+.fw-chip{transition:background .15s ease,color .15s ease,border-color .15s ease}
+.fw-legend-list{display:flex;flex-direction:column;gap:7px;margin-top:18px}
+.fw-legend-row{cursor:pointer;display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:12px;border:1px solid var(--fw-hair)}
+.fw-dot{width:16px;height:16px;border-radius:5px;flex-shrink:0}
+.fw-legend-name{flex:1;font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--fw-ink)}
+.fw-legend-count{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;color:var(--fw-mute)}
+
+.fw-group-list{display:flex;flex-direction:column;gap:7px}
+.fw-group-row{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;border-radius:11px;border:1px solid var(--fw-hair);background:rgba(46,34,26,.4)}
+.fw-group-name{font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--fw-ink)}
+.fw-group-count{font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;color:var(--fw-mute)}
+
+.fw-chip-row{display:flex;flex-wrap:wrap;gap:7px}
+.fw-chip--leaf{
+  cursor:pointer;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;padding:7px 12px;border-radius:999px;
+  border:1px solid var(--fw-hair-2);color:var(--fw-ink);background:rgba(46,34,26,.5);
+}
+.fw-chip--brew{
+  font-family:var(--font-mono);font-size:10.5px;padding:7px 12px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(207,127,69,.3);color:var(--fw-ink);background:rgba(207,127,69,.08);
+}
+.fw-chip--brew:hover{border-color:var(--copper);color:var(--fw-ink)}
+.fw-brews{margin-top:0}
+
+.fw-tip{
+  position:fixed;z-index:90;pointer-events:none;opacity:0;transition:opacity .12s ease;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.04em;color:#1a110b;
+  background:var(--fw-body);border-radius:8px;padding:7px 11px;box-shadow:0 12px 28px -8px rgba(0,0,0,.6);max-width:260px;
+}
+
 /* ─── HERO CARD (brew of the day) ───
    Colors/spacing/portrait pulled exactly from Recipe Website Reference.html's
    .bb-hero block. .hero-card/.hero-body/.hero-eyebrow/.hero-title/.hero-desc/

@@ -36,7 +36,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=4">
   <link rel="stylesheet" href="./css/base.css?v=2">
-  <link rel="stylesheet" href="./css/components.css?v=66">
+  <link rel="stylesheet" href="./css/components.css?v=69">
 
   <!-- Set the theme before first paint so there's no flash of the wrong mode -->
   <script>
@@ -418,6 +418,7 @@
     <nav class="tn-links" aria-label="Main navigation">
       <button class="nav-tab active" data-target="screen-home" aria-current="page">Recipes</button>
       <button class="nav-tab" data-target="screen-world">World Map</button>
+      <button class="nav-tab" data-target="screen-flavorwheel">Flavor Wheel</button>
       <button class="nav-tab" data-target="screen-collection">Collection</button>
     </nav>
     <div class="tn-right">
@@ -582,6 +583,26 @@
     </div>
   </div>
 
+  <!-- SCREEN: FLAVOR WHEEL -->
+  <div id="screen-flavorwheel" class="screen screen-flavorwheel" data-screen-label="Flavor Wheel">
+    <div class="fw-hero">
+      <div class="fw-eyebrow">The taster's reference</div>
+      <h2 class="fw-title">Coffee Taster&#8217;s <em>Flavor Wheel</em></h2>
+      <p class="fw-sub">Nine flavor families, ninety-odd descriptors — the shared vocabulary tasters use to name what&#8217;s in the cup. Start at the centre and read outward, or click any wedge to zoom in.</p>
+    </div>
+    <div class="fw-grid">
+      <div class="fw-wheel-col">
+        <div class="fw-wheel-wrap" id="fwWheel"></div>
+        <div class="fw-controls">
+          <span class="fw-reset" data-reset="1">↻ Reset view</span>
+          <span class="fw-hint">Hover to read · Click to focus</span>
+        </div>
+      </div>
+      <aside class="fw-panel fw-scroll" id="fwPanel"></aside>
+    </div>
+    <div id="fwTip" class="fw-tip"></div>
+  </div>
+
   <!-- SCREEN: COLLECTION -->
   <div id="screen-collection" class="screen screen-collection" data-screen-label="Collection">
     <div class="coll-header-group" id="collHeaderGroup">
@@ -695,7 +716,8 @@
 <script src="./js/data.js?v=2"></script>
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
-<script src="./js/app.js?v=50"></script>
+<script src="./js/flavorwheel.js?v=3"></script>
+<script src="./js/app.js?v=51"></script>
 
 <!-- PWA install + self-updating service worker. Registration failures are
      silent (older browsers, or serving over plain http on a non-localhost
