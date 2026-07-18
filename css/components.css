@@ -1571,13 +1571,18 @@ html:not(.bb-returning) .splash{display:none}
   padding-bottom:60px;
 }
 
-.fw-hero{max-width:640px;margin:0 auto;padding:34px 24px 6px;text-align:center}
+.fw-hero{width:100%;box-sizing:border-box;max-width:640px;margin:0 auto;padding:34px 24px 6px;text-align:center}
 .fw-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--copper);margin-bottom:14px}
 .fw-title{font-family:var(--font-display);font-weight:600;font-size:clamp(28px,4.4vw,44px);line-height:1.05;letter-spacing:-1px;color:var(--fw-ink)}
 .fw-title em{font-style:italic;font-weight:400;color:var(--copper)}
 .fw-sub{max-width:520px;margin:14px auto 0;font-size:14px;line-height:1.6;color:var(--fw-dim)}
 
 .fw-grid{
+  /* width:100% matters: the screen is a flex column, and margin:0 auto on a
+     flex item disables the default stretch — without an explicit width the
+     grid shrink-wraps its content (~792px on desktop) and the wheel column
+     collapses to ~330px no matter how wide the window is. */
+  width:100%;box-sizing:border-box;
   max-width:1240px;margin:0 auto;padding:18px 20px 0;
   display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;align-items:start;
 }
