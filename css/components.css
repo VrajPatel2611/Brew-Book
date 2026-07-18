@@ -1017,6 +1017,16 @@ html:not(.bb-returning) .splash{display:none}
 .brew-top-title{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--foam);margin-top:2px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brew-top-method{font-family:var(--font-body);font-weight:400;font-size:12.5px;color:var(--crema-dim);font-style:italic}
 .brew-top-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+/* Below ~480px, the origin badge + ingredients button + close button left too
+   little room for the title block: "BREW MODE · IN FLIGHT" wrapped into 4
+   stacked lines and the recipe name truncated to "Iced …". Give the left
+   group its own full-width row instead of fighting the right group for
+   space. */
+@media(max-width:480px){
+  .brew-topbar{flex-wrap:wrap;padding:14px 16px 10px}
+  .brew-top-left{flex-basis:100%}
+  .brew-top-right{margin-left:auto}
+}
 
 .brew-ing-btn{
   display:flex;align-items:center;gap:6px;
