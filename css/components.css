@@ -1586,7 +1586,7 @@ html:not(.bb-returning) .splash{display:none}
 }
 
 .fw-wheel-col{display:flex;flex-direction:column;align-items:center;gap:16px}
-.fw-wheel-wrap{width:100%;max-width:620px}
+.fw-wheel-wrap{width:100%;max-width:760px}
 .fw-svg{display:block;filter:drop-shadow(0 30px 60px rgba(0,0,0,.5));animation:fwWheelIn .9s cubic-bezier(.2,.7,.2,1) both}
 @keyframes fwWheelIn{0%{opacity:0;transform:rotate(-14deg) scale(.92)}100%{opacity:1;transform:rotate(0) scale(1)}}
 .fw-wedge{cursor:pointer;transition:opacity .28s ease,filter .2s ease}
@@ -1773,6 +1773,19 @@ html:not(.bb-returning) .splash{display:none}
   .detail-inner{padding:0 20px}
   .detail-hero-inner{padding:26px 22px;gap:18px}
   .detail-hero-copy{min-width:0;flex-basis:100%}
+  /* The hero type scale is clamped for desktop (40px minimum) — on a phone
+     that minimum IS the rendered size, so a long recipe name wraps 3-4
+     lines and the card swallows the whole first screen. Let it track the
+     viewport on small screens instead, like the flavor wheel does. Applies
+     to both Home's brew-of-the-day card and Detail's boarding-pass hero
+     (shared type system). */
+  .hero-title{font-size:clamp(27px,8.5vw,40px);letter-spacing:-1px}
+  .hero-desc{font-size:14px;margin-top:12px}
+  .hero-stats{gap:18px;margin-top:18px}
+  .hero-stat-val{font-size:17px}
+  .hero-brew-btn{padding:11px 20px;font-size:11px}
+  .detail-hero-title{font-size:clamp(25px,7.5vw,34px);letter-spacing:-.8px}
+  .detail-hero-stats{gap:18px;margin-top:16px}
 }
 @media(max-width:480px){
   .hero-portrait,.hero-portrait-glow{width:120px!important;height:120px!important}
