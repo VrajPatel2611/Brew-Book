@@ -760,6 +760,14 @@ html:not(.bb-returning) .splash{display:none}
 .detail-pin-btn svg{width:17px;height:17px}
 .detail-pin-btn:hover{border-color:var(--copper-soft);color:var(--crema)}
 .detail-pin-btn.on{background:var(--copper);border-color:var(--copper);color:var(--bg-dark-2)}
+/* Below 600px, "Mark as made" + "Your rating" (each flex:1 min-width:150px)
+   already claim two full rows between them, leaving the 44px pin button to
+   wrap alone onto its own row with a lot of dead space beside it. Give the
+   made-toggle its own full-width row so the pin instead pairs cleanly with
+   the rating box on the row below. */
+@media(max-width:600px){
+  .detail-made-toggle{flex-basis:100%}
+}
 
 /* ─── TASTING JOURNAL ─── */
 .detail-journal{margin-top:30px}
