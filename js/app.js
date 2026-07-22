@@ -1064,8 +1064,11 @@ function initWelcomeJourney(scroller){
     tl.to('#wljPlane', { motionPath:{ path:'#wljRoutePath', align:'#wljRoutePath', alignOrigin:[.5,.5], autoRotate:true }, ease:'none', duration:1 }, 0);
   }
 
-  /* stop dots light up as the plane passes */
-  tl.to('.wlj-dot:nth-of-type(2)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .32)
+  /* stop dots light up as the plane passes — including the departure dot (1),
+     which the plane leaves from, so all four read the same copper rather than
+     the origin sitting dark against the others. */
+  tl.to('.wlj-dot:nth-of-type(1)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .02)
+    .to('.wlj-dot:nth-of-type(2)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .32)
     .to('.wlj-dot:nth-of-type(3)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .64)
     .to('.wlj-dot:nth-of-type(4)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .95);
 
