@@ -36,7 +36,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=4">
   <link rel="stylesheet" href="./css/base.css?v=2">
-  <link rel="stylesheet" href="./css/components.css?v=71">
+  <link rel="stylesheet" href="./css/components.css?v=72">
 
   <!-- Set the theme before first paint so there's no flash of the wrong mode -->
   <script>
@@ -287,6 +287,59 @@
     <div class="wl-cue" aria-hidden="true">
       Scroll
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 6 L8 11 L13 6"/></svg>
+    </div>
+  </section>
+
+  <!-- SCROLL JOURNEY — a scroll-pinned "one bean, four checkpoints" story
+       ported from the motion concept. The .wlj-track is tall; the .wlj-stage
+       sticks (CSS position:sticky, robust inside #welcome's own scroller) while
+       a GSAP scrub timeline morphs the bean, draws the route, flies the plane,
+       and swaps the four stage captions. See initWelcomeJourney() in app.js. -->
+  <section class="wlj-track" id="welcomeJourneyTrack" aria-label="From green cherry to boarding call">
+    <div class="wlj-stage" id="welcomeJourneyStage">
+
+      <div class="wlj-visual">
+        <svg class="wlj-bean-svg" viewBox="0 0 120 150" aria-hidden="true">
+          <defs>
+            <radialGradient id="wljBeanGlow" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stop-color="#fff" stop-opacity=".35"/>
+              <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <ellipse id="wljBeanBody" cx="60" cy="75" rx="46" ry="66" fill="none" stroke="#7fb069" stroke-width="3"/>
+          <path id="wljBeanCrack" d="M60 14 C40 48, 82 100, 60 136" fill="none" stroke="#7fb069" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+          <ellipse cx="42" cy="46" rx="18" ry="24" fill="url(#wljBeanGlow)" transform="rotate(-28 42 46)"/>
+        </svg>
+
+        <div class="wlj-route-wrap">
+          <svg viewBox="0 0 400 400" width="100%" height="100%" preserveAspectRatio="none" style="position:absolute;inset:0;opacity:.9">
+            <path id="wljRoutePath" d="M40 340 C 120 260, 90 160, 200 120 S 340 60, 360 40"/>
+            <path id="wljRouteDraw" d="M40 340 C 120 260, 90 160, 200 120 S 340 60, 360 40"/>
+            <circle class="wlj-dot" cx="40" cy="340" r="5"/>
+            <circle class="wlj-dot" cx="150" cy="205" r="5"/>
+            <circle class="wlj-dot" cx="255" cy="105" r="5"/>
+            <circle class="wlj-dot" cx="360" cy="40" r="5"/>
+            <g id="wljPlane" transform="translate(40,340)">
+              <path d="M0 -6 L5 4 L0 2 L-5 4 Z" fill="#f0d080"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="wlj-stamp-wrap"><div class="wlj-stamp" id="welcomeJourneyStamp">Boarded</div></div>
+      </div>
+
+      <div class="wlj-copy">
+        <div class="wlj-route-label">DEP <b id="welcomeJourneyDep">GRN</b> — ARR <b id="welcomeJourneyArr">ROA</b></div>
+        <h2 class="wlj-title" id="welcomeJourneyTitle">Green <span class="accent">cherry</span></h2>
+        <p class="wlj-desc" id="welcomeJourneyDesc">Harvested at peak ripeness, still carrying the moisture and grassy sharpness that roasting hasn't touched yet.</p>
+        <div class="wlj-ticker" id="welcomeJourneyTicker">
+          <span data-i="0">01 · ORIGIN</span>
+          <span data-i="1">02 · ROASTED</span>
+          <span data-i="2">03 · BREWED</span>
+          <span data-i="3">04 · BOARDED</span>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -677,9 +730,13 @@
 <!-- TOAST -->
 <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
 
-<!-- GSAP + Lenis -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<!-- GSAP + Lenis. GSAP is 3.13+ so DrawSVGPlugin and MotionPathPlugin (both
+     formerly Club-GreenSock-only) are free — the landing scroll journey uses
+     them to draw the flight route and fly the plane along it. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/DrawSVGPlugin.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/MotionPathPlugin.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lenis/1.1.13/lenis.min.js"></script>
 
 <!-- D3 + geo projections + topojson (world map) -->
@@ -717,7 +774,7 @@
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
 <script src="./js/flavorwheel.js?v=3"></script>
-<script src="./js/app.js?v=51"></script>
+<script src="./js/app.js?v=52"></script>
 
 <!-- PWA install + self-updating service worker. Registration failures are
      silent (older browsers, or serving over plain http on a non-localhost

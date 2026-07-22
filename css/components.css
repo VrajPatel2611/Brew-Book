@@ -206,6 +206,63 @@ html:not(.bb-returning) .splash{display:none}
 .wl-cue svg{width:14px;height:14px;animation:wlCueBob 1.8s ease-in-out infinite}
 @keyframes wlCueBob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
 
+/* ─── SCROLL JOURNEY (wlj-) — pinned "one bean, four checkpoints" story ───
+   The track is tall; the stage sticks for its duration. Pinning is pure CSS
+   position:sticky (reliable inside #welcome's own scroll container, unlike
+   ScrollTrigger's pin-spacer which fights a custom scroller) — the GSAP
+   timeline only reads scrub progress. Opaque stage bg by design: while pinned
+   it fully covers the viewport, so the landing's colour-morph doesn't bleed
+   through mid-scene. See initWelcomeJourney() in app.js. */
+.wlj-track{position:relative;height:360vh}
+.wlj-stage{
+  position:sticky;top:0;height:100vh;overflow:hidden;
+  display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:40px;
+  padding:0 clamp(24px,6vw,80px);
+  background:
+    radial-gradient(120% 90% at 15% 20%, rgba(207,127,69,.12), transparent 60%),
+    var(--roast);
+}
+.wlj-visual{position:relative;display:flex;align-items:center;justify-content:center;height:70vh}
+.wlj-bean-svg{width:min(70%,320px);height:auto;overflow:visible}
+.wlj-copy{display:flex;flex-direction:column;gap:18px}
+.wlj-route-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--crema-dim)}
+.wlj-route-label b{color:var(--copper);font-weight:600}
+.wlj-title{font-family:var(--font-display);font-weight:600;font-size:clamp(28px,4vw,46px);line-height:1.06;margin:0;color:var(--crema)}
+.wlj-title .accent{color:var(--copper);font-style:italic}
+.wlj-desc{color:var(--crema-dim);font-size:14.5px;max-width:36ch;line-height:1.55;margin:0}
+
+/* checkpoint ticker — each stop underlines as the plane reaches it */
+.wlj-ticker{display:flex;gap:22px;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;flex-wrap:wrap}
+.wlj-ticker span{color:var(--line);transition:color .3s ease;position:relative;padding-bottom:8px}
+.wlj-ticker span.active{color:var(--copper)}
+.wlj-ticker span::after{content:'';position:absolute;left:0;bottom:0;width:100%;height:1px;background:var(--copper);transform:scaleX(0);transform-origin:left;transition:transform .35s ease}
+.wlj-ticker span.active::after{transform:scaleX(1)}
+
+/* flight route + plane overlay (sits over the bean visual) */
+.wlj-route-wrap{position:absolute;inset:0;pointer-events:none}
+#wljRoutePath{fill:none;stroke:var(--hair-22);stroke-width:1.5;stroke-dasharray:4 5}
+#wljRouteDraw{fill:none;stroke:var(--copper);stroke-width:1.5}
+.wlj-dot{fill:var(--roast);stroke:var(--line);stroke-width:1.4}
+.wlj-dot.hit{fill:var(--copper);stroke:var(--copper)}
+#wljPlane{transform-origin:center}
+
+/* boarding-stamp finale */
+.wlj-stamp-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.wlj-stamp{
+  font-family:var(--font-mono);font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--copper);border:3px solid var(--copper);border-radius:10px;
+  padding:14px 26px;font-size:clamp(20px,3vw,34px);
+  transform:rotate(-9deg) scale(0);opacity:0;background:rgba(207,127,69,.06);
+}
+
+@media (max-width:760px){
+  .wlj-track{height:320vh}
+  .wlj-stage{grid-template-columns:1fr;text-align:center;padding-top:60px}
+  .wlj-visual{height:38vh}
+  .wlj-copy{align-items:center}
+  .wlj-ticker{justify-content:center}
+}
+
 /* Features — passport / world, always the immersive night panel (both themes) */
 .wl-features{padding:110px clamp(22px,5vw,40px) 60px}
 .wl-dots{position:absolute;inset:0;opacity:.5;pointer-events:none;z-index:0}

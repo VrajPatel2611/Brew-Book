@@ -760,6 +760,10 @@ function initWelcome(){
   initWelcomeShowcase();
 
   el.style.display = 'block';
+
+  /* Journey created after display:block so ScrollTrigger measures the real,
+     laid-out #welcome scroller (not a hidden zero-height element). */
+  initWelcomeJourney(el);
 }
 
 /* Ambient background: a canvas of drifting aroma motes, soft bokeh, and a few
@@ -957,6 +961,123 @@ function initWelcomeMotion(el){
   paint();
 }
 
+/* Scroll-pinned "one bean, four checkpoints" journey on the landing, ported
+   from the motion concept. Pinning is CSS position:sticky (see .wlj-stage);
+   GSAP only drives a scrubbed timeline keyed to scroll progress inside
+   #welcome's own scroll container (scroller:), so it must be created AFTER the
+   landing is shown/laid out. Degrades to a static arrived state under reduced
+   motion or if GSAP/its plugins fail to load. */
+let _welcomeJourneyTL = null;
+function _killWelcomeJourney(){
+  if(_welcomeJourneyTL){
+    if(_welcomeJourneyTL.scrollTrigger) _welcomeJourneyTL.scrollTrigger.kill();
+    _welcomeJourneyTL.kill();
+    _welcomeJourneyTL = null;
+  }
+}
+function initWelcomeJourney(scroller){
+  const track = document.getElementById('welcomeJourneyTrack');
+  if(!track) return;
+
+  const STAGES = [
+    { dep:'GRN', arr:'ROA', title:'Green <span class="accent">cherry</span>', desc:"Harvested at peak ripeness, still carrying the moisture and grassy sharpness that roasting hasn't touched yet." },
+    { dep:'ROA', arr:'GRD', title:'First <span class="accent">crack</span>', desc:'Sugars caramelize, oils rise to the surface. This is where a bean earns its roast name.' },
+    { dep:'GRD', arr:'CUP', title:'Full <span class="accent">extraction</span>', desc:'Hot water finds every fissure, pulling colour, body, and aroma out of the grounds.' },
+    { dep:'CUP', arr:'YOU', title:'Ready to <span class="accent">board</span>', desc:'Poured, logged, stamped. One more entry in the atlas.' }
+  ];
+
+  const depEl   = document.getElementById('welcomeJourneyDep');
+  const arrEl   = document.getElementById('welcomeJourneyArr');
+  const titleEl = document.getElementById('welcomeJourneyTitle');
+  const descEl  = document.getElementById('welcomeJourneyDesc');
+  const stamp   = document.getElementById('welcomeJourneyStamp');
+  const tickers = [].slice.call(track.querySelectorAll('.wlj-ticker span'));
+  const dots    = [].slice.call(track.querySelectorAll('.wlj-dot'));
+  const routeDraw = document.getElementById('wljRouteDraw');
+  const beanBody  = document.getElementById('wljBeanBody');
+  const beanCrack = document.getElementById('wljBeanCrack');
+
+  /* Fully-arrived end state — reduced-motion and no-GSAP fallback. */
+  function settleEnd(){
+    tickers.forEach(s => s.classList.add('active'));
+    dots.forEach(d => d.classList.add('hit'));
+    if(beanBody){ beanBody.setAttribute('fill','#2e221a'); beanBody.setAttribute('stroke','#3a1f0e'); }
+    if(beanCrack) beanCrack.setAttribute('stroke','#3a1f0e');
+    if(routeDraw) routeDraw.style.strokeDashoffset = '0';
+    if(stamp){ stamp.style.opacity = '1'; stamp.style.transform = 'rotate(-9deg) scale(1)'; }
+    const last = STAGES[STAGES.length-1];
+    if(depEl) depEl.textContent = last.dep;
+    if(arrEl) arrEl.textContent = last.arr;
+    if(titleEl) titleEl.innerHTML = last.title;
+    if(descEl) descEl.textContent = last.desc;
+  }
+
+  const reduced = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if(reduced || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined'){ settleEnd(); return; }
+
+  const plugins = [ScrollTrigger];
+  if(typeof DrawSVGPlugin !== 'undefined')   plugins.push(DrawSVGPlugin);
+  if(typeof MotionPathPlugin !== 'undefined') plugins.push(MotionPathPlugin);
+  gsap.registerPlugin.apply(gsap, plugins);
+  const hasDraw = (typeof DrawSVGPlugin !== 'undefined');
+  const hasPath = (typeof MotionPathPlugin !== 'undefined');
+
+  _killWelcomeJourney();
+  gsap.set('#wljRouteDraw', hasDraw ? { drawSVG:'0%' } : { opacity:0 });
+  gsap.set('.wlj-stamp', { transformOrigin:'50% 50%' });
+
+  let lastIdx = -1;
+  const tl = gsap.timeline({
+    scrollTrigger: {
+      trigger: track,
+      scroller: scroller || window,
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: 0.6,
+      onUpdate(self){
+        const idx = Math.min(3, Math.floor(self.progress * 4));
+        if(idx === lastIdx) return;
+        lastIdx = idx;
+        tickers.forEach((el,i) => el.classList.toggle('active', i <= idx));
+        const s = STAGES[idx];
+        if(depEl) depEl.textContent = s.dep;
+        if(arrEl) arrEl.textContent = s.arr;
+        if(titleEl) titleEl.innerHTML = s.title;
+        if(descEl) descEl.textContent = s.desc;
+        gsap.fromTo([titleEl, descEl], { opacity:.2, y:8 }, { opacity:1, y:0, duration:.4, stagger:.05, overwrite:true });
+      }
+    }
+  });
+
+  /* bean: hollow green outline -> glossy roast, with a little life mid-flight */
+  tl.to('#wljBeanBody', { stroke:'#a8693c', duration:.3 }, 0)
+    .to('#wljBeanBody', { fill:'#8f5526', stroke:'#3a1f0e', duration:.35 }, .3)
+    .to('#wljBeanCrack', { stroke:'#3a1f0e', duration:.3 }, .3)
+    .to('#wljBeanBody', { scale:1.06, transformOrigin:'50% 50%', duration:.15, yoyo:true, repeat:1 }, .35)
+    .to('#wljBeanBody', { fill:'#2e221a', duration:.35 }, .65);
+
+  /* route line draws in as we travel (DrawSVG if present, else a fade) */
+  tl.to('#wljRouteDraw', hasDraw ? { drawSVG:'100%', ease:'none', duration:1 } : { opacity:1, ease:'none', duration:1 }, 0);
+
+  /* plane follows the path */
+  if(hasPath){
+    tl.to('#wljPlane', { motionPath:{ path:'#wljRoutePath', align:'#wljRoutePath', alignOrigin:[.5,.5], autoRotate:true }, ease:'none', duration:1 }, 0);
+  }
+
+  /* stop dots light up as the plane passes */
+  tl.to('.wlj-dot:nth-of-type(2)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .32)
+    .to('.wlj-dot:nth-of-type(3)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .64)
+    .to('.wlj-dot:nth-of-type(4)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .95);
+
+  /* finale: stamp slams down, then settles */
+  tl.to('.wlj-stamp', { opacity:1, scale:1, rotate:-9, duration:.18, ease:'back.out(3)' }, .93)
+    .to('.wlj-stamp', { scale:.94, duration:.06 }, 1.05);
+
+  _welcomeJourneyTL = tl;
+  /* Measurements can shift as fonts settle after first show; refresh once. */
+  requestAnimationFrame(() => { if(typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh(); });
+}
+
 /* Reveal the app from the landing page and remember the choice.
    playIntro=true (Explore recipes) plays the splash intro as the loading
    transition, then the app is revealed beneath it; playIntro=false (Sign in)
@@ -964,6 +1085,7 @@ function initWelcomeMotion(el){
 function enterApp(playIntro){
   if(welcomeShowcaseTimer){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = null; }
   stopWelcomeAtmos();
+  _killWelcomeJourney();
   const el = document.getElementById('welcome');
   if(playIntro){
     if(el) el.style.display = 'none';
@@ -984,6 +1106,7 @@ function enterApp(playIntro){
 function dismissWelcome(){
   if(welcomeShowcaseTimer){ clearInterval(welcomeShowcaseTimer); welcomeShowcaseTimer = null; }
   stopWelcomeAtmos();
+  _killWelcomeJourney();
   const el = document.getElementById('welcome');
   if(el) el.style.display = 'none';
 }
