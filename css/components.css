@@ -1915,10 +1915,73 @@ html:not(.bb-returning) .splash{display:none}
 @media(min-width:560px){.lane-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}}
 @media(min-width:900px){.lane-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
 
+/* ─── PINNED LANE — compact "torn stub" shortcuts ───
+   Pinned recipes show as small heading-only stubs in a single scrolling row,
+   not full cards: the lane is a jump-list, and repeating whole cards made it
+   read as a duplicate of the catalog underneath. Sized so a stub is roughly a
+   quarter the height of a .coll-card. */
+.pin-lane{margin-top:18px}
+.pin-strip{
+  display:flex;gap:10px;padding:2px 18px 6px;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.pin-strip::-webkit-scrollbar{display:none}
+.pin-stub{
+  position:relative;display:flex;align-items:center;gap:9px;flex:0 0 auto;
+  max-width:250px;padding:8px 8px 8px 15px;
+  border-radius:11px;background:var(--surf-1);border:1px solid var(--hair-12);
+  cursor:pointer;overflow:hidden;
+  transition:transform .16s ease,border-color .16s ease;
+}
+.pin-stub:hover{transform:translateY(-2px);border-color:var(--hair-30)}
+.pin-stub:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+/* Airline stripe + the perforation that makes it read as a torn-off stub */
+.pin-stub-stripe{position:absolute;left:0;top:0;bottom:0;width:3px}
+.pin-stub::after{
+  content:'';position:absolute;right:34px;top:5px;bottom:5px;width:1px;
+  background:repeating-linear-gradient(180deg,var(--hair-22) 0 2px,transparent 2px 5px);
+}
+.pin-stub-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pin-stub-origin{
+  font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.15em;
+  text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pin-stub-name{
+  font-family:var(--font-display);font-weight:600;font-size:13px;line-height:1.2;
+  color:var(--foam);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pin-stub-unpin{
+  flex-shrink:0;width:24px;height:24px;margin-left:6px;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:50%;cursor:pointer;
+  color:var(--copper);transition:transform .15s ease,background .15s ease;
+}
+.pin-stub-unpin svg{width:13px;height:13px}
+.pin-stub-unpin:hover{background:rgba(207,127,69,.14);transform:scale(1.12)}
+
+/* Entrance: only the just-pinned stub gets .is-new, so existing stubs stay put
+   instead of the whole row re-animating on every pin. */
+@keyframes pinStubIn{
+  0%  {opacity:0;transform:translateY(-15px) rotate(-7deg) scale(.85)}
+  55% {opacity:1;transform:translateY(2px)  rotate(2deg)  scale(1.04)}
+  100%{opacity:1;transform:none}
+}
+.pin-stub.is-new{animation:pinStubIn .58s cubic-bezier(.2,.9,.3,1.2) both}
+
+/* The pin glyph that arcs from the card up to the lane (see _flyPinToLane) */
+.pin-fly{
+  position:fixed;z-index:9000;pointer-events:none;
+  width:18px;height:18px;margin:-9px 0 0 -9px;color:var(--copper);
+  filter:drop-shadow(0 4px 10px rgba(207,127,69,.5));
+}
+.pin-fly svg{width:100%;height:100%}
+
 /* ─── REDUCED MOTION ─── */
 @media(prefers-reduced-motion:reduce){
   .screen{transition:none}
   .bp-card{transition:none}
+  .pin-stub.is-new{animation:none}
+  .pin-stub,.pin-stub-unpin{transition:none}
   .cuplogo .w,.brew-glow,.star-dot{animation:none!important}
   .reveal{opacity:1!important;transform:none!important;transition:none}
   .bp-card:hover{transform:none}

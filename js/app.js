@@ -348,12 +348,60 @@ function rememberSeedDeletion(id){ /* no-op in Phase 1 — only custom recipes a
 /* Pinned favourites: flips r.pinned and repaints every surface that shows
    pin state (lanes, Collection sort, World passes) — mirrors the existing
    tried/rating toggle handlers in openDetail(). */
-async function togglePinned(id){
+async function togglePinned(id, originEl){
   const r = recipes.find(x => x.id === id);
   if(!r) return;
+  const wasPinned = r.pinned;
+  /* Measured before the re-render, since originEl is destroyed by it. */
+  const fromRect = (!wasPinned && originEl) ? originEl.getBoundingClientRect() : null;
   r.pinned = !r.pinned;
   await saveRecipes();
+
+  _justPinnedId = wasPinned ? null : id;
   render(); renderCollection(); renderWorldPasses();
+  _justPinnedId = null;   /* one-shot: later repaints must not replay it */
+
+  if(fromRect) _flyPinToLane(fromRect, id);
+}
+
+/* The pin glyph arcs from the card's pin button up to its new stub in the
+   Pinned lane, so the stub doesn't just blink into existence — you see where
+   it went. Purely decorative: a floating ghost element that removes itself,
+   skipped entirely without GSAP or under reduced motion. */
+function _flyPinToLane(fromRect, id){
+  if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  if(typeof gsap === 'undefined') return;
+  const stub = document.querySelector(`#content .pin-stub[data-id="${CSS.escape(id)}"]`);
+  if(!stub) return;                        /* not on the Recipes screen — nothing to fly to */
+  const to = stub.getBoundingClientRect();
+  if(!to.width) return;                    /* lane offscreen/collapsed */
+
+  const ghost = document.createElement('span');
+  ghost.className = 'pin-fly';
+  ghost.innerHTML = PIN_SVG;
+  ghost.style.left = (fromRect.left + fromRect.width/2) + 'px';
+  ghost.style.top  = (fromRect.top  + fromRect.height/2) + 'px';
+  document.body.appendChild(ghost);
+
+  const dx = (to.left + to.width/2)  - (fromRect.left + fromRect.width/2);
+  const dy = (to.top  + to.height/2) - (fromRect.top  + fromRect.height/2);
+  /* rAF (and so GSAP's onComplete) stops while a tab is backgrounded, which
+     would strand the ghost on screen — a wall-clock timer guarantees cleanup
+     even if the tween never finishes. Same reasoning as Brew Mode's timer. */
+  let cleaned = false;
+  const done = () => { if(cleaned) return; cleaned = true; ghost.remove(); };
+  setTimeout(done, 1200);
+
+  if(typeof MotionPathPlugin !== 'undefined'){
+    /* Lift up and over rather than a straight slide — the arc peak is above
+       both endpoints so it reads as "tossed onto the board". */
+    gsap.to(ghost, {
+      motionPath:{ path:[{x:0,y:0},{x:dx*0.45,y:Math.min(dy*0.5, -70)},{x:dx,y:dy}], curviness:1.5 },
+      scale:.5, opacity:0, rotate:18, duration:.6, ease:'power2.inOut', onComplete:done
+    });
+  } else {
+    gsap.to(ghost, { x:dx, y:dy, scale:.5, opacity:0, duration:.5, ease:'power2.inOut', onComplete:done });
+  }
 }
 
 /* ---------- cloud sync (Phase 2) ----------
@@ -1995,7 +2043,7 @@ function render(){
     : list.filter(r => STYLE_CATEGORIES.find(c => c.id === activeCategory)?.ids.includes(r.id));
 
   const pinnedList = list.filter(r => r.pinned);
-  let html = pinnedList.length ? _laneHTML('📌 Pinned', pinnedList, kActive, kset) : '';
+  let html = pinnedList.length ? pinnedLaneHTML(pinnedList) : '';
   html += heroHTML(heroRec);
   html += quickFiltersHTML();
   html += categoryChipsHTML(list);
@@ -2054,6 +2102,37 @@ function render(){
 
   if(kActive){ const cnt = document.getElementById('kitchenCount'); if(cnt) cnt.textContent = list.filter(r=>isMakeable(r,kset)).length; }
   if(animateNext){ if(typeof BREW_ANIM!=='undefined') BREW_ANIM.animateCardEntrance(content); animateNext=false; }
+}
+
+/* Pinned recipes render as compact "stubs" — just the heading (origin, name,
+   airline badge), not the whole card. A full card per pin made the lane read
+   like a duplicate of the catalog below it; the stub is a shortcut, so it only
+   needs to be identifiable and tappable. Id of the just-pinned recipe gets
+   .is-new so only that stub plays the entrance animation on re-render. */
+let _justPinnedId = null;
+function pinnedStubHTML(r){
+  const al    = getAirline(r.serial || 0);
+  const color = r.color || al.color;
+  const code  = r.code  || al.code;
+  return `<div class="pin-stub${_justPinnedId === r.id ? ' is-new' : ''}" data-id="${esc(r.id)}" tabindex="0" role="button" aria-label="Open ${esc(r.name)}">
+    <span class="pin-stub-stripe" style="background:${color}"></span>
+    <span class="pin-stub-copy">
+      <span class="pin-stub-origin" style="color:${color}">${esc(code)} · ${esc((r.origin || 'Fusion').toUpperCase())}</span>
+      <span class="pin-stub-name">${esc(r.name)}</span>
+    </span>
+    <button class="pin-stub-unpin" data-pin type="button" aria-label="Unpin ${esc(r.name)}">${PIN_SVG}</button>
+  </div>`;
+}
+
+function pinnedLaneHTML(recs){
+  return `<section class="recipe-lane pin-lane">
+    <div class="lane-head">
+      <h3 class="lane-title">📌 Pinned</h3>
+      <span class="lane-count">${recs.length} BREW${recs.length===1?'':'S'}</span>
+      <span class="lane-rule" aria-hidden="true"></span>
+    </div>
+    <div class="pin-strip">${recs.map(pinnedStubHTML).join('')}</div>
+  </section>`;
 }
 
 function _laneHTML(title, recs, kActive, kset) {
@@ -3445,18 +3524,35 @@ document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', (
   brand.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); goHome(); } });
 })();
 
+/* [data-id] rather than .coll-card so the compact .pin-stub in the Pinned lane
+   works through the same delegated handlers. */
 document.getElementById('content').addEventListener('click', async e => {
   const pinBtn = e.target.closest('[data-pin]');
-  if(pinBtn){ e.stopPropagation(); await togglePinned(pinBtn.closest('.coll-card').dataset.id); return; }
+  if(pinBtn){
+    e.stopPropagation();
+    const host = pinBtn.closest('[data-id]');
+    if(host) await togglePinned(host.dataset.id, pinBtn);
+    return;
+  }
 
-  const card = e.target.closest('.coll-card');
+  const card = e.target.closest('.coll-card, .pin-stub');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
+});
+/* Stubs are keyboard-reachable (role=button, tabindex=0), so mirror the click. */
+document.getElementById('content').addEventListener('keydown', e => {
+  const stub = e.target.closest('.pin-stub');
+  if(stub && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); openDetail(stub.dataset.id, stub); }
 });
 document.getElementById('collection-content').addEventListener('click', async e => {
   if(e.target.closest('#collAddCard')){ openForm(null); return; }
 
   const pinBtn = e.target.closest('[data-pin]');
-  if(pinBtn){ e.stopPropagation(); await togglePinned(pinBtn.closest('.coll-card').dataset.id); return; }
+  if(pinBtn){
+    e.stopPropagation();
+    const host = pinBtn.closest('[data-id]');
+    if(host) await togglePinned(host.dataset.id, pinBtn);
+    return;
+  }
 
   const editBtn = e.target.closest('[data-edit]');
   if(editBtn){ e.stopPropagation(); openForm(editBtn.closest('.coll-card').dataset.id); return; }
@@ -3491,7 +3587,12 @@ document.querySelectorAll('.world-seg').forEach(b => b.addEventListener('click',
 const worldPassesEl = document.getElementById('worldPasses');
 if(worldPassesEl) worldPassesEl.addEventListener('click', async e => {
   const pinBtn = e.target.closest('[data-pin]');
-  if(pinBtn){ e.stopPropagation(); await togglePinned(pinBtn.closest('.coll-card').dataset.id); return; }
+  if(pinBtn){
+    e.stopPropagation();
+    const host = pinBtn.closest('[data-id]');
+    if(host) await togglePinned(host.dataset.id, pinBtn);
+    return;
+  }
 
   const card = e.target.closest('.coll-card');
   if(card && card.dataset.id) openDetail(card.dataset.id, card);
