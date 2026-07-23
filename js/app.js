@@ -902,12 +902,16 @@ function initWelcomeMotion(el){
   const copy     = document.getElementById('welcomeHeroCopy');
   const branch   = document.getElementById('welcomeBranch');
   const hero     = el.querySelector('.wl-hero');
-  const sections = [el.querySelector('.wl-hero'), el.querySelector('.wl-features'), el.querySelector('.wl-quiet')];
+  /* The journey track is an anchor in its own right, so the page warms into a
+     richer roast as the bean travels and then cools into the features' night
+     panel — the scene shares the landing's background instead of sitting on
+     top of one. Order here must match the PALETTES arrays below. */
+  const sections = [el.querySelector('.wl-hero'), el.querySelector('.wlj-track'), el.querySelector('.wl-features'), el.querySelector('.wl-quiet')];
   if(sections.some(s => !s)) return;
 
   const PALETTES = {
-    dark:  [[30,21,15],[14,20,32],[26,17,11]],
-    light: [[247,241,230],[14,20,32],[243,235,221]]
+    dark:  [[30,21,15],[44,30,21],[14,20,32],[26,17,11]],
+    light: [[247,241,230],[240,231,216],[14,20,32],[243,235,221]]
   };
   const lerp = (a,b,t) => a + (b-a)*t;
   const mix  = (c1,c2,t) => [Math.round(lerp(c1[0],c2[0],t)),Math.round(lerp(c1[1],c2[1],t)),Math.round(lerp(c1[2],c2[2],t))];
@@ -1033,7 +1037,7 @@ function initWelcomeJourney(scroller){
       scroller: scroller || window,
       start: 'top top',
       end: 'bottom bottom',
-      scrub: 0.6,
+      scrub: 1.1,   /* longer catch-up = the scene drifts rather than tracks */
       onUpdate(self){
         const idx = Math.min(3, Math.floor(self.progress * 4));
         if(idx === lastIdx) return;
@@ -1044,37 +1048,45 @@ function initWelcomeJourney(scroller){
         if(arrEl) arrEl.textContent = s.arr;
         if(titleEl) titleEl.innerHTML = s.title;
         if(descEl) descEl.textContent = s.desc;
-        gsap.fromTo([titleEl, descEl], { opacity:.2, y:8 }, { opacity:1, y:0, duration:.4, stagger:.05, overwrite:true });
+        gsap.fromTo([titleEl, descEl], { opacity:0, y:16 }, { opacity:1, y:0, duration:.85, ease:'power2.out', stagger:.09, overwrite:true });
       }
     }
   });
 
+  /* Everything below is keyed so the flight lands on dot N exactly as stage N
+     begins. Stage boundaries come from floor(progress*4) — .25/.5/.75 — so the
+     flight spans 0->.75 (dot 2 at .25, dot 3 at .5, dot 4 at .75) and the last
+     quarter is left entirely to the stamp finale, unhurried. */
+  const FLIGHT = .75;
+
   /* bean: hollow green outline -> glossy roast, with a little life mid-flight */
-  tl.to('#wljBeanBody', { stroke:'#a8693c', duration:.3 }, 0)
-    .to('#wljBeanBody', { fill:'#8f5526', stroke:'#3a1f0e', duration:.35 }, .3)
-    .to('#wljBeanCrack', { stroke:'#3a1f0e', duration:.3 }, .3)
-    .to('#wljBeanBody', { scale:1.06, transformOrigin:'50% 50%', duration:.15, yoyo:true, repeat:1 }, .35)
-    .to('#wljBeanBody', { fill:'#2e221a', duration:.35 }, .65);
+  tl.to('#wljBeanBody', { stroke:'#a8693c', duration:.22 }, 0)
+    .to('#wljBeanBody', { fill:'#8f5526', stroke:'#3a1f0e', duration:.26 }, .22)
+    .to('#wljBeanCrack', { stroke:'#3a1f0e', duration:.22 }, .22)
+    .to('#wljBeanBody', { scale:1.06, transformOrigin:'50% 50%', duration:.12, yoyo:true, repeat:1 }, .26)
+    .to('#wljBeanBody', { fill:'#2e221a', duration:.26 }, .49);
 
   /* route line draws in as we travel (DrawSVG if present, else a fade) */
-  tl.to('#wljRouteDraw', hasDraw ? { drawSVG:'100%', ease:'none', duration:1 } : { opacity:1, ease:'none', duration:1 }, 0);
+  tl.to('#wljRouteDraw', hasDraw ? { drawSVG:'100%', ease:'none', duration:FLIGHT } : { opacity:1, ease:'none', duration:FLIGHT }, 0);
 
   /* plane follows the path */
   if(hasPath){
-    tl.to('#wljPlane', { motionPath:{ path:'#wljRoutePath', align:'#wljRoutePath', alignOrigin:[.5,.5], autoRotate:true }, ease:'none', duration:1 }, 0);
+    tl.to('#wljPlane', { motionPath:{ path:'#wljRoutePath', align:'#wljRoutePath', alignOrigin:[.5,.5], autoRotate:true }, ease:'none', duration:FLIGHT }, 0);
   }
 
-  /* stop dots light up as the plane passes — including the departure dot (1),
-     which the plane leaves from, so all four read the same copper rather than
-     the origin sitting dark against the others. */
-  tl.to('.wlj-dot:nth-of-type(1)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .02)
-    .to('.wlj-dot:nth-of-type(2)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .32)
-    .to('.wlj-dot:nth-of-type(3)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .64)
-    .to('.wlj-dot:nth-of-type(4)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.05 }, .95);
+  /* stop dots light as the plane reaches each one — including the departure
+     dot (1), so all four read the same copper rather than the origin sitting
+     dark against the others. */
+  tl.to('.wlj-dot:nth-of-type(1)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.06 }, .01)
+    .to('.wlj-dot:nth-of-type(2)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.06 }, .25)
+    .to('.wlj-dot:nth-of-type(3)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.06 }, .50)
+    .to('.wlj-dot:nth-of-type(4)', { fill:'#cf7f45', stroke:'#cf7f45', duration:.06 }, FLIGHT);
 
-  /* finale: stamp slams down, then settles */
-  tl.to('.wlj-stamp', { opacity:1, scale:1, rotate:-9, duration:.18, ease:'back.out(3)' }, .93)
-    .to('.wlj-stamp', { scale:.94, duration:.06 }, 1.05);
+  /* finale: stamp slams down just after arrival, then settles */
+  /* Ends at exactly 1.0 so the timeline's duration is 1 and scroll progress
+     maps 1:1 onto it — that's what keeps dot N lighting on stage N's boundary. */
+  tl.to('.wlj-stamp', { opacity:1, scale:1, rotate:-9, duration:.18, ease:'back.out(3)' }, .80)
+    .to('.wlj-stamp', { scale:.94, duration:.08 }, .92);
 
   _welcomeJourneyTL = tl;
   /* Measurements can shift as fonts settle after first show; refresh once. */

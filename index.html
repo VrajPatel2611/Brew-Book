@@ -36,7 +36,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="./css/tokens.css?v=4">
   <link rel="stylesheet" href="./css/base.css?v=2">
-  <link rel="stylesheet" href="./css/components.css?v=72">
+  <link rel="stylesheet" href="./css/components.css?v=73">
 
   <!-- Set the theme before first paint so there's no flash of the wrong mode -->
   <script>
@@ -313,11 +313,13 @@
 
         <div class="wlj-route-wrap">
           <svg viewBox="0 0 400 400" width="100%" height="100%" preserveAspectRatio="none" style="position:absolute;inset:0;opacity:.9">
-            <path id="wljRoutePath" d="M40 340 C 120 260, 90 160, 200 120 S 340 60, 360 40"/>
-            <path id="wljRouteDraw" d="M40 340 C 120 260, 90 160, 200 120 S 340 60, 360 40"/>
+            <!-- Straight run with the four checkpoints spaced evenly along it,
+                 so the plane meets dot N exactly as stage N begins. -->
+            <path id="wljRoutePath" d="M40 340 L360 40"/>
+            <path id="wljRouteDraw" d="M40 340 L360 40"/>
             <circle class="wlj-dot" cx="40" cy="340" r="5"/>
-            <circle class="wlj-dot" cx="150" cy="205" r="5"/>
-            <circle class="wlj-dot" cx="255" cy="105" r="5"/>
+            <circle class="wlj-dot" cx="147" cy="240" r="5"/>
+            <circle class="wlj-dot" cx="253" cy="140" r="5"/>
             <circle class="wlj-dot" cx="360" cy="40" r="5"/>
             <g id="wljPlane" transform="translate(40,340)">
               <path d="M0 -6 L5 4 L0 2 L-5 4 Z" fill="#f0d080"/>
@@ -774,7 +776,7 @@
 <script src="./js/icons.js"></script>
 <script src="./js/worldmap.js?v=4"></script>
 <script src="./js/flavorwheel.js?v=3"></script>
-<script src="./js/app.js?v=53"></script>
+<script src="./js/app.js?v=55"></script>
 
 <!-- PWA install + self-updating service worker. Registration failures are
      silent (older browsers, or serving over plain http on a non-localhost

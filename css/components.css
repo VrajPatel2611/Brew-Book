@@ -213,14 +213,18 @@ html:not(.bb-returning) .splash{display:none}
    timeline only reads scrub progress. Opaque stage bg by design: while pinned
    it fully covers the viewport, so the landing's colour-morph doesn't bleed
    through mid-scene. See initWelcomeJourney() in app.js. */
-.wlj-track{position:relative;height:360vh}
+.wlj-track{position:relative;height:520vh}
 .wlj-stage{
   position:sticky;top:0;height:100vh;overflow:hidden;
   display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:40px;
   padding:0 clamp(24px,6vw,80px);
-  background:
-    radial-gradient(120% 90% at 15% 20%, rgba(207,127,69,.12), transparent 60%),
-    var(--roast);
+  /* No opaque base on purpose. The stage is sticky INSIDE its own track, so
+     nothing else can scroll behind it — which means it can stay transparent
+     and let the landing's colour-morphing #welcomeBg and the drifting
+     atmosphere canvas carry straight through the scene. An opaque --roast
+     here read as a dark slab cut out of the page (and forced a dark block
+     under the light theme). Only a soft copper bloom is added on top. */
+  background:radial-gradient(120% 90% at 18% 28%, rgba(207,127,69,.10), transparent 62%);
 }
 .wlj-visual{position:relative;display:flex;align-items:center;justify-content:center;height:70vh}
 .wlj-bean-svg{width:min(70%,320px);height:auto;overflow:visible}
@@ -256,7 +260,7 @@ html:not(.bb-returning) .splash{display:none}
 }
 
 @media (max-width:760px){
-  .wlj-track{height:320vh}
+  .wlj-track{height:420vh}
   .wlj-stage{grid-template-columns:1fr;text-align:center;padding-top:60px}
   .wlj-visual{height:38vh}
   .wlj-copy{align-items:center}
