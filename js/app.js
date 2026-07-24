@@ -745,8 +745,23 @@ async function onSignedIn(){
 
 /* Initialise auth: build the control (works even if Supabase isn't configured),
    restore any existing session, and subscribe to sign-in / sign-out events. */
+/* Supabase sends failures back as ?error=…/#error=… on the redirect URL (a
+   rejected redirect_to, an expired magic link, a denied Google consent). We
+   were dropping those silently, so a misconfiguration looked like "nothing
+   happens" — surface it instead, then strip the params so a refresh is clean. */
+function reportAuthErrorFromUrl(){
+  const q = new URLSearchParams(location.search);
+  const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const code = q.get('error') || h.get('error');
+  if(!code) return null;
+  const desc = (q.get('error_description') || h.get('error_description') || '').replace(/\+/g, ' ');
+  history.replaceState(null, '', location.origin + location.pathname);
+  return desc || code;
+}
+
 async function initAuth(){
   buildAccountUI();
+  const authErr = reportAuthErrorFromUrl();
   const sb = await (window.bbSupabaseReady || Promise.resolve(null));
   if(!sb) return;
   try{
@@ -755,6 +770,17 @@ async function initAuth(){
     renderAccountUI();
     if(currentUser){ dismissWelcome(); await onSignedIn(); }
   }catch(e){}
+
+  /* Applied after the session restore above, since renderAccountUI() rebuilds
+     the panel and would otherwise wipe the message straight back out. */
+  if(authErr && !currentUser){
+    /* Skip the landing: this visitor was mid-sign-in, so dropping them back on
+       the marketing page would bury the reason it failed. */
+    dismissWelcome();
+    accountOpen = true; renderAccountUI();
+    setAccountHint(authErr, true);
+    if(typeof showToast === 'function') showToast('Sign-in failed');
+  }
 
   sb.auth.onAuthStateChange((event, session) => {
     if(event === 'SIGNED_IN'){

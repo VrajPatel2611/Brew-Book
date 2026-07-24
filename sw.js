@@ -11,7 +11,15 @@
    JS updates do NOT need this — stale-while-revalidate already refreshes
    each file in place as it's requested, regardless of the ?v=N query string
    index.html happens to be using at the time. */
-const CACHE_NAME = 'brewbook-v1';
+/* v2 also purges any pre-existing entries keyed with an auth callback URL,
+   which the previous fetch handler could write to disk (see AUTH_PARAMS). */
+const CACHE_NAME = 'brewbook-v2';
+
+/* An auth redirect comes back as ?code=… (PKCE), or ?error=…/#access_token=…
+   Those URLs must never be cached: the query carries a single-use credential,
+   and a cached shell could shadow the real callback load. Requests carrying
+   any of these are handed straight to the network, untouched. */
+const AUTH_PARAMS = ['code','access_token','refresh_token','token_hash','error','error_description','error_code','provider_token'];
 
 /* Only the version-independent app shell is precached at install time —
    the page itself, the manifest, and the icons. The versioned CSS/JS files
@@ -55,6 +63,9 @@ self.addEventListener('fetch', event => {
      network untouched — this is live data or third-party assets, not the
      app shell, and must never come from a stale local cache. */
   if (url.origin !== self.location.origin) return;
+
+  /* Auth callback → network only, never read from or written to the cache. */
+  if (AUTH_PARAMS.some(p => url.searchParams.has(p))) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async cache => {
