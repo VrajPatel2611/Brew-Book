@@ -1675,7 +1675,6 @@ function renderAccountDropdownBody(){
   }
 
   const signup = authMode === 'signup';
-  const gsvg = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>`;
   body.innerHTML = `
     <div class="account-dropdown-label">${signup ? 'Create your account' : 'Welcome back'}</div>
     <div class="field">
@@ -1688,9 +1687,6 @@ function renderAccountDropdownBody(){
     </div>
     <button class="btn primary account-btn-full" id="acctPwBtn" type="button">${signup ? 'Create account' : 'Sign in'}</button>
     <p class="account-switch">${signup ? 'Already have an account?' : 'New to Brew Book?'} <button class="account-switch-link" id="acctSwitch" type="button">${signup ? 'Sign in' : 'Create one'}</button></p>
-    <div class="account-divider">or</div>
-    <button class="btn account-btn-full account-google-btn" id="acctGoogleBtn" type="button">${gsvg} Continue with Google</button>
-    <button class="account-link-sub" id="acctMagicLinkBtn" type="button">Email me a sign-in link instead</button>
     <p class="account-hint" id="acctHint">Your made, rated, and own recipes sync across devices. You can keep using Brew Book without signing in.</p>
     <button class="account-link-sub" id="acctEditEquipmentBtn" type="button">☕ Edit your brewing equipment</button>
     ${unitsControlHTML()}`;
@@ -1699,12 +1695,8 @@ function renderAccountDropdownBody(){
   if(pwBtn) pwBtn.onclick = handlePasswordAuth;
   const sw = document.getElementById('acctSwitch');
   if(sw) sw.onclick = () => { authMode = signup ? 'signin' : 'signup'; renderAccountDropdownBody(); const f = document.getElementById('acctEmail'); if(f) f.focus(); };
-  const mlBtn = document.getElementById('acctMagicLinkBtn');
-  if(mlBtn) mlBtn.onclick = handleMagicLinkSubmit;
   const eq = document.getElementById('acctEditEquipmentBtn');
   if(eq) eq.onclick = () => { accountOpen = false; renderAccountUI(); openEquipmentPicker('edit'); };
-  const gBtn = document.getElementById('acctGoogleBtn');
-  if(gBtn) gBtn.onclick = handleGoogleSignIn;
   const pw = document.getElementById('acctPassword');
   if(pw) pw.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); handlePasswordAuth(); } });
   wireUnitsControl(body);
@@ -1720,6 +1712,8 @@ function setAccountHint(msg, isError){
    detectSessionInUrl parses the returned tokens when we land back here. */
 function authRedirectTo(){ return location.origin + location.pathname; }
 
+/* DORMANT — not wired to any UI. Magic link is removed from the account panel
+   for now; re-integration is planned. See docs/adr/0009. */
 async function handleMagicLinkSubmit(){
   const input = document.getElementById('acctEmail');
   const email = (input && input.value || '').trim();
@@ -1770,6 +1764,8 @@ async function handlePasswordAuth(){
   }catch(e){ setAccountHint('Something went wrong — try again.', true); }
 }
 
+/* DORMANT — not wired to any UI. Google sign-in is removed from the account
+   panel for now; re-integration is planned. See docs/adr/0009. */
 async function handleGoogleSignIn(){
   const sb = await window.bbSupabaseReady;
   if(!sb){ setAccountHint('Sign-in isn’t configured yet.', true); return; }
